@@ -1,6 +1,6 @@
-// MatchTables.tsx
+// components/Manager/MatchTables.tsx
 import React, { useState, useEffect } from "react";
-import TriggerJudgement from "../TriggerJudgement";
+import TriggerJudgement from "../Judgement/TriggerJudgement";
 import { useRefresh } from "../RefreshContext"; // Import the refresh hook
 
 interface Score {
@@ -46,6 +46,9 @@ const MatchTables: React.FC = () => {
 
       setVisibleMatches(initialVisibility);
       setMatches(data);
+
+      //console.log("here are matches",data);
+
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
@@ -88,6 +91,22 @@ const MatchTables: React.FC = () => {
 
         const sum1 = calculateSum(fighter1.Scores);
         const sum2 = calculateSum(fighter2.Scores);
+
+        const judgementData = {
+          matchId: match.matchId,
+          fighters: [
+            {
+              fighter1id: fighter1.fighterId,
+              fighter1name: fighter1.fighterName,
+              fighter1color: fighter1.fighterColor,
+            },
+            {
+              fighter2id: fighter2.fighterId,
+              fighter2name: fighter2.fighterName,
+              fighter2color: fighter2.fighterColor,
+            },
+          ],
+        };
 
         return (
           <div key={match.matchId} className="match-table">
@@ -160,7 +179,7 @@ const MatchTables: React.FC = () => {
                   </tbody>
                 </table>
 
-                <TriggerJudgement data={matches}/>
+                <TriggerJudgement data={judgementData} />
               </>
             )}
           </div>

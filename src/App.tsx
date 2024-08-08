@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import "./App.css";
 import FighterManagement from "./components/FighterManagement";
+import JudgementManager from "./components/JudgementManager"
 
 const App: React.FC = () => {
 
@@ -21,26 +22,23 @@ const App: React.FC = () => {
   }, []);
 
   const renderPage = () => {
-    switch (route) {
-      case '/':
-        return <FighterManagement />;
-      case '/manager':
-        return <FighterManagement />;
-      case '/judgement':
-        return null;
-      default:
-        return <FighterManagement />;
-    }
-  };
+    const [baseRoute, param] = route.split('/').filter(Boolean);
 
-  const navigateTo = (path: string) => {
-    window.history.pushState({}, '', path);
-    setRoute(path);
+    switch (baseRoute) {
+      case '':
+        // This would be a good place for putting a public view for the audience watching the tournament scores. Same for the default.
+        return null;
+      case 'manager':
+        return <FighterManagement />;
+      case 'judgement':
+        return <JudgementManager ringNumber={param} />;
+      default:
+        return null;
+    }
   };
 
   return (
     <div>
-      {/* <Navigation navigateTo={navigateTo} /> */}
       {renderPage()}
     </div>
   );

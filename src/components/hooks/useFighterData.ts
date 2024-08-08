@@ -16,7 +16,7 @@ const useFighterData = () => {
       if (response.ok) {
         const data = await response.json();
         setFighters(data);
-        console.log("Fetched fighters:", data);
+        //console.log("Fetched fighters:", data);
       } else {
         console.error("Failed to fetch fighters, server responded with:", response.status);
       }

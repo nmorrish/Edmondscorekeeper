@@ -1,6 +1,6 @@
 // FighterEntryForm.tsx
 import React, { useState } from "react";
-import FormInputComponent from "../FormInputComponent";
+import FormInputComponent from "./FormInputComponent";
 import {domain_uri} from '../contants';
 
 interface FighterEntryFormProps {
@@ -12,7 +12,7 @@ interface FighterData {
 }
 
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) => {
-  const addFightersUrl = {domain_uri} + "addFighters.php";
+  const addFightersUrl = `${domain_uri}/addFighters.php`;
   const [fighters, setFighters] = useState<FighterData[]>([{ name: "" }]);
 
   const handleChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
