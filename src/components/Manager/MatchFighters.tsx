@@ -1,6 +1,6 @@
 // MatchFighters.tsx
 import React, { useState } from "react";
-import { useRefresh } from "./RefreshContext"; // Import the refresh hook
+import { useRefresh } from "../RefreshContext"; // Import the refresh hook
 
 interface Fighter {
   fighterId: number;
@@ -58,8 +58,8 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log("Response from server:", data);
+        // const data = await response.json();
+        // console.log("Response from server:", data);
 
         // Trigger refresh after adding a match
         triggerRefresh();

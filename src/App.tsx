@@ -1,54 +1,50 @@
-// App.tsx
-import React, { useState } from "react";
+// src/App.tsx
+
+import React, { useState, useEffect } from 'react';
 import "./App.css";
-import FighterEntryForm from "./components/FighterEntryForm";
-import FighterList from "./components/FighterList";
-import MatchFighters from "./components/MatchFighters";
-import MatchTables from "./components/MatchTables";
-import { RefreshProvider } from "./components/RefreshContext";
-import useFighterData from "./components/hooks/useFighterData";
+import FighterManagement from "./components/FighterManagement";
 
 const App: React.FC = () => {
-  const [activeSidebarComponent, setActiveSidebarComponent] = useState<string | null>(null);
-  const { fighters, fetchFighterData } = useFighterData();
 
-  const toggleSidebar = (componentName: string) => {
-    if (activeSidebarComponent === componentName) {
-      setActiveSidebarComponent(null);
-    } else {
-      setActiveSidebarComponent(componentName);
+  const [route, setRoute] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const onLocationChange = () => {
+      setRoute(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', onLocationChange);
+
+    return () => {
+      window.removeEventListener('popstate', onLocationChange);
+    };
+  }, []);
+
+  const renderPage = () => {
+    switch (route) {
+      case '/':
+        return <FighterManagement />;
+      case '/manager':
+        return <FighterManagement />;
+      case '/judgement':
+        return null;
+      default:
+        return <FighterManagement />;
     }
   };
 
-  return (
-    <RefreshProvider>
-      <div className="App">
-        <header className="App-header">
-          <button onClick={() => toggleSidebar("FighterEntryForm")}>
-            {activeSidebarComponent === "FighterEntryForm" ? "Stop Adding Fighters" : "Add Fighters"}
-          </button>
-          <button onClick={() => toggleSidebar("MatchFighters")}>
-            {activeSidebarComponent === "MatchFighters" ? "Stop Matching Fighters" : "Match Fighters"}
-          </button>
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setRoute(path);
+  };
 
-          {activeSidebarComponent === "FighterEntryForm" && (
-            <div className="sidebar">
-              <FighterEntryForm onFightersAdded={fetchFighterData} />
-            </div>
-          )}
-          {activeSidebarComponent === "MatchFighters" && (
-            <div className="sidebar">
-              <MatchFighters fighters={fighters} />
-            </div>
-          )}
-          <FighterList fighters={fighters} />
-        </header>
-        <main>
-          <MatchTables />
-        </main>
-      </div>
-    </RefreshProvider>
+  return (
+    <div>
+      {/* <Navigation navigateTo={navigateTo} /> */}
+      {renderPage()}
+    </div>
   );
+  
 };
 
 export default App;

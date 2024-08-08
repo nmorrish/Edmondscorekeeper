@@ -1,7 +1,7 @@
 // MatchTables.tsx
 import React, { useState, useEffect } from "react";
-import TriggerJudgement from "./TriggerJudgement";
-import { useRefresh } from "./RefreshContext"; // Import the refresh hook
+import TriggerJudgement from "../TriggerJudgement";
+import { useRefresh } from "../RefreshContext"; // Import the refresh hook
 
 interface Score {
   scoreId: number;

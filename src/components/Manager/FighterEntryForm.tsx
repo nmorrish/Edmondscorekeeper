@@ -1,6 +1,7 @@
 // FighterEntryForm.tsx
 import React, { useState } from "react";
-import FormInputComponent from "./FormInputComponent"; // Assuming this component exists
+import FormInputComponent from "../FormInputComponent";
+import {domain_uri} from '../contants';
 
 interface FighterEntryFormProps {
   onFightersAdded: () => void; // Callback to refresh data
@@ -11,7 +12,7 @@ interface FighterData {
 }
 
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) => {
-  const addFightersUrl = "http://localhost/Edmondscorekeeper/addFighters.php";
+  const addFightersUrl = {domain_uri} + "addFighters.php";
   const [fighters, setFighters] = useState<FighterData[]>([{ name: "" }]);
 
   const handleChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,8 +39,8 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) 
       });
 
       if (response.ok) {
-        const result = await response.json();
-        console.log("Submission result:", result);
+        // const result = await response.json();
+        // console.log("Submission result:", result);
 
         // Reset the form fields to the initial state
         setFighters([{ name: "" }]);
