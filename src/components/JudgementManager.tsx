@@ -26,9 +26,21 @@ const JudgementManager: React.FC = () => {
         eventSource.onmessage = (event) => {
             if (event.data) {
                 try {
-                    const data = JSON.parse(event.data);
-                    console.log("Pending judges count increased:", data); // Log the received data
-                    setJudgementData(data); // Update state with the new data if needed
+                    const data: JudgementData = JSON.parse(event.data);
+                    console.log("Pending judges count increased:", data);
+
+                    // Initialize scores to false for all criteria and fighters
+                    const initialScores = Object.values(data.Bouts).reduce((acc: Record<number, Record<string, boolean>>, bout: Bout) => {
+                        acc[bout.fighterId] = {
+                            contact: false,
+                            quality: false,
+                            control: false,
+                        };
+                        return acc;
+                    }, {} as Record<number, Record<string, boolean>>);
+
+                    setJudgementData(data);
+                    setScores(initialScores);
                 } catch (error) {
                     console.error('Error parsing SSE data:', error);
                 }
