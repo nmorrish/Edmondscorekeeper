@@ -1,9 +1,7 @@
-// components/Manager/MatchTables.tsx
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
 import { useRefresh } from "../RefreshContext"; // Import the refresh hook
 import { domain_uri } from "../contants";
-
 interface Score {
   scoreId: number;
   target: number;
@@ -28,6 +26,7 @@ interface Match {
 const MatchTables: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
+  const [judgeCount, setJudgeCount] = useState<number>(2); // Default value set to 2
 
   const { refreshKey } = useRefresh(); // Get refreshKey from context
 
@@ -48,8 +47,6 @@ const MatchTables: React.FC = () => {
       setVisibleMatches(initialVisibility);
       setMatches(data);
 
-      //console.log("here are matches",data);
-
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
@@ -60,6 +57,11 @@ const MatchTables: React.FC = () => {
       ...prev,
       [matchId]: !prev[matchId],
     }));
+  };
+
+  const handleJudgeCountChange = (value: string) => {
+    const count = parseInt(value, 10) || 0;
+    setJudgeCount(count);
   };
 
   const calculateSum = (scores: Score[]) => {
@@ -84,6 +86,14 @@ const MatchTables: React.FC = () => {
 
   return (
     <div>
+      <div>
+        <label>Judge Count: </label>
+        <input
+          type="number"
+          value={judgeCount}
+          onChange={(e) => handleJudgeCountChange(e.target.value)}
+        />
+      </div>
       {matches.map((match) => {
         const boutEntries = Object.values(match.Bouts);
         if (boutEntries.length < 2) return null;
@@ -164,13 +174,7 @@ const MatchTables: React.FC = () => {
                   </tbody>
                 </table>
 
-                <TriggerJudgement matchId = {match.matchId}
-                                  fighter1id  = {fighter1.fighterId}
-                                  fighter1name = {fighter1.fighterName}
-                                  fighter1color = {fighter1.fighterColor}
-                                  fighter2id  = {fighter2.fighterId}
-                                  fighter2name = {fighter2.fighterName}
-                                  fighter2color = {fighter2.fighterColor} />
+                <TriggerJudgement matchId={match.matchId} judgeCount={judgeCount} />
               </>
             )}
           </div>

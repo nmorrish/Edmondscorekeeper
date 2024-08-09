@@ -4,10 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { domain_uri } from './contants';
 import { useParams } from 'react-router-dom';
 
-// interface JudgementManagerProps {
-
-// }
-
 interface JudgementData {
     matchId: number;
     fighters: {
@@ -25,14 +21,14 @@ const JudgementManager: React.FC = () => {
     const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
 
     useEffect(() => {
-        const eventSource = new EventSource(`${domain_uri}/triggerJudgement.php`);
+        const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
 
         eventSource.onmessage = (event) => {
             if (event.data) {
                 try {
-                    const data: JudgementData = JSON.parse(event.data);
-                    console.log("Received data via SSE:", data); // Log the received data
-                    setJudgementData(data);
+                    const data = JSON.parse(event.data);
+                    console.log("Pending judges count increased:", data); // Log the received data
+                    setJudgementData(data); // Update state with the new data if needed
                 } catch (error) {
                     console.error('Error parsing SSE data:', error);
                 }
