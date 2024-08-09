@@ -1,5 +1,3 @@
-//Judgementmanager.tsx
-
 import React, { useEffect, useState } from 'react';
 import { domain_uri } from './contants';
 import { useParams } from 'react-router-dom';
@@ -62,8 +60,8 @@ const JudgementManager: React.FC = () => {
             {judgementData && (
                 <div>
                     <h2>Match ID: {judgementData.matchId}</h2>
-                    <p>Fighter 1: {judgementData.fighters[0].fighter1name} ({judgementData.fighters[0].fighter1color})</p>
-                    <p>Fighter 2: {judgementData.fighters[1].fighter2name} ({judgementData.fighters[1].fighter2color})</p>
+                    {/* <p>Fighter 1: {judgementData.fighters[0].fighter1name} ({judgementData.fighters[0].fighter1color})</p>
+                    <p>Fighter 2: {judgementData.fighters[1].fighter2name} ({judgementData.fighters[1].fighter2color})</p> */}
                 </div>
             )}
         </div>

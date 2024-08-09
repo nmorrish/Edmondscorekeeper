@@ -39,6 +39,8 @@ const MatchTables: React.FC = () => {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data: Match[] = await response.json();
 
+      console.log(data);
+
       const initialVisibility = data.reduce((acc, match) => {
         acc[match.matchId] = true;
         return acc;
