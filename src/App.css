@@ -100,3 +100,10 @@ h2 {
   display: flex;
   justify-content: space-between;
 }
+
+.match input[type="checkbox"] {
+  width: 25px; /* Adjust the width as needed */
+  height: 25px; /* Adjust the height as needed */
+  transform: scale(1.5); /* Scale up the checkbox */
+  cursor: pointer;
+}
