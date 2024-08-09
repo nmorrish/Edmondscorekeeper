@@ -29,19 +29,6 @@ const JudgementManager: React.FC = () => {
                     const data = JSON.parse(event.data);
                     console.log("Pending judges count increased:", data); // Log the received data
                     setJudgementData(data); // Update state with the new data if needed
-
-                    // Reset scores to ensure checkboxes are initially unchecked
-                    const initialScores = Object.values(data.Bouts).reduce((acc, bout) => {
-                        acc[bout.fighterId] = {
-                            contact: false,
-                            quality: false,
-                            control: false,
-                        };
-                        return acc;
-                    }, {} as Record<number, Record<string, boolean>>);
-
-                    setScores(initialScores);
-
                 } catch (error) {
                     console.error('Error parsing SSE data:', error);
                 }
