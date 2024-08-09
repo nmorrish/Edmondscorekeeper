@@ -1,69 +1,52 @@
 <?php
-// triggerJudgement.php
+require 'vendor/autoload.php';
 
-header('Content-Type: text/event-stream');
-header('Cache-Control: no-cache');
-header('Connection: keep-alive');
+use Ratchet\MessageComponentInterface;
+use Ratchet\ConnectionInterface;
 
-// Set the execution time to infinite so the script keeps running
-set_time_limit(0);
+class JudgementServer implements MessageComponentInterface {
+    protected $clients;
 
-// File to store the latest data
-$dataFile = '/tmp/judgementData.json';
-
-// Function to send JSON data via SSE
-function sendJsonData($data) {
-    // Encode the data as JSON
-    $jsonData = json_encode($data);
-
-    // Send the JSON data as an SSE event
-    echo "data: {$jsonData}\n\n";
-
-    // Flush the output buffer to send the data immediately
-    ob_flush();
-    flush();
-}
-
-// Handle POST requests to update the stored data
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
-    // Get the raw POST data
-    $postData = file_get_contents('php://input');
-    
-    // Decode the JSON data
-    $data = json_decode($postData, true);
-
-    // If JSON is valid, store it in the file
-    if ($data !== null) {
-        file_put_contents($dataFile, json_encode($data));
-    } else {
-        // Store an error message if JSON is invalid
-        file_put_contents($dataFile, json_encode(['error' => 'Invalid JSON received']));
+    public function __construct() {
+        $this->clients = new \SplObjectStorage;
     }
 
-    // Exit the script to prevent further processing
-    exit;
-}
+    public function onOpen(ConnectionInterface $conn) {
+        // Store the new connection
+        $this->clients->attach($conn);
+        echo "New connection! ({$conn->resourceId})\n";
+    }
 
-// Main loop to maintain the SSE connection
-$lastData = null;
-while (true) {
-    // Check if there's new data to send
-    if (file_exists($dataFile)) {
-        $newData = file_get_contents($dataFile);
+    public function onMessage(ConnectionInterface $from, $msg) {
+        echo "Received message: {$msg}\n";
 
-        // Only send the data if it's new
-        if ($newData !== $lastData) {
-            $lastData = $newData;
-            sendJsonData(json_decode($newData, true));
+        // Broadcast the message to all connected clients
+        foreach ($this->clients as $client) {
+            if ($from !== $client) {
+                $client->send($msg);
+            }
         }
     }
 
-    // Send a keep-alive event every 30 seconds to avoid timeouts
-    echo "event: keep-alive\n";
-    echo "data: {}\n\n";
-    ob_flush();
-    flush();
+    public function onClose(ConnectionInterface $conn) {
+        // Remove the connection
+        $this->clients->detach($conn);
+        echo "Connection {$conn->resourceId} has disconnected\n";
+    }
 
-    // Wait for a few seconds before checking for new data again
-    sleep(5);
+    public function onError(ConnectionInterface $conn, \Exception $e) {
+        echo "An error has occurred: {$e->getMessage()}\n";
+        $conn->close();
+    }
 }
+
+// Create the Ratchet App
+$server = new Ratchet\App('0.0.0.0', 8080);
+
+// Route the server to handle WebSocket connections
+$server->route('/judgement', new JudgementServer, ['*']);
+
+// Run the server
+$server->run();
+
+//ativate via CLI using php triggerJudgement.php 

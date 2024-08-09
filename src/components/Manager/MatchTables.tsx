@@ -93,22 +93,6 @@ const MatchTables: React.FC = () => {
         const sum1 = calculateSum(fighter1.Scores);
         const sum2 = calculateSum(fighter2.Scores);
 
-        const judgementData = {
-          matchId: match.matchId,
-          fighters: [
-            {
-              fighter1id: fighter1.fighterId,
-              fighter1name: fighter1.fighterName,
-              fighter1color: fighter1.fighterColor,
-            },
-            {
-              fighter2id: fighter2.fighterId,
-              fighter2name: fighter2.fighterName,
-              fighter2color: fighter2.fighterColor,
-            },
-          ],
-        };
-
         return (
           <div key={match.matchId} className="match-table">
             <input type="hidden" value={match.matchId} />
@@ -180,7 +164,13 @@ const MatchTables: React.FC = () => {
                   </tbody>
                 </table>
 
-                <TriggerJudgement data={judgementData} />
+                <TriggerJudgement matchId = {match.matchId}
+                                  fighter1id  = {fighter1.fighterId}
+                                  fighter1name = {fighter1.fighterName}
+                                  fighter1color = {fighter1.fighterColor}
+                                  fighter2id  = {fighter2.fighterId}
+                                  fighter2name = {fighter2.fighterName}
+                                  fighter2color = {fighter2.fighterColor} />
               </>
             )}
           </div>

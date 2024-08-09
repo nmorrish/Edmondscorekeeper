@@ -1,9 +1,12 @@
+//Judgementmanager.tsx
+
 import React, { useEffect, useState } from 'react';
 import { domain_uri } from './contants';
+import { useParams } from 'react-router-dom';
 
-interface JudgementManagerProps {
-    ringNumber?: string;
-}
+// interface JudgementManagerProps {
+
+// }
 
 interface JudgementData {
     matchId: number;
@@ -17,7 +20,8 @@ interface JudgementData {
     }[];
 }
 
-const JudgementManager: React.FC<JudgementManagerProps> = ({ ringNumber }) => {
+const JudgementManager: React.FC = () => {
+    const { ringNumber } = useParams<{ ringNumber: string }>();
     const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
 
     useEffect(() => {
