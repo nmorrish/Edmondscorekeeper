@@ -10,15 +10,15 @@ $db = connect();
 // Get the Last-Event-ID sent by the client (if any)
 $lastEventId = isset($_SERVER['HTTP_LAST_EVENT_ID']) ? intval($_SERVER['HTTP_LAST_EVENT_ID']) : 0;
 
-// Query the database to get the current pendingJudges count and matchId
-$stmt = $db->prepare("SELECT matchId, pendingJudges FROM Matches ORDER BY pendingJudges DESC LIMIT 1");
+// Query the database to get the current lastJudgement timestamp and matchId
+$stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches ORDER BY lastJudgement DESC LIMIT 1");
 $stmt->execute();
 $result = $stmt->fetch(PDO::FETCH_ASSOC);
-$currentPendingJudges = $result['pendingJudges'];
+$currentLastJudgement = $result['lastJudgement'];
 $matchId = $result['matchId'];
 
-// Initialize the last known pendingJudges count
-$lastPendingJudges = $currentPendingJudges; // Initialize with the current value from the database
+// Initialize the last known lastJudgement timestamp
+$lastJudgement = $currentLastJudgement; // Initialize with the current value from the database
 
 // Function to send SSE data
 function sendSSEData($data) {
@@ -38,15 +38,15 @@ if ($lastEventId === 0) {
 // Main loop to check for updates
 while (true) {
     try {
-        // Query the database to get the current pendingJudges count and matchId
-        $stmt = $db->prepare("SELECT matchId, pendingJudges FROM Matches ORDER BY pendingJudges DESC LIMIT 1");
+        // Query the database to get the current lastJudgement timestamp and matchId
+        $stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches ORDER BY lastJudgement DESC LIMIT 1");
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $currentPendingJudges = $result['pendingJudges'];
+        $currentLastJudgement = $result['lastJudgement'];
         $matchId = $result['matchId'];
 
-        // Check if the current pendingJudges count is different from the last known count
-        if ($currentPendingJudges != $lastPendingJudges) {
+        // Check if the current lastJudgement timestamp is different from the last known timestamp
+        if ($currentLastJudgement != $lastJudgement) {
             // If changed, perform the detailed query for that specific match
             $sql = "
                 SELECT 
@@ -97,8 +97,8 @@ while (true) {
             // Send the JSON data for the specific match
             sendSSEData($matchData);
 
-            // Update the last known pendingJudges count to the current value
-            $lastPendingJudges = $currentPendingJudges;
+            // Update the last known lastJudgement timestamp to the current value
+            $lastJudgement = $currentLastJudgement;
         }
     } catch (PDOException $e) {
         // Send an error message if there is a database error

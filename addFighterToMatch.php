@@ -17,7 +17,7 @@ if ($data) {
     $ring = $data['ring'];
 
     // Prepare and execute the query to insert the match
-    $stmt = $db->prepare("INSERT INTO Matches (matchRing,pendingJudges) VALUES (:ring,0)");
+    $stmt = $db->prepare("INSERT INTO Matches (matchRing,lastJudgement) VALUES (:ring,null)");
     $stmt->bindParam(':ring', $ring, PDO::PARAM_INT);
     $stmt->execute();
 

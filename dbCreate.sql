@@ -7,7 +7,8 @@ CREATE TABLE Fighters (
 
 CREATE TABLE Matches (
     matchId int PRIMARY KEY AUTO_INCREMENT,
-    matchRing int
+    matchRing int,
+    lastJudgement timestamp NULL TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE Bouts (

@@ -13,12 +13,12 @@ if ($data && isset($data['matchId'])) {
     $matchId = $data['matchId'];
 
     try {
-        // Prepare and execute the query to increment the pendingJudges count for the given matchId
-        $stmt = $db->prepare("UPDATE Matches SET pendingJudges = pendingJudges + 1 WHERE matchId = :matchId");
+        // Prepare and execute the query to update the lastJudgement timestamp for the given matchId
+        $stmt = $db->prepare("UPDATE Matches SET lastJudgement = CURRENT_TIMESTAMP WHERE matchId = :matchId");
         $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
         $stmt->execute();
 
-        echo json_encode(['status' => 'success', 'message' => 'Pending judges incremented successfully', 'receivedData' => $data]);
+        echo json_encode(['status' => 'success', 'message' => 'Last judgement timestamp updated successfully', 'receivedData' => $data]);
     } catch (PDOException $e) {
         echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
