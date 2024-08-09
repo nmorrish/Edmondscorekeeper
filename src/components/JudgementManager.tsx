@@ -83,6 +83,7 @@ const JudgementManager: React.FC = () => {
 
                 const result = await response.json();
                 console.log("Judgement submitted:", result);
+                setJudgementData(null);
             } catch (error) {
                 console.error('Error submitting judgement:', error);
             }

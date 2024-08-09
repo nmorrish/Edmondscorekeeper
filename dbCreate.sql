@@ -26,6 +26,7 @@ CREATE TABLE Bout_Score(
     contact bit,
     target bit,
     control bit,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (boutId) REFERENCES Bouts(boutId)
 );
 

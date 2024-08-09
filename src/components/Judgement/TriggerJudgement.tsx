@@ -3,10 +3,9 @@ import { domain_uri } from '../contants';
 
 interface TriggerJudgementProps {
   matchId: number;
-  judgeCount: number;
 }
 
-const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, judgeCount }) => {
+const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId }) => {
   // Handle button click
   const handleButtonClick = async () => {
     try {
@@ -15,7 +14,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, judgeCount
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ matchId , judgeCount}),
+        body: JSON.stringify({ matchId }),
       });
 
       if (!response.ok) {
