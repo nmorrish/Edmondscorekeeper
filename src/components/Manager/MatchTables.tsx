@@ -27,10 +27,15 @@ interface Match {
 const MatchTables: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
-
   const { refreshKey } = useRefresh(); // Get refreshKey from context
 
   useEffect(() => {
+    // Load the visibility state from localStorage when the component mounts
+    const storedVisibility = localStorage.getItem("visibleMatches");
+    if (storedVisibility) {
+      setVisibleMatches(JSON.parse(storedVisibility));
+    }
+
     fetchMatches();
   }, [refreshKey]); // Re-fetch on refreshKey change
 
@@ -69,24 +74,32 @@ const MatchTables: React.FC = () => {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data: Match[] = await response.json();
 
-      const initialVisibility = data.reduce((acc, match) => {
-        acc[match.matchId] = true;
+      // Combine existing visibility state with new matches data
+      const updatedVisibility = data.reduce((acc, match) => {
+        // Keep the existing visibility state if present, otherwise default to true
+        acc[match.matchId] = visibleMatches[match.matchId] !== undefined 
+          ? visibleMatches[match.matchId] 
+          : true;
         return acc;
       }, {} as Record<number, boolean>);
 
-      setVisibleMatches(initialVisibility);
+      setVisibleMatches(updatedVisibility);
       setMatches(data);
-
+      localStorage.setItem("visibleMatches", JSON.stringify(updatedVisibility)); // Persist the updated visibility
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
   };
 
   const toggleVisibility = (matchId: number) => {
-    setVisibleMatches((prev) => ({
-      ...prev,
-      [matchId]: !prev[matchId],
-    }));
+    setVisibleMatches((prev) => {
+      const newVisibility = { ...prev, [matchId]: !prev[matchId] };
+      
+      // Store the updated visibility state in localStorage
+      localStorage.setItem("visibleMatches", JSON.stringify(newVisibility));
+      
+      return newVisibility;
+    });
   };
 
   const calculateSum = (scores: Score[]) => {
