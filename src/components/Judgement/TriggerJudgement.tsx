@@ -1,5 +1,3 @@
-// components/Judgement/TriggerJudgement.tsx
-
 import React from 'react';
 import { domain_uri } from '../contants';
 
@@ -24,8 +22,6 @@ interface TriggerJudgementProps {
 const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ data }) => {
   // Handle button click
   const handleButtonClick = async () => {
-    //console.log('Judgement data:', data);
-
     try {
       const response = await fetch(`${domain_uri}/triggerJudgement.php`, {
         method: 'POST',
@@ -39,8 +35,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ data }) => {
         throw new Error('Network response was not ok');
       }
 
-      const responseData = await response.json();
-      console.log('Response from API:', responseData);
+      console.log('Judgement triggered successfully.');
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error);
     }
@@ -49,7 +44,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ data }) => {
   return (
     <div>
       <button onClick={handleButtonClick}>
-        {"Begin Judgement"}
+        Begin Judgement
       </button>
     </div>
   );

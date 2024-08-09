@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
 import { useRefresh } from "../RefreshContext"; // Import the refresh hook
+import { domain_uri } from "../contants";
 
 interface Score {
   scoreId: number;
@@ -36,7 +37,7 @@ const MatchTables: React.FC = () => {
 
   const fetchMatches = async () => {
     try {
-      const response = await fetch("http://localhost/Edmondscorekeeper/listMatches.php");
+      const response = await fetch(`${domain_uri}/listMatches.php`);
       const data: Match[] = await response.json();
 
       const initialVisibility = data.reduce((acc, match) => {

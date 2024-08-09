@@ -1,4 +1,3 @@
-// JudgementManager.tsx
 import React, { useEffect, useState } from 'react';
 import { domain_uri } from './contants';
 
@@ -21,14 +20,19 @@ interface JudgementData {
 const JudgementManager: React.FC<JudgementManagerProps> = ({ ringNumber }) => {
     const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
 
-    console.log("receivedData:",judgementData);
-
     useEffect(() => {
         const eventSource = new EventSource(`${domain_uri}/triggerJudgement.php`);
 
         eventSource.onmessage = (event) => {
-            const data: JudgementData = JSON.parse(event.data);
-            setJudgementData(data);
+            if (event.data) {
+                try {
+                    const data: JudgementData = JSON.parse(event.data);
+                    console.log("Received data via SSE:", data); // Log the received data
+                    setJudgementData(data);
+                } catch (error) {
+                    console.error('Error parsing SSE data:', error);
+                }
+            }
         };
 
         eventSource.onerror = (error) => {
@@ -36,6 +40,7 @@ const JudgementManager: React.FC<JudgementManagerProps> = ({ ringNumber }) => {
             eventSource.close();
         };
 
+        // Cleanup on component unmount
         return () => {
             eventSource.close();
         };
@@ -52,7 +57,7 @@ const JudgementManager: React.FC<JudgementManagerProps> = ({ ringNumber }) => {
 
     return (
         <div>
-            <h1>Judgement Manager</h1>
+            <h1>Judgement Pending</h1>
             {ringNumber && <p>You are judging ring {ringNumber}</p>}
             {judgementData && (
                 <div>

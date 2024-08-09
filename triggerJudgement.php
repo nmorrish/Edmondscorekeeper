@@ -4,55 +4,66 @@
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');
-header('Access-Control-Allow-Origin: *'); // Add CORS header
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    // Handle preflight request
-    http_response_code(200);
-    exit();
-}
+// Set the execution time to infinite so the script keeps running
+set_time_limit(0);
 
-// Function to send data to the SSE stream
-function sendSSE($data) {
-    echo "data: " . json_encode($data) . "\n\n";
+// File to store the latest data
+$dataFile = '/tmp/judgementData.json';
+
+// Function to send JSON data via SSE
+function sendJsonData($data) {
+    // Encode the data as JSON
+    $jsonData = json_encode($data);
+
+    // Send the JSON data as an SSE event
+    echo "data: {$jsonData}\n\n";
+
+    // Flush the output buffer to send the data immediately
     ob_flush();
     flush();
 }
 
-// Check if the request method is POST to receive JSON data
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Handle POST requests to update the stored data
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
+    // Get the raw POST data
     $postData = file_get_contents('php://input');
+    
+    // Decode the JSON data
     $data = json_decode($postData, true);
 
-    // Validate and process the received data as needed
-    if (isset($data['matchId']) && isset($data['fighters'])) {
-        // Store the received data in a file or database
-        file_put_contents('judgement_data.json', json_encode($data));
-        sendSSE($data);
-        exit();
+    // If JSON is valid, store it in the file
+    if ($data !== null) {
+        file_put_contents($dataFile, json_encode($data));
+    } else {
+        // Store an error message if JSON is invalid
+        file_put_contents($dataFile, json_encode(['error' => 'Invalid JSON received']));
     }
+
+    // Exit the script to prevent further processing
+    exit;
 }
 
-// Function to get the latest judgement data
-function getLatestJudgementData() {
-    if (file_exists('judgement_data.json')) {
-        $data = file_get_contents('judgement_data.json');
-        return json_decode($data, true);
-    }
-    return null;
-}
-
-// Infinite loop to keep the SSE stream open
+// Main loop to maintain the SSE connection
+$lastData = null;
 while (true) {
-    $data = getLatestJudgementData();
-    if ($data) {
-        sendSSE($data);
-        // Remove the file to prevent sending the same data repeatedly
-        unlink('judgement_data.json');
+    // Check if there's new data to send
+    if (file_exists($dataFile)) {
+        $newData = file_get_contents($dataFile);
+
+        // Only send the data if it's new
+        if ($newData !== $lastData) {
+            $lastData = $newData;
+            sendJsonData(json_decode($newData, true));
+        }
     }
 
-    // Sleep for a while before checking for new data
+    // Send a keep-alive event every 30 seconds to avoid timeouts
+    echo "event: keep-alive\n";
+    echo "data: {}\n\n";
+    ob_flush();
+    flush();
+
+    // Wait for a few seconds before checking for new data again
     sleep(5);
 }
