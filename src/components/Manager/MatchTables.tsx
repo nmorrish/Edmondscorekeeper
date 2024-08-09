@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
-import { useRefresh } from "../RefreshContext"; // Import the refresh hook
+import { useRefresh } from "../RefreshContext";
 import { domain_uri } from "../contants";
 
 interface Score {
@@ -27,7 +27,7 @@ interface Match {
 const MatchTables: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
-  const { refreshKey } = useRefresh(); // Get refreshKey from context
+  const { refreshKey } = useRefresh();
 
   useEffect(() => {
     // Load the visibility state from localStorage when the component mounts
@@ -37,7 +37,7 @@ const MatchTables: React.FC = () => {
     }
 
     fetchMatches();
-  }, [refreshKey]); // Re-fetch on refreshKey change
+  }, [refreshKey]);
 
   useEffect(() => {
     const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
@@ -49,7 +49,6 @@ const MatchTables: React.FC = () => {
           console.log("Bout_Score update detected:", data);
 
           if (data.status === "Bout_Score updated") {
-            // Trigger a refresh to fetch updated match data
             fetchMatches();
           }
         } catch (error) {
@@ -74,32 +73,22 @@ const MatchTables: React.FC = () => {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data: Match[] = await response.json();
 
-      // Combine existing visibility state with new matches data
-      const updatedVisibility = data.reduce((acc, match) => {
-        // Keep the existing visibility state if present, otherwise default to true
-        acc[match.matchId] = visibleMatches[match.matchId] !== undefined 
-          ? visibleMatches[match.matchId] 
-          : true;
-        return acc;
-      }, {} as Record<number, boolean>);
-
-      setVisibleMatches(updatedVisibility);
       setMatches(data);
-      localStorage.setItem("visibleMatches", JSON.stringify(updatedVisibility)); // Persist the updated visibility
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
   };
 
+  useEffect(() => {
+    // Save the visibility state to localStorage whenever it changes
+    localStorage.setItem("visibleMatches", JSON.stringify(visibleMatches));
+  }, [visibleMatches]);
+
   const toggleVisibility = (matchId: number) => {
-    setVisibleMatches((prev) => {
-      const newVisibility = { ...prev, [matchId]: !prev[matchId] };
-      
-      // Store the updated visibility state in localStorage
-      localStorage.setItem("visibleMatches", JSON.stringify(newVisibility));
-      
-      return newVisibility;
-    });
+    setVisibleMatches((prev) => ({
+      ...prev,
+      [matchId]: !prev[matchId],
+    }));
   };
 
   const calculateSum = (scores: Score[]) => {
