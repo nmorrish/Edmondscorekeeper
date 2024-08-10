@@ -13,7 +13,7 @@ interface FighterListProps {
 
 const FighterList: React.FC<FighterListProps> = ({ fighters }) => {
   if (!fighters.length) {
-    return <div>Loading... Please wait.</div>;
+    return <div>Please add fighters</div>;
   }
 
   return (

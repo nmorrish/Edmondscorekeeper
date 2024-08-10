@@ -1,0 +1,15 @@
+# Disable directory listings
+Options -Indexes
+
+# Enable URL rewriting
+RewriteEngine On
+RewriteBase /edmondcardtest/
+
+# Redirect all requests to index.html except for actual files and directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [QSA,L]
+
+# Enable the following line if you are using mod_mime
+AddType application/javascript .js
+AddType text/css .css

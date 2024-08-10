@@ -1,5 +1,6 @@
 // useFighterData.ts
 import { useState, useEffect, useCallback } from "react";
+// call with: import { domain_uri } from "../contants";
 
 interface Fighter {
   fighterId: number;
@@ -12,7 +13,7 @@ const useFighterData = () => {
 
   const fetchFighterData = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost/Edmondscorekeeper/listFighters.php");
+      const response = await fetch("https://ec-reciever.m-is.net/listFighters.php");
       if (response.ok) {
         const data = await response.json();
         setFighters(data);

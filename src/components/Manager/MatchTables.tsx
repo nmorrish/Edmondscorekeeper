@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
 import { useRefresh } from "../RefreshContext";
-import { domain_uri } from "../contants";
+//import { domain_uri } from "../contants";
 
 interface Score {
   scoreId: number;
@@ -40,7 +40,7 @@ const MatchTables: React.FC = () => {
   }, [refreshKey]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
+    const eventSource = new EventSource(`https://ec-reciever.m-is.net/updateJudgementSSE.php`);
 
     eventSource.onmessage = (event) => {
       if (event.data) {
@@ -70,7 +70,7 @@ const MatchTables: React.FC = () => {
 
   const fetchMatches = async () => {
     try {
-      const response = await fetch(`${domain_uri}/listMatches.php`);
+      const response = await fetch(`https://ec-reciever.m-is.net/listMatches.php`);
       const data: Match[] = await response.json();
 
       setMatches(data);
@@ -95,19 +95,19 @@ const MatchTables: React.FC = () => {
     const totalScores = scores.reduce(
       (totals, score) => {
         return {
-          contact: totals.contact + score.contact,
-          target: totals.target + score.target,
-          control: totals.control + score.control,
+          contact: totals.contact + (parseInt(score.contact as any) || 0),
+          target: totals.target + (parseInt(score.target as any) || 0),
+          control: totals.control + (parseInt(score.control as any) || 0),
         };
       },
       { contact: 0, target: 0, control: 0 }
     );
-
+  
     return {
-      sumContact: totalScores.contact,
-      sumTarget: totalScores.target,
-      sumControl: totalScores.control,
-      total: totalScores.contact + totalScores.target + totalScores.control,
+      sumContact: Number(totalScores.contact),
+      sumTarget: Number(totalScores.target),
+      sumControl: Number(totalScores.control),
+      total: Number(totalScores.contact + totalScores.target + totalScores.control),
     };
   };
 
@@ -178,17 +178,17 @@ const MatchTables: React.FC = () => {
                     })}
 
                     <tr className="average-row">
-                      <td>{sum1.sumContact.toFixed(0)}</td>
-                      <td>{sum1.sumTarget.toFixed(0)}</td>
-                      <td>{sum1.sumControl.toFixed(0)}</td>
-                      <td>{sum2.sumContact.toFixed(0)}</td>
-                      <td>{sum2.sumTarget.toFixed(0)}</td>
-                      <td>{sum2.sumControl.toFixed(0)}</td>
+                      <td>{sum1.sumContact}</td>
+                      <td>{sum1.sumTarget}</td>
+                      <td>{sum1.sumControl}</td>
+                      <td>{sum2.sumContact}</td>
+                      <td>{sum2.sumTarget}</td>
+                      <td>{sum2.sumControl}</td>
                     </tr>
 
                     <tr className="total-row">
-                      <td colSpan={3}>Total: {sum1.total.toFixed(0)}</td>
-                      <td colSpan={3}>Total: {sum2.total.toFixed(0)}</td>
+                      <td colSpan={3}>Total: {sum1.total}</td>
+                      <td colSpan={3}>Total: {sum2.total}</td>
                     </tr>
                   </tbody>
                 </table>

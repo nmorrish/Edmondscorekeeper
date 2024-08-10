@@ -2,7 +2,7 @@
 
 require_once("connect.php");
 
-// try {
+try {
 
     $db = connect();
 
@@ -37,14 +37,14 @@ require_once("connect.php");
 
     // Fetch the result set
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $matchId = $row['matchId'];
-        $boutId = $row['boutId'];
+        $matchId = (int)$row['matchId']; // Explicitly cast to integer
+        $boutId = (int)$row['boutId'];   // Explicitly cast to integer
 
         // Initialize the match if not already present
         if (!isset($matches[$matchId])) {
             $matches[$matchId] = [
-                'matchId' => $matchId,
-                'matchRing' => $row['matchRing'],
+                'matchId' => $matchId, // Explicitly integer
+                'matchRing' => (int)$row['matchRing'], // Explicitly integer
                 'Bouts' => []
             ];
         }
@@ -52,9 +52,9 @@ require_once("connect.php");
         // Initialize the bout if not already present
         if (!isset($matches[$matchId]['Bouts'][$boutId])) {
             $matches[$matchId]['Bouts'][$boutId] = [
-                'boutId' => $boutId,
+                'boutId' => $boutId, // Explicitly integer
                 'fighterColor' => $row['fighterColor'],
-                'fighterId' => $row['fighterId'],
+                'fighterId' => (int)$row['fighterId'], // Explicitly integer
                 'fighterName' => $row['fighterName'],
                 'Scores' => []
             ];
@@ -63,26 +63,28 @@ require_once("connect.php");
         // Add the score to the current bout
         if (!is_null($row['scoreId'])) {
             $matches[$matchId]['Bouts'][$boutId]['Scores'][] = [
-                'scoreId' => $row['scoreId'],
-                'target' => $row['target'],
-                'contact' => $row['contact'],
-                'control' => $row['control']
+                'scoreId' => (int)$row['scoreId'], // Explicitly integer
+                'target' => ord($row['target']), // Convert BIT to integer (1 or 0)
+                'contact' => ord($row['contact']), // Convert BIT to integer (1 or 0)
+                'control' => ord($row['control']) // Convert BIT to integer (1 or 0)
             ];
         }
     }
 
+    // Encode the matches array to JSON with pretty print
     $matches_json = json_encode(array_values($matches), JSON_PRETTY_PRINT);
 
+    // Output the JSON
     echo $matches_json;
 
-// } catch (PDOException $e) {
-//     // Handle any errors
-//     $response = [
-//         'status' => 'error',
-//         'message' => $e->getMessage()
-//     ];
-//     echo json_encode($response);
-// }
+} catch (PDOException $e) {
+    // Handle any errors
+    $response = [
+        'status' => 'error',
+        'message' => $e->getMessage()
+    ];
+    echo json_encode($response);
+}
 
-// // Close the database connection
-// $db = null;
+// Close the database connection
+$db = null;

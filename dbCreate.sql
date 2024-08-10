@@ -8,7 +8,7 @@ CREATE TABLE Fighters (
 CREATE TABLE Matches (
     matchId int PRIMARY KEY AUTO_INCREMENT,
     matchRing int,
-    lastJudgement timestamp NULL TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    lastJudgement timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE Bouts (
@@ -27,6 +27,7 @@ CREATE TABLE Bout_Score(
     contact bit,
     target bit,
     control bit,
+    boutId int,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (boutId) REFERENCES Bouts(boutId)
 );

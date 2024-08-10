@@ -1,5 +1,5 @@
 import React from 'react';
-import { domain_uri } from '../contants';
+// import { domain_uri } from '../contants';
 
 interface TriggerJudgementProps {
   matchId: number;
@@ -9,7 +9,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId }) => {
   // Handle button click
   const handleButtonClick = async () => {
     try {
-      const response = await fetch(`${domain_uri}/receiveJudgementRequest.php`, {
+      const response = await fetch(`https://ec-reciever.m-is.net/receiveJudgementRequest.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
