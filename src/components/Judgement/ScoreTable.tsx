@@ -9,29 +9,31 @@ interface Bout {
 
 interface ScoreTableProps {
     fighter: Bout;
+    opponent: Bout;
     scores: Record<string, boolean>;
     onCheckboxChange: (fighterId: number, criteria: string) => void;
+    onSubmit: (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => void;
 }
 
-const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, scores, onCheckboxChange }) => {
+const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, opponent, scores, onCheckboxChange, onSubmit }) => {
     return (
-        <div>
+        <div className={`${fighter.fighterColor}`}>
             <table className="match">
                 <thead>
                     <tr>
-                        <th colSpan={3} className={fighter.fighterColor}>
+                        <th colSpan={3}>
                             {fighter.fighterName} ({fighter.fighterColor})
                         </th>
                     </tr>
                     <tr>
-                        <th className={fighter.fighterColor}>Contact</th>
-                        <th className={fighter.fighterColor}>Quality</th>
-                        <th className={fighter.fighterColor}>Control</th>
+                        <th>Contact</th>
+                        <th>Quality</th>
+                        <th>Control</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr className="checkbox-row">
-                        <td className={fighter.fighterColor}>
+                        <td>
                             <input
                                 type="checkbox"
                                 name={`contact-${fighter.fighterId}`}
@@ -39,7 +41,7 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, scores, onCheckboxChan
                                 onChange={() => onCheckboxChange(fighter.fighterId, 'contact')}
                             />
                         </td>
-                        <td className={fighter.fighterColor}>
+                        <td>
                             <input
                                 type="checkbox"
                                 name={`quality-${fighter.fighterId}`}
@@ -47,7 +49,7 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, scores, onCheckboxChan
                                 onChange={() => onCheckboxChange(fighter.fighterId, 'quality')}
                             />
                         </td>
-                        <td className={fighter.fighterColor}>
+                        <td>
                             <input
                                 type="checkbox"
                                 name={`control-${fighter.fighterId}`}
@@ -60,15 +62,17 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, scores, onCheckboxChan
             </table>
             <input
                 type="button"
-                className={fighter.fighterColor}
+                className='scoreButton'
                 name={`afterblow-${fighter.fighterId}`}
                 value={`afterblow: ${fighter.fighterColor} hit first`}
+                onClick={() => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })} // fighter hit first in this afterBlow
             />
             <input
                 type="button"
-                className={fighter.fighterColor}
+                className='scoreButton'
                 name={`selfCall-${fighter.fighterId}`}
                 value={`self-call: ${fighter.fighterColor} point concede`}
+                onClick={() => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })} // selfCall, opponent gets the point
             />
         </div>
     );

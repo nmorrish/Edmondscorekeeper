@@ -36,8 +36,7 @@ const JudgementManager: React.FC = () => {
                             contact: false,
                             quality: false,
                             control: false,
-                            afterblow: false,
-                            doubleHit: false,
+                            afterBlow: false,
                             opponentSelfCall: false
                         };
                         return acc;
@@ -72,7 +71,7 @@ const JudgementManager: React.FC = () => {
         }));
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
         if (judgementData) {
             const data = {
                 matchId: judgementData.matchId,
@@ -84,6 +83,9 @@ const JudgementManager: React.FC = () => {
                         contact: scores[bout.fighterId]?.contact || false,
                         quality: scores[bout.fighterId]?.quality || false,
                         control: scores[bout.fighterId]?.control || false,
+                        afterBlow: action.fighterId === bout.fighterId && action.doubleHit === false ? true : false,
+                        opponentSelfCall: action.opponentId === bout.fighterId ? true : false,
+                        doubleHit: action.doubleHit || false,
                     },
                 })),
             };
@@ -100,6 +102,7 @@ const JudgementManager: React.FC = () => {
                 const result = await response.json();
                 console.log("Judgement submitted:", result);
                 setJudgementData(null);
+                setScores({}); // Reset scores after submission
             } catch (error) {
                 console.error('Error submitting judgement:', error);
             }
@@ -130,15 +133,20 @@ const JudgementManager: React.FC = () => {
                 <h1>Judgement Now Make!</h1>
                 <ScoreTable
                     fighter={fighter1}
+                    opponent={fighter2}
                     scores={scores[fighter1.fighterId] || {}}
                     onCheckboxChange={handleCheckboxChange}
+                    onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
                 />
                 <ScoreTable
                     fighter={fighter2}
+                    opponent={fighter1}
                     scores={scores[fighter2.fighterId] || {}}
                     onCheckboxChange={handleCheckboxChange}
+                    onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
                 />
-                <button onClick={handleSubmit}>Submit Judgement</button>
+                <button className='judgement-submit' onClick={() => handleSubmit({})}>Submit Judgement</button>
+                <button className='judgement-submit double' onClick={() => handleSubmit({ doubleHit: true })}>Double Hit</button>
             </div>
         );
     }

@@ -62,14 +62,18 @@
   text-align: center;
 }
 
-.match .Red {
+.Red {
   background-color: #ff9a9a;
   color:#690000;
 }
 
-.match .Blue {
+.Blue {
   background-color: #9abaff;
   color:#050069;
+}
+
+div.Blue{
+  margin-top: 20px;
 }
 
 
@@ -106,4 +110,28 @@ h2 {
   height: 25px; /* Adjust the height as needed */
   transform: scale(1.5); /* Scale up the checkbox */
   cursor: pointer;
+}
+
+.scoreButton {
+  width: 100%;
+  padding: 10px;
+  font-size: 18px;
+}
+
+.Blue .scoreButton {
+  background-color: #050069;
+}
+
+.Red .scoreButton {
+  background-color: #690000;
+}
+
+.judgement-submit{
+  padding: 15px;
+  font-size: 20px;
+  margin-top: 15px;
+}
+
+.double{
+  background-color: firebrick;
 }
