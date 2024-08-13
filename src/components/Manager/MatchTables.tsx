@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
 import { useRefresh } from "../RefreshContext";
-//import { domain_uri } from "../contants";
+import { domain_uri } from "../contants";
 
 interface Score {
   scoreId: number;
@@ -40,7 +40,7 @@ const MatchTables: React.FC = () => {
   }, [refreshKey]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`https://ec-reciever.m-is.net/updateJudgementSSE.php`);
+    const eventSource = new EventSource(`${ domain_uri }/updateJudgementSSE.php`);
 
     eventSource.onmessage = (event) => {
       if (event.data) {
@@ -70,7 +70,7 @@ const MatchTables: React.FC = () => {
 
   const fetchMatches = async () => {
     try {
-      const response = await fetch(`https://ec-reciever.m-is.net/listMatches.php`);
+      const response = await fetch(`${ domain_uri }/listMatches.php`);
       const data: Match[] = await response.json();
 
       setMatches(data);

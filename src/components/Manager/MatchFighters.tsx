@@ -1,7 +1,7 @@
 // MatchFighters.tsx
 import React, { useState } from "react";
 import { useRefresh } from "../RefreshContext"; // Import the refresh hook
-// import {domain_uri} from '../contants';
+import {domain_uri} from '../contants';
 
 interface Fighter {
   fighterId: number;
@@ -52,7 +52,7 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
     };
 
     try {
-      const response = await fetch("https://ec-reciever.m-is.net/addFighterToMatch.php", {
+      const response = await fetch(`${ domain_uri }/addFighterToMatch.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(matchData),

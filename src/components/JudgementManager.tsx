@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-// import { domain_uri } from './contants';
+import { domain_uri } from './contants';
 
 interface Bout {
     boutId: number;
@@ -21,7 +21,7 @@ const JudgementManager: React.FC = () => {
     const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
 
     useEffect(() => {
-        const eventSource = new EventSource(`https://ec-reciever.m-is.net/requestJudgementSSE.php`);
+        const eventSource = new EventSource(`${ domain_uri }/requestJudgementSSE.php`);
 
         eventSource.onmessage = (event) => {
             if (event.data) {
@@ -85,7 +85,7 @@ const JudgementManager: React.FC = () => {
             };
 
             try {
-                const response = await fetch(`https://ec-reciever.m-is.net/judgementSubmit.php`, {
+                const response = await fetch(`${ domain_uri }/judgementSubmit.php`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
