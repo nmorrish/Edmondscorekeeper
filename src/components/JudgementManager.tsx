@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { domain_uri } from './contants';
+import ScoreTable from './Judgement/ScoreTable';
 
 interface Bout {
     boutId: number;
@@ -21,7 +22,7 @@ const JudgementManager: React.FC = () => {
     const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
 
     useEffect(() => {
-        const eventSource = new EventSource(`${ domain_uri }/requestJudgementSSE.php`);
+        const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
 
         eventSource.onmessage = (event) => {
             if (event.data) {
@@ -35,6 +36,9 @@ const JudgementManager: React.FC = () => {
                             contact: false,
                             quality: false,
                             control: false,
+                            afterblow: false,
+                            doubleHit: false,
+                            opponentSelfCall: false
                         };
                         return acc;
                     }, {} as Record<number, Record<string, boolean>>);
@@ -85,7 +89,7 @@ const JudgementManager: React.FC = () => {
             };
 
             try {
-                const response = await fetch(`${ domain_uri }/judgementSubmit.php`, {
+                const response = await fetch(`${domain_uri}/judgementScoreSubmit.php`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -124,49 +128,16 @@ const JudgementManager: React.FC = () => {
         return (
             <div>
                 <h1>Judgement Now Make!</h1>
-                <table className="match">
-                    <thead>
-                        <tr>
-                            <th colSpan={3} className={fighter1.fighterColor}>
-                                {fighter1.fighterName} ({fighter1.fighterColor})
-                            </th>
-                        </tr>
-                        <tr>
-                            <th className={fighter1.fighterColor}>Contact</th>
-                            <th className={fighter1.fighterColor}>Quality</th>
-                            <th className={fighter1.fighterColor}>Control</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr className="checkbox-row">
-                            <td className={fighter1.fighterColor}><input type="checkbox" name={`contact-${fighter1.fighterId}`} checked={scores[fighter1.fighterId]?.contact || false} onChange={() => handleCheckboxChange(fighter1.fighterId, 'contact')} /></td>
-                            <td className={fighter1.fighterColor}><input type="checkbox" name={`quality-${fighter1.fighterId}`} checked={scores[fighter1.fighterId]?.quality || false} onChange={() => handleCheckboxChange(fighter1.fighterId, 'quality')} /></td>
-                            <td className={fighter1.fighterColor}><input type="checkbox" name={`control-${fighter1.fighterId}`} checked={scores[fighter1.fighterId]?.control || false} onChange={() => handleCheckboxChange(fighter1.fighterId, 'control')} /></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <table className="match">
-                    <thead>
-                        <tr>
-                            <th colSpan={3} className={fighter2.fighterColor}>
-                                {fighter2.fighterName} ({fighter2.fighterColor})
-                            </th>
-                        </tr>
-                        <tr>
-                            <th className={fighter2.fighterColor}>Contact</th>
-                            <th className={fighter2.fighterColor}>Quality</th>
-                            <th className={fighter2.fighterColor}>Control</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr className="checkbox-row">
-                            <td className={fighter2.fighterColor}><input type="checkbox" name={`contact-${fighter2.fighterId}`} checked={scores[fighter2.fighterId]?.contact || false} onChange={() => handleCheckboxChange(fighter2.fighterId, 'contact')} /></td>
-                            <td className={fighter2.fighterColor}><input type="checkbox" name={`quality-${fighter2.fighterId}`} checked={scores[fighter2.fighterId]?.quality || false} onChange={() => handleCheckboxChange(fighter2.fighterId, 'quality')} /></td>
-                            <td className={fighter2.fighterColor}><input type="checkbox" name={`control-${fighter2.fighterId}`} checked={scores[fighter2.fighterId]?.control || false} onChange={() => handleCheckboxChange(fighter2.fighterId, 'control')} /></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <ScoreTable
+                    fighter={fighter1}
+                    scores={scores[fighter1.fighterId] || {}}
+                    onCheckboxChange={handleCheckboxChange}
+                />
+                <ScoreTable
+                    fighter={fighter2}
+                    scores={scores[fighter2.fighterId] || {}}
+                    onCheckboxChange={handleCheckboxChange}
+                />
                 <button onClick={handleSubmit}>Submit Judgement</button>
             </div>
         );
