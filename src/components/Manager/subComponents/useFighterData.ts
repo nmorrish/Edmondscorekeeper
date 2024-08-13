@@ -2,7 +2,7 @@
 //this fetches fighter data from the DB as an object for use in components.
 //fethes fighter id, name, and strikes
 import { useState, useEffect, useCallback } from "react";
-import { domain_uri } from "../utility/contants";
+import { domain_uri } from "../../utility/contants";
 
 interface Fighter {
   fighterId: number;

@@ -1,11 +1,11 @@
 // src/components/FighterManagementPage.tsx
 import React, { useState } from "react";
-import FighterEntryForm from "./FighterEntryForm";
-import FighterList from "./FighterList";
-import MatchFighters from "./MatchFighters";
-import MatchTables from "./MatchTables";
+import FighterEntryForm from "./subComponents/FighterEntryForm";
+import FighterList from "./subComponents/FighterList";
+import MatchFighters from "./subComponents/MatchFighters";
+import MatchTables from "./subComponents/MatchTables";
 import { RefreshProvider } from "../utility/RefreshContext";
-import useFighterData from "./useFighterData";
+import useFighterData from "./subComponents/useFighterData";
 
 const FighterManagement: React.FC = () => {
   const [activeSidebarComponent, setActiveSidebarComponent] = useState<string | null>(null);

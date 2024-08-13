@@ -1,7 +1,7 @@
 // MatchFighters.tsx
 import React, { useState } from "react";
-import { useRefresh } from "../utility/RefreshContext"; // Import the refresh hook
-import {domain_uri} from '../utility/contants';
+import { useRefresh } from "../../utility/RefreshContext"; // Import the refresh hook
+import {domain_uri} from '../../utility/contants';
 
 interface Fighter {
   fighterId: number;

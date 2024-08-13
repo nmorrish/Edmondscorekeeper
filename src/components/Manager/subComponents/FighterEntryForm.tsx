@@ -1,7 +1,7 @@
 // FighterEntryForm.tsx
 import React, { useState } from "react";
 import FormInputComponent from "./FormInputComponent";
-import {domain_uri} from '../utility/contants';
+import { domain_uri } from "../../utility/contants";
 
 interface FighterEntryFormProps {
   onFightersAdded: () => void; // Callback to refresh data

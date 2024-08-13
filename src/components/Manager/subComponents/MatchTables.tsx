@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import TriggerJudgement from "../Judgement/TriggerJudgement";
-import { useRefresh } from "../utility/RefreshContext";
-import { domain_uri } from "../utility/contants";
+import TriggerJudgement from "./TriggerJudgement";
+import { useRefresh } from "../../utility/RefreshContext";
+import { domain_uri } from "../../utility/contants";
 
 interface Score {
   scoreId: number;
   target: number;
   contact: number;
   control: number;
+  afterBlow: number;
+  selfCall: number;
 }
 
 interface Bout {
