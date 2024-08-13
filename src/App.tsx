@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import "./App.css";
-import FighterManagement from "./components/FighterManagement";
-import JudgementManager from "./components/JudgementManager";
+import FighterManagement from "./components/Manager/FighterManagement";
+import JudgementManager from "./components/Judgement/JudgementManager";
 
 const App: React.FC = () => {
   return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { domain_uri } from '../contants';
+import { domain_uri } from '../utility/contants';
 
 interface TriggerJudgementProps {
   matchId: number;

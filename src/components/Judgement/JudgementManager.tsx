@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { domain_uri } from './contants';
-import ScoreTable from './Judgement/ScoreTable';
+import { domain_uri } from '../utility/contants';
+import ScoreTable from './ScoreTable';
 
 interface Bout {
     boutId: number;

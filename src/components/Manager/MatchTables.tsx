@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TriggerJudgement from "../Judgement/TriggerJudgement";
-import { useRefresh } from "../RefreshContext";
-import { domain_uri } from "../contants";
+import { useRefresh } from "../utility/RefreshContext";
+import { domain_uri } from "../utility/contants";
 
 interface Score {
   scoreId: number;
