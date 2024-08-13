@@ -21,6 +21,9 @@ try {
             s.target,
             s.contact,
             s.control,
+            s.afterBlow,
+            s.opponentSelfCall,
+            s.doubleHit,
             f.fighterName
         FROM Matches m
         LEFT JOIN Bouts b ON m.matchId = b.matchId
@@ -64,9 +67,17 @@ try {
         if (!is_null($row['scoreId'])) {
             $matches[$matchId]['Bouts'][$boutId]['Scores'][] = [
                 'scoreId' => (int)$row['scoreId'], // Explicitly integer
-                'target' => ord($row['target']), // Convert BIT to integer (1 or 0)
-                'contact' => ord($row['contact']), // Convert BIT to integer (1 or 0)
-                'control' => ord($row['control']) // Convert BIT to integer (1 or 0)
+                // 'target' => ord($row['target']), 
+                // 'contact' => ord($row['contact']),
+                // 'control' => ord($row['control']),
+                // 'afterBlow' => ord($row['afterBlow']),
+                // 'doubleHit' => ord($row['doubleHit']),
+                'target' => $row['target'], 
+                'contact' => $row['contact'],
+                'control' => $row['control'],
+                'afterBlow' => $row['afterBlow'],
+                'doubleHit' => $row['doubleHit'],
+                'opponentSelfCall' => $row['opponentSelfCall']
             ];
         }
     }

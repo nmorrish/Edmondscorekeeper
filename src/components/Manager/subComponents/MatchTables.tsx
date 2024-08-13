@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
+import ScoreDisplayComponent from "./ScoreDisplayComponent";
 
 interface Score {
   scoreId: number;
@@ -9,7 +10,8 @@ interface Score {
   contact: number;
   control: number;
   afterBlow: number;
-  selfCall: number;
+  opponentSelfCall: number;
+  doubleHit: boolean;
 }
 
 interface Bout {
@@ -32,7 +34,6 @@ const MatchTables: React.FC = () => {
   const { refreshKey } = useRefresh();
 
   useEffect(() => {
-    // Load the visibility state from localStorage when the component mounts
     const storedVisibility = localStorage.getItem("visibleMatches");
     if (storedVisibility) {
       setVisibleMatches(JSON.parse(storedVisibility));
@@ -64,7 +65,6 @@ const MatchTables: React.FC = () => {
       eventSource.close();
     };
 
-    // Cleanup on component unmount
     return () => {
       eventSource.close();
     };
@@ -74,7 +74,6 @@ const MatchTables: React.FC = () => {
     try {
       const response = await fetch(`${ domain_uri }/listMatches.php`);
       const data: Match[] = await response.json();
-
       setMatches(data);
     } catch (error) {
       console.error("Error fetching matches:", error);
@@ -82,7 +81,6 @@ const MatchTables: React.FC = () => {
   };
 
   useEffect(() => {
-    // Save the visibility state to localStorage whenever it changes
     localStorage.setItem("visibleMatches", JSON.stringify(visibleMatches));
   }, [visibleMatches]);
 
@@ -93,26 +91,6 @@ const MatchTables: React.FC = () => {
     }));
   };
 
-  const calculateSum = (scores: Score[]) => {
-    const totalScores = scores.reduce(
-      (totals, score) => {
-        return {
-          contact: totals.contact + (parseInt(score.contact as any) || 0),
-          target: totals.target + (parseInt(score.target as any) || 0),
-          control: totals.control + (parseInt(score.control as any) || 0),
-        };
-      },
-      { contact: 0, target: 0, control: 0 }
-    );
-  
-    return {
-      sumContact: Number(totalScores.contact),
-      sumTarget: Number(totalScores.target),
-      sumControl: Number(totalScores.control),
-      total: Number(totalScores.contact + totalScores.target + totalScores.control),
-    };
-  };
-
   return (
     <div>
       {matches.map((match) => {
@@ -120,9 +98,6 @@ const MatchTables: React.FC = () => {
         if (boutEntries.length < 2) return null;
 
         const [fighter1, fighter2] = boutEntries;
-
-        const sum1 = calculateSum(fighter1.Scores);
-        const sum2 = calculateSum(fighter2.Scores);
 
         return (
           <div key={match.matchId} className="match-table">
@@ -139,62 +114,8 @@ const MatchTables: React.FC = () => {
 
             {visibleMatches[match.matchId] && (
               <>
-                <table className="match">
-                  <thead>
-                    <tr>
-                      <th colSpan={3} className={fighter1.fighterColor}>
-                        {fighter1.fighterName} ({fighter1.fighterColor})
-                      </th>
-                      <th colSpan={3} className={fighter2.fighterColor}>
-                        {fighter2.fighterName} ({fighter2.fighterColor})
-                      </th>
-                    </tr>
-                    <tr>
-                      <th className={fighter1.fighterColor}>Contact</th>
-                      <th className={fighter1.fighterColor}>Target</th>
-                      <th className={fighter1.fighterColor}>Control</th>
-                      <th className={fighter2.fighterColor}>Contact</th>
-                      <th className={fighter2.fighterColor}>Target</th>
-                      <th className={fighter2.fighterColor}>Control</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from({
-                      length: Math.max(fighter1.Scores.length, fighter2.Scores.length),
-                    }).map((_, index) => {
-                      const score1 =
-                        fighter1.Scores[index] || { contact: "", target: "", control: "" };
-                      const score2 =
-                        fighter2.Scores[index] || { contact: "", target: "", control: "" };
-
-                      return (
-                        <tr key={index}>
-                          <td>{score1.contact}</td>
-                          <td>{score1.target}</td>
-                          <td>{score1.control}</td>
-                          <td>{score2.contact}</td>
-                          <td>{score2.target}</td>
-                          <td>{score2.control}</td>
-                        </tr>
-                      );
-                    })}
-
-                    <tr className="average-row">
-                      <td>{sum1.sumContact}</td>
-                      <td>{sum1.sumTarget}</td>
-                      <td>{sum1.sumControl}</td>
-                      <td>{sum2.sumContact}</td>
-                      <td>{sum2.sumTarget}</td>
-                      <td>{sum2.sumControl}</td>
-                    </tr>
-
-                    <tr className="total-row">
-                      <td colSpan={3}>Total: {sum1.total}</td>
-                      <td colSpan={3}>Total: {sum2.total}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
+                <ScoreDisplayComponent fighter={fighter1} />
+                <ScoreDisplayComponent fighter={fighter2} />
                 <TriggerJudgement matchId={match.matchId} />
               </>
             )}
