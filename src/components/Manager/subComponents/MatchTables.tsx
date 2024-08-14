@@ -114,8 +114,10 @@ const MatchTables: React.FC = () => {
 
             {visibleMatches[match.matchId] && (
               <>
-                <ScoreDisplayComponent fighter={fighter1} />
-                <ScoreDisplayComponent fighter={fighter2} />
+                <div className="fighter-table">
+                  <ScoreDisplayComponent fighter={fighter1} />
+                  <ScoreDisplayComponent fighter={fighter2} />
+                </div>
                 <TriggerJudgement matchId={match.matchId} />
               </>
             )}

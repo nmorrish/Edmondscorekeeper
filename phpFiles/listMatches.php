@@ -66,19 +66,19 @@ try {
         // Add the score to the current bout
         if (!is_null($row['scoreId'])) {
             $matches[$matchId]['Bouts'][$boutId]['Scores'][] = [
-                'scoreId' => (int)$row['scoreId'], // Explicitly integer
-                'target' => ord($row['target']), 
-                'contact' => ord($row['contact']),
-                'control' => ord($row['control']),
-                'afterBlow' => ord($row['afterBlow']),
-                'doubleHit' => ord($row['doubleHit']),
-                'opponentSelfCall' => ord($row['opponentSelfCall'])
-                // 'target' => $row['target'], 
-                // 'contact' => $row['contact'],
-                // 'control' => $row['control'],
-                // 'afterBlow' => $row['afterBlow'],
-                // 'doubleHit' => $row['doubleHit'],
-                // 'opponentSelfCall' => $row['opponentSelfCall']
+                // 'scoreId' => (int)$row['scoreId'], // Explicitly integer
+                // 'target' => ord($row['target']), 
+                // 'contact' => ord($row['contact']),
+                // 'control' => ord($row['control']),
+                // 'afterBlow' => ord($row['afterBlow']),
+                // 'doubleHit' => ord($row['doubleHit']),
+                // 'opponentSelfCall' => ord($row['opponentSelfCall'])
+                'target' => $row['target'], 
+                'contact' => $row['contact'],
+                'control' => $row['control'],
+                'afterBlow' => $row['afterBlow'],
+                'doubleHit' => $row['doubleHit'],
+                'opponentSelfCall' => $row['opponentSelfCall']
             ];
         }
     }
