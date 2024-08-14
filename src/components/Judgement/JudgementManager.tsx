@@ -130,7 +130,7 @@ const JudgementManager: React.FC = () => {
 
         return (
             <div>
-                <h1>Judgement Now Make!</h1>
+                <p>Judgement Now Make!</p>
                 <ScoreTable
                     fighter={fighter1}
                     opponent={fighter2}
