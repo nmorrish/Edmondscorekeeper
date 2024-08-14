@@ -1,0 +1,13 @@
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Allow CORS requests only from m-is.net and its subdomains
+<IfModule mod_headers.c>
+    SetEnvIf Origin "^https?://([a-z0-9-]+\.)*m-is\.net(:[0-9]+)?$" origin_is=$0
+    Header set Access-Control-Allow-Origin %{origin_is}e env=origin_is
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    Header set Access-Control-Allow-Credentials "true"
+</IfModule>
