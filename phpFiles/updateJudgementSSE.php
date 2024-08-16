@@ -3,13 +3,17 @@ header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');
 
-// Include the database connection script
 require_once("connect.php");
-$db = connect();
 
-// Function to send SSE data
+try {
+    $db = connect();
+} catch (PDOException $e) {
+    error_log('Database connection failed: ' . $e->getMessage());
+    sendSSEData(['status' => 'error', 'message' => 'Database connection error']);
+    exit;
+}
+
 function sendSSEData($data) {
-    // Ensuring the data is fully encoded before sending
     $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo "id: " . time() . "\n";
     echo "data: " . $jsonData . "\n\n";
@@ -17,24 +21,17 @@ function sendSSEData($data) {
     flush();
 }
 
-// Send `null` on initial connection
 sendSSEData(null);
-
-// Track the last known update time
 $lastUpdateTime = null;
 
-// Main loop to check for updates
 while (true) {
     try {
-        // Query the database to check for the most recent update in the Bout_Score table
         $stmt = $db->prepare("SELECT MAX(timestamp) AS lastUpdateTime FROM Bout_Score");
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $currentUpdateTime = $result['lastUpdateTime'];
+        $currentUpdateTime = $result['lastUpdateTime'] ?? null;
 
-        // Check if there has been an update since the last known update time
-        if ($lastUpdateTime !== $currentUpdateTime) {
-            // If updated, fetch the matchId related to the most recent Bout_Score entry
+        if ($lastUpdateTime !== $currentUpdateTime && $currentUpdateTime !== null) {
             $stmt = $db->prepare("
                 SELECT b.matchId 
                 FROM Bout_Score bs
@@ -46,24 +43,17 @@ while (true) {
             $stmt->execute();
             $matchId = $stmt->fetchColumn();
 
-            // Send the JSON data with the matchId and a status message
-            sendSSEData([
-                'status' => 'Bout_Score updated',
-                'matchId' => $matchId
-            ]);
-
-            // Update the last known update time
-            $lastUpdateTime = $currentUpdateTime;
+            if ($matchId) {
+                sendSSEData(['status' => 'Bout_Score updated', 'matchId' => $matchId]);
+                $lastUpdateTime = $currentUpdateTime;
+            } else {
+                sendSSEData(['status' => 'error', 'message' => 'No match found for the given timestamp']);
+            }
         }
     } catch (PDOException $e) {
-        // Send an error message if there is a database error
-        $jsonData = [
-            'status' => 'error',
-            'message' => 'Database error: ' . $e->getMessage(),
-        ];
-        sendSSEData($jsonData);
+        error_log('Database error: ' . $e->getMessage());
+        sendSSEData(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 
-    // Sleep for a few seconds before checking again
     sleep(5);
 }

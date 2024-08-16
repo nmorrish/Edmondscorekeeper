@@ -27,7 +27,7 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, opponent, scores, onCh
                     </tr>
                     <tr>
                         <th>Contact</th>
-                        <th>Quality</th>
+                        <th>Target</th>
                         <th>Control</th>
                     </tr>
                 </thead>

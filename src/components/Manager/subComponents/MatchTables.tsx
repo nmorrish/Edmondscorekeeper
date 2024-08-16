@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
@@ -33,26 +33,20 @@ const MatchTables: React.FC = () => {
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const { refreshKey } = useRefresh();
 
-  useEffect(() => {
-    const storedVisibility = localStorage.getItem("visibleMatches");
-    if (storedVisibility) {
-      setVisibleMatches(JSON.parse(storedVisibility));
-    }
-
-    fetchMatches();
-  }, [refreshKey]);
-
-  useEffect(() => {
-    const eventSource = new EventSource(`${ domain_uri }/updateJudgementSSE.php`);
+  const connectToSSE = useCallback(() => {
+    const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
 
     eventSource.onmessage = (event) => {
       if (event.data) {
         try {
           const data = JSON.parse(event.data);
-          console.log("Bout_Score update detected:", data);
-
-          if (data.status === "Bout_Score updated") {
-            fetchMatches();
+          if (data === null) {
+            console.log("Initial connection established.");
+          } else {
+            console.log("Bout_Score update detected:", data);
+            if (data.status === "Bout_Score updated") {
+              fetchMatches();
+            }
           }
         } catch (error) {
           console.error("Error parsing SSE data:", error);
@@ -63,16 +57,38 @@ const MatchTables: React.FC = () => {
     eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       eventSource.close();
+      // Attempt to reconnect after a delay
+      setTimeout(() => {
+        console.log("Reconnecting to SSE...");
+        connectToSSE();
+      }, 5000); // Reconnect after 5 seconds
     };
 
+    return eventSource;
+  }, []);
+
+  useEffect(() => {
+    // Connect to SSE when the component mounts
+    const eventSource = connectToSSE();
+
     return () => {
+      // Cleanup on component unmount
       eventSource.close();
     };
-  }, []);
+  }, [connectToSSE]);
+
+  useEffect(() => {
+    const storedVisibility = localStorage.getItem("visibleMatches");
+    if (storedVisibility) {
+      setVisibleMatches(JSON.parse(storedVisibility));
+    }
+
+    fetchMatches();
+  }, [refreshKey]);
 
   const fetchMatches = async () => {
     try {
-      const response = await fetch(`${ domain_uri }/listMatches.php`);
+      const response = await fetch(`${domain_uri}/listMatches.php`);
       const data: Match[] = await response.json();
       setMatches(data);
     } catch (error) {
