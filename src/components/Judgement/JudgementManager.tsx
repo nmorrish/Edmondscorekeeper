@@ -21,56 +21,80 @@ const JudgementManager: React.FC = () => {
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
 
-  const connectToSSE = useCallback(() => {
-    const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
-
-    eventSource.onmessage = (event) => {
-      if (event.data) {
-        try {
-          const data: JudgementData | null = JSON.parse(event.data);
-          if (data === null) {
-            console.log("Initial connection established.");
-          } else {
-            console.log("Pending judges count increased:", data);
-
-            const initialScores = Object.values(data.Bouts).reduce((acc: Record<number, Record<string, boolean>>, bout: Bout) => {
-              acc[bout.fighterId] = {
-                contact: false,
-                quality: false,
-                control: false,
-                afterBlow: false,
-                opponentSelfCall: false,
-              };
-              return acc;
-            }, {} as Record<number, Record<string, boolean>>);
-
-            setJudgementData(data);
-            setScores(initialScores);
-          }
-        } catch (error) {
-          console.error('Error parsing SSE data:', error);
+  // Polling fallback function
+  const pollForUpdates = useCallback(() => {
+    const pollingInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${domain_uri}/pollJudgementUpdates.php`);
+        const data = await response.json();
+        // Handle the polling data
+        if (data) {
+          setJudgementData(data);
         }
+      } catch (error) {
+        console.error('Polling error:', error);
       }
-    };
+    }, 10000); // Poll every 10 seconds
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      eventSource.close();
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        console.log("Reconnecting to SSE...");
-        connectToSSE();
-      }, 5000); // Reconnect after 5 seconds
-    };
-
-    return eventSource;
+    return () => clearInterval(pollingInterval); // Clear interval on cleanup
   }, []);
+
+  const connectToSSE = useCallback(() => {
+    if (typeof EventSource !== 'undefined') {
+      const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
+
+      eventSource.onmessage = (event) => {
+        if (event.data) {
+          try {
+            const data: JudgementData | null = JSON.parse(event.data);
+            if (data === null) {
+              console.log("Initial connection established.");
+            } else {
+              console.log("Pending judges count increased:", data);
+
+              const initialScores = Object.values(data.Bouts).reduce(
+                (acc: Record<number, Record<string, boolean>>, bout: Bout) => {
+                  acc[bout.fighterId] = {
+                    contact: false,
+                    quality: false,
+                    control: false,
+                    afterBlow: false,
+                    opponentSelfCall: false,
+                  };
+                  return acc;
+                },
+                {} as Record<number, Record<string, boolean>>
+              );
+
+              setJudgementData(data);
+              setScores(initialScores);
+            }
+          } catch (error) {
+            console.error('Error parsing SSE data:', error);
+          }
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        eventSource.close();
+        // Switch to polling if SSE fails
+        pollForUpdates();
+      };
+
+      return eventSource;
+    } else {
+      // Fallback to polling if SSE is not supported
+      pollForUpdates();
+      return null;
+    }
+  }, [pollForUpdates]);
 
   useEffect(() => {
     const eventSource = connectToSSE();
 
     return () => {
-      eventSource.close();
+      if (eventSource) eventSource.close();
     };
   }, [connectToSSE]);
 
