@@ -20,14 +20,16 @@ const JudgementManager: React.FC = () => {
   const { ringNumber } = useParams<{ ringNumber: string }>();
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
+  const [isPolling, setIsPolling] = useState(false); // Track if we are using polling
   const maxRetries = 3; // Maximum number of SSE reconnection attempts
-  const retryDelay = 5000; // Delay between reconnection attempts (in milliseconds)
+  const retryDelay = 3000; // Delay between reconnection attempts (in milliseconds)
 
   // Polling fallback function
   const pollForUpdates = useCallback(() => {
+    setIsPolling(true); // Set polling mode to true
     const pollingInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${domain_uri}/pollJudgementUpdates.php`);
+        const response = await fetch(`${domain_uri}/requestJudgementPOLL.php`);
         const data = await response.json();
         // Handle the polling data
         if (data) {
@@ -36,7 +38,7 @@ const JudgementManager: React.FC = () => {
       } catch (error) {
         console.error('Polling error:', error);
       }
-    }, 10000); // Poll every 10 seconds
+    }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollingInterval); // Clear interval on cleanup
   }, []);
@@ -191,6 +193,7 @@ const JudgementManager: React.FC = () => {
         />
         <button className='judgement-submit' onClick={() => handleSubmit({})}>Submit Judgement</button>
         <button className='judgement-submit double' onClick={() => handleSubmit({ doubleHit: true })}>Double Hit</button>
+        {isPolling && <aside>fallback: polling</aside>} {/* Show aside only when polling */}
       </div>
     );
   }
