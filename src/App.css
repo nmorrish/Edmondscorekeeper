@@ -1,3 +1,9 @@
+/* Enforce dark mode styles globally */
+body {
+  background-color: #121212;
+  color: #ffffff;
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -12,7 +18,7 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em #888888aa); /* Adjust the color for better contrast in dark mode */
 }
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
@@ -35,19 +41,23 @@
 
 .card {
   padding: 2em;
+  background-color: #1e1e1e; /* Dark background for card */
+  border-radius: 8px;
+  color: #ffffff;
 }
 
 .read-the-docs {
-  color: #888;
+  color: #bbbbbb;
 }
 
 /*Styling for the tables*/
 .match-table {
   margin-bottom: 20px;
-  border: 1px solid #888;
+  border: 1px solid #555555;
   border-radius: 8px;
   overflow: hidden;
   padding: 16px;
+  background-color: #1e1e1e; /* Dark background for tables */
 }
 
 .match {
@@ -57,50 +67,51 @@
 
 .match th,
 .match td {
-  border: 1px solid #888;
+  border: 1px solid #555555;
   padding: 8px;
   text-align: center;
+  color: #ffffff; /* Light text color */
 }
 
 .Red {
-  background-color: #ff9a9a;
-  color:#690000;
+  background-color: #7f4f4f;
+  color: #ff9a9a;
 }
 
 .Blue {
-  background-color: #9abaff;
-  color:#050069;
+  background-color: #4f7f7f;
+  color: #9abaff;
 }
 
-div.Blue{
+div.Blue {
   margin-top: 20px;
 }
-
 
 h2 {
   margin-bottom: 12px;
   text-align: center;
   font-size: 18px;
+  color: #ffffff; /* Ensure heading text is light-colored */
 }
 
 /* Add a thicker border between the scores for each fighter */
 .match td + td:nth-of-type(4),
 .match th + th:nth-of-type(4) {
-  border-left: 3px solid #fff; /* Change border width and color as needed */
+  border-left: 3px solid #ffffff; /* Change border width and color as needed */
 }
 
 /* Style for the subtotal row */
 .subtotal-row td {
-  border-top: 3px solid #fff; /* Thicker border for subtotal */
+  border-top: 3px solid #ffffff; /* Thicker border for subtotal */
   font-weight: bold; /* Make subtotal bold for emphasis */
 }
 
-.App{
+.App {
   display: flex;
   justify-content: space-between;
 }
 
-.table-header{
+.table-header {
   display: flex;
   justify-content: space-between;
 }
@@ -116,6 +127,8 @@ h2 {
   width: 100%;
   padding: 10px;
   font-size: 18px;
+  background-color: #333333; /* Dark background for buttons */
+  color: #ffffff;
 }
 
 .Blue .scoreButton {
@@ -126,16 +139,18 @@ h2 {
   background-color: #690000;
 }
 
-.judgement-submit{
+.judgement-submit {
   padding: 15px;
   font-size: 20px;
   margin-top: 15px;
+  background-color: #333333; /* Dark background for submit button */
+  color: #ffffff;
 }
 
-.double{
-  background-color: firebrick;
+.double {
+  background-color: darkred;
 }
 
-.fighter-table{
+.fighter-table {
   display: flex;
 }

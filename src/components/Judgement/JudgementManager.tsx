@@ -20,6 +20,8 @@ const JudgementManager: React.FC = () => {
   const { ringNumber } = useParams<{ ringNumber: string }>();
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
+  const maxRetries = 3; // Maximum number of SSE reconnection attempts
+  const retryDelay = 5000; // Delay between reconnection attempts (in milliseconds)
 
   // Polling fallback function
   const pollForUpdates = useCallback(() => {
@@ -39,7 +41,7 @@ const JudgementManager: React.FC = () => {
     return () => clearInterval(pollingInterval); // Clear interval on cleanup
   }, []);
 
-  const connectToSSE = useCallback(() => {
+  const connectToSSE = useCallback((retriesLeft: number) => {
     if (typeof EventSource !== 'undefined') {
       const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
 
@@ -78,8 +80,13 @@ const JudgementManager: React.FC = () => {
       eventSource.onerror = (error) => {
         console.error('SSE connection error:', error);
         eventSource.close();
-        // Switch to polling if SSE fails
-        pollForUpdates();
+        if (retriesLeft > 0) {
+          console.log(`Retrying SSE connection... (${retriesLeft} retries left)`);
+          setTimeout(() => connectToSSE(retriesLeft - 1), retryDelay);
+        } else {
+          console.log('SSE failed after maximum retries. Switching to polling.');
+          pollForUpdates();
+        }
       };
 
       return eventSource;
@@ -91,7 +98,7 @@ const JudgementManager: React.FC = () => {
   }, [pollForUpdates]);
 
   useEffect(() => {
-    const eventSource = connectToSSE();
+    const eventSource = connectToSSE(maxRetries);
 
     return () => {
       if (eventSource) eventSource.close();
@@ -167,7 +174,7 @@ const JudgementManager: React.FC = () => {
 
     return (
       <div>
-        <p>Judgement Now Make!</p>
+        <h1>Judgement Now Make!</h1>
         <ScoreTable
           fighter={fighter1}
           opponent={fighter2}
