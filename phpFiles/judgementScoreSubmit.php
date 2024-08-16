@@ -21,8 +21,8 @@ try {
     // Loop through each bout and insert the score data into the Bout_Score table
     foreach ($data['Bouts'] as $bout) {
         $stmt = $db->prepare("
-            INSERT INTO Bout_Score (contact, target, control, afterBlow, doubleHit, opponentSelfCall, boutId) 
-            VALUES (:contact, :target, :control, :afterBlow, :doubleHit, :opponentSelfCall, :boutId)
+            INSERT INTO Bout_Score (contact, target, control, afterBlow, doubleHit, opponentSelfCall, boutId, judgeName) 
+            VALUES (:contact, :target, :control, :afterBlow, :doubleHit, :opponentSelfCall, :boutId, :judgeName)
         ");
         $stmt->bindParam(':contact', $bout['scores']['contact'], PDO::PARAM_BOOL);
         $stmt->bindParam(':target', $bout['scores']['quality'], PDO::PARAM_BOOL); // Assuming quality is mapped to target
@@ -30,6 +30,7 @@ try {
         $stmt->bindParam(':afterBlow', $bout['scores']['afterBlow'], PDO::PARAM_BOOL);
         $stmt->bindParam(':doubleHit', $bout['scores']['doubleHit'], PDO::PARAM_BOOL);
         $stmt->bindParam(':opponentSelfCall', $bout['scores']['opponentSelfCall'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':judgeName', $bout['scores']['judgeName'], PDO::PARAM_STR);
         $stmt->bindParam(':boutId', $bout['boutId'], PDO::PARAM_INT);
         $stmt->execute();
     }

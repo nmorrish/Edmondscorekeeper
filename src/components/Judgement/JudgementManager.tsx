@@ -3,6 +3,18 @@ import { useParams } from 'react-router-dom';
 import { domain_uri } from '../utility/contants';
 import ScoreTable from './ScoreTable';
 
+// Utility functions to manage cookies and session storage
+const getCookie = (name: string) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+};
+
+const setCookie = (name: string, value: string, days: number) => {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  document.cookie = `${name}=${value}; expires=${expires}; path=/`;
+};
+
 interface Bout {
   boutId: number;
   fighterColor: string;
@@ -21,8 +33,26 @@ const JudgementManager: React.FC = () => {
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
   const [isPolling, setIsPolling] = useState(false); // Track if we are using polling
+  const [judgeName, setJudgeName] = useState<string | null>(null); // Track the judge's name
+  const [nameInput, setNameInput] = useState(''); // Input state for the judge's name
   const maxRetries = 3; // Maximum number of SSE reconnection attempts
   const retryDelay = 3000; // Delay between reconnection attempts (in milliseconds)
+
+  // Check for existing judge name in cookies or session storage
+  useEffect(() => {
+    const storedJudgeName = getCookie('judgeName') || sessionStorage.getItem('judgeName');
+    if (storedJudgeName) {
+      setJudgeName(storedJudgeName);
+    }
+  }, []);
+
+  const handleNameSubmit = () => {
+    if (nameInput.trim()) {
+      setJudgeName(nameInput.trim());
+      setCookie('judgeName', nameInput.trim(), 2); // Store name in cookies for 2 days
+      sessionStorage.setItem('judgeName', nameInput.trim()); // Store name in session storage
+    }
+  };
 
   // Polling fallback function
   const pollForUpdates = useCallback(() => {
@@ -72,6 +102,7 @@ const JudgementManager: React.FC = () => {
 
               setJudgementData(data);
               setScores(initialScores);
+              retriesLeft = 3;
             }
           } catch (error) {
             console.error('Error parsing SSE data:', error);
@@ -118,7 +149,7 @@ const JudgementManager: React.FC = () => {
   };
 
   const handleSubmit = async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
-    if (judgementData) {
+    if (judgementData && judgeName) {
       const data = {
         matchId: judgementData.matchId,
         Bouts: Object.values(judgementData.Bouts).map((bout) => ({
@@ -132,6 +163,7 @@ const JudgementManager: React.FC = () => {
             afterBlow: action.fighterId === bout.fighterId && action.doubleHit === false ? true : false,
             opponentSelfCall: action.opponentId === bout.fighterId ? true : false,
             doubleHit: action.doubleHit || false,
+            judgeName: judgeName
           },
         })),
       };
@@ -155,6 +187,26 @@ const JudgementManager: React.FC = () => {
     }
   };
 
+  if (!judgeName) {
+    return (
+      <div>
+        <h1>Enter Your Name</h1>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          handleNameSubmit();
+        }}>
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+          />
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    );
+  }
+
   if (!ringNumber) {
     return (
       <div>
@@ -166,7 +218,7 @@ const JudgementManager: React.FC = () => {
     return (
       <div>
         <h1>Judgement Wait</h1>
-        {ringNumber && <p>You are judging ring {ringNumber}</p>}
+        {ringNumber && <p>You are judging ring {ringNumber} as {judgeName}</p>}
       </div>
     );
   } else {
