@@ -18,6 +18,7 @@ const setCookie = (name: string, value: string, days: number) => {
 interface JudgementData {
   matchId: number;
   matchRing: number;
+  boutId: number;
   fighter1Id: number;
   fighter1Name: string;
   fighter1Color: string;
@@ -87,14 +88,14 @@ const JudgementManager: React.FC = () => {
               const initialScores = {
                 [data.fighter1Id]: {
                   contact: false,
-                  quality: false,
+                  target: false,
                   control: false,
                   afterBlow: false,
                   opponentSelfCall: false,
                 },
                 [data.fighter2Id]: {
                   contact: false,
-                  quality: false,
+                  target: false,
                   control: false,
                   afterBlow: false,
                   opponentSelfCall: false,
@@ -153,10 +154,11 @@ const JudgementManager: React.FC = () => {
     if (judgementData && judgeName) {
       const data = {
         matchId: judgementData.matchId,
+        boutId: judgementData.boutId,
         scores: {
           [judgementData.fighter1Id]: {
             contact: scores[judgementData.fighter1Id]?.contact || false,
-            quality: scores[judgementData.fighter1Id]?.quality || false,
+            target: scores[judgementData.fighter1Id]?.target || false,
             control: scores[judgementData.fighter1Id]?.control || false,
             afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false ? true : false,
             opponentSelfCall: action.opponentId === judgementData.fighter1Id ? true : false,
@@ -165,7 +167,7 @@ const JudgementManager: React.FC = () => {
           },
           [judgementData.fighter2Id]: {
             contact: scores[judgementData.fighter2Id]?.contact || false,
-            quality: scores[judgementData.fighter2Id]?.quality || false,
+            target: scores[judgementData.fighter2Id]?.target || false,
             control: scores[judgementData.fighter2Id]?.control || false,
             afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false ? true : false,
             opponentSelfCall: action.opponentId === judgementData.fighter2Id ? true : false,
@@ -176,6 +178,8 @@ const JudgementManager: React.FC = () => {
       };
 
       try {
+        console.log("Submitting data:", data);
+
         const response = await fetch(`${domain_uri}/judgementScoreSubmit.php`, {
           method: 'POST',
           headers: {
@@ -193,6 +197,7 @@ const JudgementManager: React.FC = () => {
       }
     }
   };
+
 
   if (!judgeName) {
     return (
@@ -229,22 +234,34 @@ const JudgementManager: React.FC = () => {
       </div>
     );
   } else {
+    const fighter1 = {
+      fighterId: judgementData.fighter1Id,
+      fighterName: judgementData.fighter1Name,
+      fighterColor: judgementData.fighter1Color,
+    };
+
+    const fighter2 = {
+      fighterId: judgementData.fighter2Id,
+      fighterName: judgementData.fighter2Name,
+      fighterColor: judgementData.fighter2Color,
+    };
+
     return (
       <div>
         <h1>Judgement Now Make!</h1>
         <ScoreTable
-          fighter={{ fighterId: judgementData.fighter1Id, fighterName: judgementData.fighter1Name, fighterColor: judgementData.fighter1Color }}
-          opponent={{ fighterId: judgementData.fighter2Id, fighterName: judgementData.fighter2Name, fighterColor: judgementData.fighter2Color }}
-          scores={scores[judgementData.fighter1Id] || {}}
+          fighter={fighter1}
+          opponent={fighter2}
+          scores={scores[fighter1.fighterId] || {}}
           onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
         />
         <ScoreTable
-          fighter={{ fighterId: judgementData.fighter2Id, fighterName: judgementData.fighter2Name, fighterColor: judgementData.fighter2Color }}
-          opponent={{ fighterId: judgementData.fighter1Id, fighterName: judgementData.fighter1Name, fighterColor: judgementData.fighter1Color }}
-          scores={scores[judgementData.fighter2Id] || {}}
+          fighter={fighter2}
+          opponent={fighter1}
+          scores={scores[fighter2.fighterId] || {}}
           onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
         />
         <button className='judgement-submit' onClick={() => handleSubmit({})}>Submit Judgement</button>
         <button className='judgement-submit double' onClick={() => handleSubmit({ doubleHit: true })}>Double Hit</button>

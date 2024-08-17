@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 17, 2024 at 12:15 AM
+-- Generation Time: Aug 17, 2024 at 02:15 AM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
 -- PHP Version: 8.1.2-1ubuntu2.18
 
@@ -42,19 +42,15 @@ CREATE TABLE `Bouts` (
 DROP TABLE IF EXISTS `Bout_Score`;
 CREATE TABLE `Bout_Score` (
   `scoreId` int(11) NOT NULL,
+  `fighterId` int(11) NOT NULL,
   `judgeName` varchar(50) NOT NULL,
   `doubleHit` bit(1) NOT NULL,
   `boutId` int(11) DEFAULT NULL,
-  `contactFighter1` bit(1) DEFAULT b'0',
-  `targetFighter1` bit(1) DEFAULT b'0',
-  `controlFighter1` bit(1) DEFAULT b'0',
-  `afterBlowFighter1` bit(1) DEFAULT b'0',
-  `selfCallFighter1` bit(1) DEFAULT b'0',
-  `contactFighter2` bit(1) DEFAULT b'0',
-  `targetFighter2` bit(1) DEFAULT b'0',
-  `controlFighter2` bit(1) DEFAULT b'0',
-  `afterBlowFighter2` bit(1) DEFAULT b'0',
-  `selfCallFighter2` bit(1) DEFAULT b'0'
+  `contact` bit(1) DEFAULT b'0',
+  `target` bit(1) DEFAULT b'0',
+  `control` bit(1) DEFAULT b'0',
+  `afterBlow` bit(1) DEFAULT b'0',
+  `opponentSelfCall` bit(1) DEFAULT b'0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -103,7 +99,8 @@ ALTER TABLE `Bouts`
 --
 ALTER TABLE `Bout_Score`
   ADD PRIMARY KEY (`scoreId`),
-  ADD KEY `Bout_Score_ibfk` (`boutId`);
+  ADD KEY `Bout_Score_ibfk` (`boutId`),
+  ADD KEY `Bout_Score_bsf_1` (`fighterId`);
 
 --
 -- Indexes for table `Fighters`
@@ -163,6 +160,7 @@ ALTER TABLE `Bouts`
 -- Constraints for table `Bout_Score`
 --
 ALTER TABLE `Bout_Score`
+  ADD CONSTRAINT `Bout_Score_bsf_1` FOREIGN KEY (`fighterId`) REFERENCES `Fighters` (`fighterId`),
   ADD CONSTRAINT `Bout_Score_ibfk` FOREIGN KEY (`boutId`) REFERENCES `Bouts` (`boutId`);
 
 --

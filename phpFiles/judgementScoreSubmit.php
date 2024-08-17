@@ -1,5 +1,5 @@
 <?php
-//judgementSubmit.php
+// judgementSubmit.php
 require_once("connect.php");
 $db = connect();
 
@@ -18,32 +18,59 @@ try {
     // Begin transaction
     $db->beginTransaction();
 
-    // Loop through each bout and insert the score data into the Bout_Score table
-    foreach ($data['Bouts'] as $bout) {
-        $stmt = $db->prepare("
-            INSERT INTO Bout_Score (contact, target, control, afterBlow, doubleHit, opponentSelfCall, boutId, judgeName) 
-            VALUES (:contact, :target, :control, :afterBlow, :doubleHit, :opponentSelfCall, :boutId, :judgeName)
+    // Loop through each fighter's scores and insert the score data into the Bout_Score table
+    foreach ($data['scores'] as $fighterId => $scoreData) {
+        // Check if the judge has already submitted a score for this bout
+        $checkStmt = $db->prepare("
+            SELECT COUNT(*) FROM Bout_Score 
+            WHERE boutId = :boutId AND judgeName = :judgeName
         ");
-        $stmt->bindParam(':contact', $bout['scores']['contact'], PDO::PARAM_BOOL);
-        $stmt->bindParam(':target', $bout['scores']['quality'], PDO::PARAM_BOOL); // Assuming quality is mapped to target
-        $stmt->bindParam(':control', $bout['scores']['control'], PDO::PARAM_BOOL);
-        $stmt->bindParam(':afterBlow', $bout['scores']['afterBlow'], PDO::PARAM_BOOL);
-        $stmt->bindParam(':doubleHit', $bout['scores']['doubleHit'], PDO::PARAM_BOOL);
-        $stmt->bindParam(':opponentSelfCall', $bout['scores']['opponentSelfCall'], PDO::PARAM_BOOL);
-        $stmt->bindParam(':judgeName', $bout['scores']['judgeName'], PDO::PARAM_STR);
-        $stmt->bindParam(':boutId', $bout['boutId'], PDO::PARAM_INT);
+        $checkStmt->bindParam(':boutId', $data['boutId'], PDO::PARAM_INT);
+        $checkStmt->bindParam(':judgeName', $scoreData['judgeName'], PDO::PARAM_STR);
+        $checkStmt->execute();
+        $alreadySubmitted = $checkStmt->fetchColumn();
+
+        if ($alreadySubmitted > 0) {
+            // If the judge has already submitted a score for this bout, return an error
+            $response[] = [
+                'status' => 'error',
+                'message' => "Judge {$scoreData['judgeName']} has already submitted a score for bout {$data['boutId']}.",
+            ];
+            continue; // Skip this score and move to the next one
+        }
+
+        // Prepare the SQL statement
+        $stmt = $db->prepare("
+            INSERT INTO Bout_Score (contact, target, control, afterBlow, doubleHit, opponentSelfCall, boutId, judgeName, fighterId) 
+            VALUES (:contact, :target, :control, :afterBlow, :doubleHit, :opponentSelfCall, :boutId, :judgeName, :fighterId)
+        ");
+
+        // Bind the parameters
+        $stmt->bindParam(':contact', $scoreData['contact'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':target', $scoreData['target'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':control', $scoreData['control'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':afterBlow', $scoreData['afterBlow'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':doubleHit', $scoreData['doubleHit'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':opponentSelfCall', $scoreData['opponentSelfCall'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':judgeName', $scoreData['judgeName'], PDO::PARAM_STR);
+        $stmt->bindParam(':boutId', $data['boutId'], PDO::PARAM_INT);
+        $stmt->bindParam(':fighterId', $fighterId, PDO::PARAM_INT);
+
+        // Execute the statement
         $stmt->execute();
     }
 
     // Commit the transaction
     $db->commit();
 
-    // Prepare the response
-    $response = [
-        'status' => 'success',
-        'message' => 'Scores recorded successfully',
-        'data' => $data // Include the received data in the response
-    ];
+    // If no errors occurred, prepare the success response
+    if (empty($response)) {
+        $response = [
+            'status' => 'success',
+            'message' => 'Scores recorded successfully',
+            'data' => $data // Include the received data in the response
+        ];
+    }
 } catch (PDOException $e) {
     // Rollback the transaction if something failed
     $db->rollBack();

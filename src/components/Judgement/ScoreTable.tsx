@@ -43,9 +43,9 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, opponent, scores, onCh
                         <td>
                             <input
                                 type="checkbox"
-                                name={`quality-${fighter.fighterId}`}
-                                checked={scores.quality || false}
-                                onChange={() => onCheckboxChange(fighter.fighterId, 'quality')}
+                                name={`target-${fighter.fighterId}`}  // Changed from 'quality' to 'target'
+                                checked={scores.target || false}       // Changed from 'quality' to 'target'
+                                onChange={() => onCheckboxChange(fighter.fighterId, 'target')}  // Changed from 'quality' to 'target'
                             />
                         </td>
                         <td>

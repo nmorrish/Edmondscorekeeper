@@ -61,7 +61,7 @@ while (true) {
 
             // Check if the current lastJudgement timestamp is different from the last known timestamp
             if ($currentLastJudgement !== $lastJudgement) {
-                // Fetch detailed data for the updated match including boutId
+                // Fetch detailed data for the updated match including the highest boutId
                 $sql = "
                     SELECT 
                         m.matchId, 
@@ -78,6 +78,7 @@ while (true) {
                     LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
                     LEFT JOIN Bouts b ON m.matchId = b.matchId
                     WHERE m.matchId = :matchId
+                    AND b.boutId = (SELECT MAX(boutId) FROM Bouts WHERE matchId = :matchId)
                 ";
 
                 $stmtDetails = $db->prepare($sql);
@@ -94,7 +95,7 @@ while (true) {
                         'fighter2Id' => $row['fighter2Id'],
                         'fighter2Name' => $row['fighter2Name'],
                         'fighter2Color' => $row['fighter2Color'],
-                        'boutId' => $row['boutId']
+                        'boutId' => $row['boutId'] ?? null // Ensure boutId is correctly assigned even if null
                     ];
 
                     // Send the JSON data for the updated match
