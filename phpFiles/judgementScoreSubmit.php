@@ -20,7 +20,7 @@ try {
 
     // Loop through each fighter's scores and insert the score data into the Bout_Score table
     foreach ($data['scores'] as $fighterId => $scoreData) {
-        // Check if the judge has already submitted a score for this bout
+        // Check how many scores the judge has already submitted for this bout
         $checkStmt = $db->prepare("
             SELECT COUNT(*) FROM Bout_Score 
             WHERE boutId = :boutId AND judgeName = :judgeName
@@ -30,11 +30,11 @@ try {
         $checkStmt->execute();
         $alreadySubmitted = $checkStmt->fetchColumn();
 
-        if ($alreadySubmitted > 0) {
-            // If the judge has already submitted a score for this bout, return an error
+        if ($alreadySubmitted >= 2) {
+            // If the judge has already submitted two scores for this bout, return an error
             $response[] = [
                 'status' => 'error',
-                'message' => "Judge {$scoreData['judgeName']} has already submitted a score for bout {$data['boutId']}.",
+                'message' => "Judge {$scoreData['judgeName']} has already submitted two scores for bout {$data['boutId']}.",
             ];
             continue; // Skip this score and move to the next one
         }
