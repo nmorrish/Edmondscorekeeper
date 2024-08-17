@@ -4,7 +4,6 @@ header('Content-Type: application/json');
 $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
-// Simply echo back the JSON received for demonstration
 if ($data) {
     require_once("connect.php");
     $db = connect();
@@ -16,26 +15,20 @@ if ($data) {
     $colorFighter2 = $data['colorFighter2'];
     $ring = $data['ring'];
 
-    // Prepare and execute the query to insert the match
-    $stmt = $db->prepare("INSERT INTO Matches (matchRing,lastJudgement) VALUES (:ring,null)");
+    // Prepare and execute the query to insert the match with fighter details
+    $stmt = $db->prepare("
+        INSERT INTO Matches (matchRing, fighter1Id, fighter2Id, fighter1Color, fighter2Color, lastJudgement) 
+        VALUES (:ring, :fighter1Id, :fighter2Id, :fighter1Color, :fighter2Color, null)
+    ");
+
+    // Bind the parameters
     $stmt->bindParam(':ring', $ring, PDO::PARAM_INT);
-    $stmt->execute();
+    $stmt->bindParam(':fighter1Id', $fighter1Id, PDO::PARAM_INT);
+    $stmt->bindParam(':fighter2Id', $fighter2Id, PDO::PARAM_INT);
+    $stmt->bindParam(':fighter1Color', $colorFighter1, PDO::PARAM_STR);
+    $stmt->bindParam(':fighter2Color', $colorFighter2, PDO::PARAM_STR);
 
-    // Get the ID of the newly inserted match
-    $matchId = $db->lastInsertId();
-
-    $stmt = $db->prepare("INSERT INTO Bouts (matchId, fighterId, fighterColor) VALUES (:matchId, :fighterId, :fighterColor)");
-
-    // Insert fighter1
-    $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-    $stmt->bindParam(':fighterId', $fighter1Id, PDO::PARAM_INT);
-    $stmt->bindParam(':fighterColor', $colorFighter1, PDO::PARAM_STR);
-    $stmt->execute();
-
-    // Insert fighter2
-    $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-    $stmt->bindParam(':fighterId', $fighter2Id, PDO::PARAM_INT);
-    $stmt->bindParam(':fighterColor', $colorFighter2, PDO::PARAM_STR);
+    // Execute the statement
     $stmt->execute();
 
     echo json_encode(['status' => 'success', 'receivedData' => $data]);

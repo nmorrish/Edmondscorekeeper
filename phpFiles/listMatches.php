@@ -3,7 +3,6 @@
 require_once("connect.php");
 
 try {
-
     $db = connect();
 
     // Set the content type to application/json
@@ -14,23 +13,18 @@ try {
         SELECT 
             m.matchId, 
             m.matchRing, 
-            b.boutId,
-            b.fighterColor,
-            b.fighterId,
-            s.scoreId,
-            s.target,
-            s.contact,
-            s.control,
-            s.afterBlow,
-            s.opponentSelfCall,
-            s.doubleHit,
-            f.fighterName
+            m.fighter1Id, 
+            m.fighter2Id, 
+            m.fighter1Color,
+            m.fighter2Color,
+            m.lastJudgement,
+            f1.fighterName AS fighter1Name,
+            f2.fighterName AS fighter2Name
         FROM Matches m
-        LEFT JOIN Bouts b ON m.matchId = b.matchId
-        LEFT JOIN Bout_Score s ON b.boutId = s.boutId
-        LEFT JOIN Fighters f ON b.fighterId = f.fighterId
-        ORDER BY m.matchId, b.boutId, s.scoreId
-        ";
+        LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
+        LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
+        ORDER BY m.matchId
+    ";
 
     $stmt = $db->prepare($sql);
     $stmt->execute();
@@ -41,46 +35,35 @@ try {
     // Fetch the result set
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $matchId = (int)$row['matchId']; // Explicitly cast to integer
-        $boutId = (int)$row['boutId'];   // Explicitly cast to integer
 
-        // Initialize the match if not already present
-        if (!isset($matches[$matchId])) {
-            $matches[$matchId] = [
-                'matchId' => $matchId, // Explicitly integer
-                'matchRing' => (int)$row['matchRing'], // Explicitly integer
-                'Bouts' => []
-            ];
-        }
-
-        // Initialize the bout if not already present
-        if (!isset($matches[$matchId]['Bouts'][$boutId])) {
-            $matches[$matchId]['Bouts'][$boutId] = [
-                'boutId' => $boutId, // Explicitly integer
-                'fighterColor' => $row['fighterColor'],
-                'fighterId' => (int)$row['fighterId'], // Explicitly integer
-                'fighterName' => $row['fighterName'],
-                'Scores' => []
-            ];
-        }
-
-        // Add the score to the current bout
-        if (!is_null($row['scoreId'])) {
-            $matches[$matchId]['Bouts'][$boutId]['Scores'][] = [
-                // 'scoreId' => (int)$row['scoreId'], // Explicitly integer
-                // 'target' => ord($row['target']), 
-                // 'contact' => ord($row['contact']),
-                // 'control' => ord($row['control']),
-                // 'afterBlow' => ord($row['afterBlow']),
-                // 'doubleHit' => ord($row['doubleHit']),
-                // 'opponentSelfCall' => ord($row['opponentSelfCall'])
-                'target' => $row['target'], 
-                'contact' => $row['contact'],
-                'control' => $row['control'],
-                'afterBlow' => $row['afterBlow'],
-                'doubleHit' => $row['doubleHit'],
-                'opponentSelfCall' => $row['opponentSelfCall']
-            ];
-        }
+        // Initialize the match array
+        $matches[$matchId] = [
+            'matchId' => $matchId, // Explicitly integer
+            'matchRing' => (int)$row['matchRing'], // Explicitly integer
+            'fighter1Id' => (int)$row['fighter1Id'], // Explicitly integer
+            'fighter1Name' => $row['fighter1Name'],
+            'fighter1Color' => $row['fighter1Color'],
+            'fighter2Id' => (int)$row['fighter2Id'], // Explicitly integer
+            'fighter2Name' => $row['fighter2Name'],
+            'fighter2Color' => $row['fighter2Color'],
+            'lastJudgement' => $row['lastJudgement'],
+            'Bouts' => [
+                [
+                    'boutId' => null, // Placeholder for when Bouts are added
+                    'fighterColor' => $row['fighter1Color'],
+                    'fighterId' => (int)$row['fighter1Id'],
+                    'fighterName' => $row['fighter1Name'],
+                    'Scores' => [] // Placeholder for scores
+                ],
+                [
+                    'boutId' => null, // Placeholder for when Bouts are added
+                    'fighterColor' => $row['fighter2Color'],
+                    'fighterId' => (int)$row['fighter2Id'],
+                    'fighterName' => $row['fighter2Name'],
+                    'Scores' => [] // Placeholder for scores
+                ]
+            ]
+        ];
     }
 
     // Encode the matches array to JSON with pretty print

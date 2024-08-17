@@ -15,17 +15,15 @@ const setCookie = (name: string, value: string, days: number) => {
   document.cookie = `${name}=${value}; expires=${expires}; path=/`;
 };
 
-interface Bout {
-  boutId: number;
-  fighterColor: string;
-  fighterId: number;
-  fighterName: string;
-}
-
 interface JudgementData {
   matchId: number;
   matchRing: number;
-  Bouts: Record<number, Bout>;
+  fighter1Id: number;
+  fighter1Name: string;
+  fighter1Color: string;
+  fighter2Id: number;
+  fighter2Name: string;
+  fighter2Color: string;
 }
 
 const JudgementManager: React.FC = () => {
@@ -84,21 +82,24 @@ const JudgementManager: React.FC = () => {
             if (data === null) {
               console.log("Initial connection established.");
             } else {
-              console.log("Pending judges count increased:", data);
+              console.log("Received judgement request:", data);
 
-              const initialScores = Object.values(data.Bouts).reduce(
-                (acc: Record<number, Record<string, boolean>>, bout: Bout) => {
-                  acc[bout.fighterId] = {
-                    contact: false,
-                    quality: false,
-                    control: false,
-                    afterBlow: false,
-                    opponentSelfCall: false,
-                  };
-                  return acc;
+              const initialScores = {
+                [data.fighter1Id]: {
+                  contact: false,
+                  quality: false,
+                  control: false,
+                  afterBlow: false,
+                  opponentSelfCall: false,
                 },
-                {} as Record<number, Record<string, boolean>>
-              );
+                [data.fighter2Id]: {
+                  contact: false,
+                  quality: false,
+                  control: false,
+                  afterBlow: false,
+                  opponentSelfCall: false,
+                },
+              };
 
               setJudgementData(data);
               setScores(initialScores);
@@ -152,20 +153,26 @@ const JudgementManager: React.FC = () => {
     if (judgementData && judgeName) {
       const data = {
         matchId: judgementData.matchId,
-        Bouts: Object.values(judgementData.Bouts).map((bout) => ({
-          boutId: bout.boutId,
-          fighterColor: bout.fighterColor,
-          fighterId: bout.fighterId,
-          scores: {
-            contact: scores[bout.fighterId]?.contact || false,
-            quality: scores[bout.fighterId]?.quality || false,
-            control: scores[bout.fighterId]?.control || false,
-            afterBlow: action.fighterId === bout.fighterId && action.doubleHit === false ? true : false,
-            opponentSelfCall: action.opponentId === bout.fighterId ? true : false,
+        scores: {
+          [judgementData.fighter1Id]: {
+            contact: scores[judgementData.fighter1Id]?.contact || false,
+            quality: scores[judgementData.fighter1Id]?.quality || false,
+            control: scores[judgementData.fighter1Id]?.control || false,
+            afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false ? true : false,
+            opponentSelfCall: action.opponentId === judgementData.fighter1Id ? true : false,
             doubleHit: action.doubleHit || false,
-            judgeName: judgeName
+            judgeName: judgeName,
           },
-        })),
+          [judgementData.fighter2Id]: {
+            contact: scores[judgementData.fighter2Id]?.contact || false,
+            quality: scores[judgementData.fighter2Id]?.quality || false,
+            control: scores[judgementData.fighter2Id]?.control || false,
+            afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false ? true : false,
+            opponentSelfCall: action.opponentId === judgementData.fighter2Id ? true : false,
+            doubleHit: action.doubleHit || false,
+            judgeName: judgeName,
+          },
+        },
       };
 
       try {
@@ -222,26 +229,22 @@ const JudgementManager: React.FC = () => {
       </div>
     );
   } else {
-    const bouts = Object.values(judgementData.Bouts);
-    const fighter1 = bouts[0];
-    const fighter2 = bouts[1];
-
     return (
       <div>
         <h1>Judgement Now Make!</h1>
         <ScoreTable
-          fighter={fighter1}
-          opponent={fighter2}
-          scores={scores[fighter1.fighterId] || {}}
+          fighter={{ fighterId: judgementData.fighter1Id, fighterName: judgementData.fighter1Name, fighterColor: judgementData.fighter1Color }}
+          opponent={{ fighterId: judgementData.fighter2Id, fighterName: judgementData.fighter2Name, fighterColor: judgementData.fighter2Color }}
+          scores={scores[judgementData.fighter1Id] || {}}
           onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
+          onSubmit={handleSubmit}
         />
         <ScoreTable
-          fighter={fighter2}
-          opponent={fighter1}
-          scores={scores[fighter2.fighterId] || {}}
+          fighter={{ fighterId: judgementData.fighter2Id, fighterName: judgementData.fighter2Name, fighterColor: judgementData.fighter2Color }}
+          opponent={{ fighterId: judgementData.fighter1Id, fighterName: judgementData.fighter1Name, fighterColor: judgementData.fighter1Color }}
+          scores={scores[judgementData.fighter2Id] || {}}
           onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
+          onSubmit={handleSubmit}
         />
         <button className='judgement-submit' onClick={() => handleSubmit({})}>Submit Judgement</button>
         <button className='judgement-submit double' onClick={() => handleSubmit({ doubleHit: true })}>Double Hit</button>

@@ -3,13 +3,18 @@ import { domain_uri } from '../../utility/contants';
 
 interface TriggerJudgementProps {
   matchId: number;
+  refresh: boolean; 
 }
 
-const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId }) => {
+const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh }) => {
   // Handle button click
   const handleButtonClick = async () => {
     try {
-      const response = await fetch(`${ domain_uri }/receiveJudgementRequest.php`, {
+      const endpoint = refresh
+        ? `${domain_uri}/refreshJudgement.php`
+        : `${domain_uri}/receiveJudgementRequest.php`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -21,7 +26,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId }) => {
         throw new Error('Network response was not ok');
       }
 
-      console.log('Judgement triggered successfully.');
+      console.log(refresh ? 'Judgement refreshed successfully.' : 'Judgement triggered successfully.');
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error);
     }
@@ -30,7 +35,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId }) => {
   return (
     <div>
       <button onClick={handleButtonClick}>
-        Begin Judgement
+        {refresh ? 'Refresh Judgement' : 'Begin Judgement'}
       </button>
     </div>
   );

@@ -26,17 +26,18 @@ $lastUpdateTime = null;
 
 while (true) {
     try {
-        $stmt = $db->prepare("SELECT MAX(timestamp) AS lastUpdateTime FROM Bout_Score");
+        $stmt = $db->prepare("SELECT MAX(lastJudgement) AS lastUpdateTime FROM Matches");
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $currentUpdateTime = $result['lastUpdateTime'] ?? null;
 
+        // Check if there's an update since the last check
         if ($lastUpdateTime !== $currentUpdateTime && $currentUpdateTime !== null) {
+            // Fetch the matchId associated with the latest update
             $stmt = $db->prepare("
-                SELECT b.matchId 
-                FROM Bout_Score bs
-                JOIN Bouts b ON bs.boutId = b.boutId
-                WHERE bs.timestamp = :timestamp
+                SELECT m.matchId
+                FROM Matches m
+                WHERE m.lastJudgement = :timestamp
                 LIMIT 1
             ");
             $stmt->bindParam(':timestamp', $currentUpdateTime, PDO::PARAM_STR);
@@ -44,7 +45,7 @@ while (true) {
             $matchId = $stmt->fetchColumn();
 
             if ($matchId) {
-                sendSSEData(['status' => 'Bout_Score updated', 'matchId' => $matchId]);
+                sendSSEData(['status' => 'Match updated', 'matchId' => $matchId]);
                 $lastUpdateTime = $currentUpdateTime;
             } else {
                 sendSSEData(['status' => 'error', 'message' => 'No match found for the given timestamp']);

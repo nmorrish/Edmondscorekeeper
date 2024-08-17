@@ -28,44 +28,39 @@ try {
             SELECT 
                 m.matchId, 
                 m.matchRing, 
-                b.boutId,
-                b.fighterColor,
-                b.fighterId,
-                f.fighterName
+                m.fighter1Id,
+                m.fighter2Id,
+                m.fighter1Color,
+                m.fighter2Color,
+                f1.fighterName AS fighter1Name,
+                f2.fighterName AS fighter2Name
             FROM Matches m
-            LEFT JOIN Bouts b ON m.matchId = b.matchId
-            LEFT JOIN Fighters f ON b.fighterId = f.fighterId
+            LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
+            LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
             WHERE m.matchId = :matchId
-            ORDER BY b.boutId
         ";
 
         $stmtDetails = $db->prepare($sql);
         $stmtDetails->bindParam(':matchId', $matchId, PDO::PARAM_INT);
         $stmtDetails->execute();
 
-        $matchData = [
-            'matchId' => $matchId,
-            'matchRing' => '',
-            'Bouts' => []
-        ];
-
-        while ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
-            $boutId = $row['boutId'];
-
-            if (empty($matchData['matchRing'])) {
-                $matchData['matchRing'] = $row['matchRing'];
-            }
-
-            $matchData['Bouts'][$boutId] = [
-                'boutId' => $boutId,
-                'fighterColor' => $row['fighterColor'],
-                'fighterId' => $row['fighterId'],
-                'fighterName' => $row['fighterName'],
+        if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
+            $matchData = [
+                'matchId' => $row['matchId'],
+                'matchRing' => $row['matchRing'],
+                'fighter1Id' => $row['fighter1Id'],
+                'fighter1Name' => $row['fighter1Name'],
+                'fighter1Color' => $row['fighter1Color'],
+                'fighter2Id' => $row['fighter2Id'],
+                'fighter2Name' => $row['fighter2Name'],
+                'fighter2Color' => $row['fighter2Color'],
             ];
-        }
 
-        // Return the match data as JSON
-        echo json_encode($matchData);
+            // Return the match data as JSON
+            echo json_encode($matchData);
+        } else {
+            echo json_encode(['status' => 'no_update', 'message' => 'No updates found.']);
+        }
     } else {
         echo json_encode(['status' => 'no_update', 'message' => 'No updates found.']);
     }

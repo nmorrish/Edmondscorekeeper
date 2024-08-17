@@ -61,52 +61,48 @@ while (true) {
 
             // Check if the current lastJudgement timestamp is different from the last known timestamp
             if ($currentLastJudgement !== $lastJudgement) {
-                // Fetch detailed data for the updated match
+                // Fetch detailed data for the updated match including boutId
                 $sql = "
                     SELECT 
                         m.matchId, 
                         m.matchRing, 
-                        b.boutId,
-                        b.fighterColor,
-                        b.fighterId,
-                        f.fighterName
+                        m.fighter1Id,
+                        m.fighter2Id,
+                        m.fighter1Color,
+                        m.fighter2Color,
+                        f1.fighterName AS fighter1Name,
+                        f2.fighterName AS fighter2Name,
+                        b.boutId
                     FROM Matches m
+                    LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
+                    LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
                     LEFT JOIN Bouts b ON m.matchId = b.matchId
-                    LEFT JOIN Fighters f ON b.fighterId = f.fighterId
                     WHERE m.matchId = :matchId
-                    ORDER BY b.boutId
                 ";
 
                 $stmtDetails = $db->prepare($sql);
                 $stmtDetails->bindParam(':matchId', $matchId, PDO::PARAM_INT);
                 $stmtDetails->execute();
 
-                $matchData = [
-                    'matchId' => $matchId,
-                    'matchRing' => '',
-                    'Bouts' => []
-                ];
-
-                while ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
-                    $boutId = $row['boutId'];
-
-                    if (empty($matchData['matchRing'])) {
-                        $matchData['matchRing'] = $row['matchRing'];
-                    }
-
-                    $matchData['Bouts'][$boutId] = [
-                        'boutId' => $boutId,
-                        'fighterColor' => $row['fighterColor'],
-                        'fighterId' => $row['fighterId'],
-                        'fighterName' => $row['fighterName'],
+                if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
+                    $matchData = [
+                        'matchId' => $row['matchId'],
+                        'matchRing' => $row['matchRing'],
+                        'fighter1Id' => $row['fighter1Id'],
+                        'fighter1Name' => $row['fighter1Name'],
+                        'fighter1Color' => $row['fighter1Color'],
+                        'fighter2Id' => $row['fighter2Id'],
+                        'fighter2Name' => $row['fighter2Name'],
+                        'fighter2Color' => $row['fighter2Color'],
+                        'boutId' => $row['boutId']
                     ];
+
+                    // Send the JSON data for the updated match
+                    sendSSEData($matchData);
+
+                    // Update the last known lastJudgement timestamp
+                    $lastJudgement = $currentLastJudgement;
                 }
-
-                // Send the JSON data for the updated match
-                sendSSEData($matchData);
-
-                // Update the last known lastJudgement timestamp
-                $lastJudgement = $currentLastJudgement;
             }
         }
     } catch (PDOException $e) {

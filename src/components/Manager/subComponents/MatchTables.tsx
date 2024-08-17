@@ -134,7 +134,8 @@ const MatchTables: React.FC = () => {
                   <ScoreDisplayComponent fighter={fighter1} />
                   <ScoreDisplayComponent fighter={fighter2} />
                 </div>
-                <TriggerJudgement matchId={match.matchId} />
+                <TriggerJudgement matchId={match.matchId} refresh={false} />
+                <TriggerJudgement matchId={match.matchId} refresh={true} />
               </>
             )}
           </div>

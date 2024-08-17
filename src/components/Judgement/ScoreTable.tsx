@@ -1,15 +1,14 @@
 import React from 'react';
 
-interface Bout {
-    boutId: number;
-    fighterColor: string;
+interface Fighter {
     fighterId: number;
     fighterName: string;
+    fighterColor: string;
 }
 
 interface ScoreTableProps {
-    fighter: Bout;
-    opponent: Bout;
+    fighter: Fighter;
+    opponent: Fighter;
     scores: Record<string, boolean>;
     onCheckboxChange: (fighterId: number, criteria: string) => void;
     onSubmit: (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => void;
