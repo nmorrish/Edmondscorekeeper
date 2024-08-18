@@ -92,12 +92,12 @@ try {
             foreach ($matches[$matchId]['Bouts'] as &$bout) {
                 if ($bout['fighterId'] === (int)$row['scoreFighterId']) {
                     $bout['Scores'][] = [
-                        'contact' => (int)$row['contact'],
-                        'target' => (int)$row['target'],
-                        'control' => (int)$row['control'],
-                        'afterBlow' => (int)$row['afterBlow'],
-                        'doubleHit' => (int)$row['doubleHit'],
-                        'opponentSelfCall' => (int)$row['opponentSelfCall'],
+                        'contact' => ord($row['contact']),
+                        'target' => ord($row['target']),
+                        'control' => ord($row['control']),
+                        'afterBlow' => ord($row['afterBlow']),
+                        'doubleHit' => ord($row['doubleHit']),
+                        'opponentSelfCall' => ord($row['opponentSelfCall']),
                         'judgeName' => $row['judgeName']
                     ];
                 }

@@ -5,6 +5,7 @@ $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
 if ($data) {
+    
     require_once("connect.php");
     $db = connect();
 
@@ -15,10 +16,10 @@ if ($data) {
     $colorFighter2 = $data['colorFighter2'];
     $ring = $data['ring'];
 
-    // Prepare and execute the query to insert the match with fighter details
+    // Prepare and execute the query to insert the match with fighter details and update lastJudgement to the current timestamp
     $stmt = $db->prepare("
         INSERT INTO Matches (matchRing, fighter1Id, fighter2Id, fighter1Color, fighter2Color, lastJudgement) 
-        VALUES (:ring, :fighter1Id, :fighter2Id, :fighter1Color, :fighter2Color, null)
+        VALUES (:ring, :fighter1Id, :fighter2Id, :fighter1Color, :fighter2Color, CURRENT_TIMESTAMP)
     ");
 
     // Bind the parameters
