@@ -33,6 +33,16 @@ const MatchTables: React.FC = () => {
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const { refreshKey } = useRefresh();
 
+  const fetchMatches = useCallback(async () => {
+    try {
+      const response = await fetch(`${domain_uri}/listMatches.php`);
+      const data: Match[] = await response.json();
+      setMatches(data); // Update the state with new data
+    } catch (error) {
+      console.error("Error fetching matches:", error);
+    }
+  }, []);
+
   const connectToSSE = useCallback(() => {
     const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
 
@@ -44,8 +54,8 @@ const MatchTables: React.FC = () => {
             console.log("Initial connection established.");
           } else {
             console.log("Bout_Score update detected:", data);
-            if (data.status === "Bout_Score updated") {
-              fetchMatches();
+            if (data.status === "Match updated") {
+              fetchMatches(); // Fetch the updated matches
             }
           }
         } catch (error) {
@@ -65,7 +75,7 @@ const MatchTables: React.FC = () => {
     };
 
     return eventSource;
-  }, []);
+  }, [fetchMatches]);
 
   useEffect(() => {
     // Connect to SSE when the component mounts
@@ -83,18 +93,8 @@ const MatchTables: React.FC = () => {
       setVisibleMatches(JSON.parse(storedVisibility));
     }
 
-    fetchMatches();
-  }, [refreshKey]);
-
-  const fetchMatches = async () => {
-    try {
-      const response = await fetch(`${domain_uri}/listMatches.php`);
-      const data: Match[] = await response.json();
-      setMatches(data);
-    } catch (error) {
-      console.error("Error fetching matches:", error);
-    }
-  };
+    fetchMatches(); // Trigger data fetch on component mount
+  }, [refreshKey, fetchMatches]);
 
   useEffect(() => {
     localStorage.setItem("visibleMatches", JSON.stringify(visibleMatches));

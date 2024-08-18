@@ -39,7 +39,7 @@ try {
             continue; // Skip this score and move to the next one
         }
 
-        // Prepare the SQL statement
+        // Prepare the SQL statement to insert the score
         $stmt = $db->prepare("
             INSERT INTO Bout_Score (contact, target, control, afterBlow, doubleHit, opponentSelfCall, boutId, judgeName, fighterId) 
             VALUES (:contact, :target, :control, :afterBlow, :doubleHit, :opponentSelfCall, :boutId, :judgeName, :fighterId)
@@ -59,6 +59,15 @@ try {
         // Execute the statement
         $stmt->execute();
     }
+
+    // Update the lastJudgement timestamp in the Bouts table
+    $updateStmt = $db->prepare("
+        UPDATE Bouts 
+        SET lastJudgement = CURRENT_TIMESTAMP 
+        WHERE boutId = :boutId
+    ");
+    $updateStmt->bindParam(':boutId', $data['boutId'], PDO::PARAM_INT);
+    $updateStmt->execute();
 
     // Commit the transaction
     $db->commit();

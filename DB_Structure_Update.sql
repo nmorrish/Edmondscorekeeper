@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 17, 2024 at 02:57 AM
+-- Generation Time: Aug 18, 2024 at 12:32 AM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
 -- PHP Version: 8.1.2-1ubuntu2.18
 
@@ -30,7 +30,8 @@ SET time_zone = "+00:00";
 DROP TABLE IF EXISTS `Bouts`;
 CREATE TABLE `Bouts` (
   `boutId` int(11) NOT NULL,
-  `matchId` int(11) DEFAULT NULL
+  `matchId` int(11) DEFAULT NULL,
+  `lastJudgement` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
