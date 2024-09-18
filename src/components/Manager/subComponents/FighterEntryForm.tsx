@@ -1,5 +1,4 @@
-// FighterEntryForm.tsx
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import FormInputComponent from "./FormInputComponent";
 import { domain_uri } from "../../utility/contants";
 
@@ -12,21 +11,26 @@ interface FighterData {
 }
 
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) => {
-  const addFightersUrl = `${ domain_uri }/addFighters.php`;
+  const addFightersUrl = `${domain_uri}/addFighters.php`;
   const [fighters, setFighters] = useState<FighterData[]>([{ name: "" }]);
 
-  const handleChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-    setFighters((prevFighters) => {
-      const newFighters = [...prevFighters];
-      newFighters[index].name = value;
-      return newFighters;
-    });
-  };
+  // Memoized handleChange function
+  const handleChange = useCallback(
+    (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { value } = event.target;
+      setFighters((prevFighters) => {
+        const newFighters = [...prevFighters];
+        newFighters[index].name = value;
+        return newFighters;
+      });
+    },
+    []
+  );
 
-  const handleAddFighter = () => {
+  // Memoized handleAddFighter function
+  const handleAddFighter = useCallback(() => {
     setFighters((prevFighters) => [...prevFighters, { name: "" }]);
-  };
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,9 +43,6 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) 
       });
 
       if (response.ok) {
-        // const result = await response.json();
-        // console.log("Submission result:", result);
-
         // Reset the form fields to the initial state
         setFighters([{ name: "" }]);
 

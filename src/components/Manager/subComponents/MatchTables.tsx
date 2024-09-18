@@ -29,15 +29,23 @@ interface Match {
 }
 
 const MatchTables: React.FC = () => {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]); // Initialize as an empty array
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const { refreshKey } = useRefresh();
 
   const fetchMatches = useCallback(async () => {
     try {
       const response = await fetch(`${domain_uri}/listMatches.php`);
-      const data: Match[] = await response.json();
-      setMatches(data); // Update the state with new data
+      const data = await response.json();
+      console.log("Fetched data:", data); // Check the structure of the data
+
+      // Ensure that data is an array before setting it to the state
+      if (Array.isArray(data)) {
+        setMatches(data);
+      } else {
+        console.error("Unexpected data format, expected an array:", data);
+        setMatches([]); // Set to an empty array in case of unexpected data
+      }
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
@@ -109,38 +117,42 @@ const MatchTables: React.FC = () => {
 
   return (
     <div>
-      {matches.map((match) => {
-        const boutEntries = Object.values(match.Bouts);
-        if (boutEntries.length < 2) return null;
+      {Array.isArray(matches) && matches.length > 0 ? (
+        matches.map((match) => {
+          const boutEntries = Object.values(match.Bouts);
+          if (boutEntries.length < 2) return null;
 
-        const [fighter1, fighter2] = boutEntries;
+          const [fighter1, fighter2] = boutEntries;
 
-        return (
-          <div key={match.matchId} className="match-table">
-            <input type="hidden" value={match.matchId} />
+          return (
+            <div key={match.matchId} className="match-table">
+              <input type="hidden" value={match.matchId} />
 
-            <div className="table-header">
-              <h2>
-                {fighter1.fighterName} vs. {fighter2.fighterName}
-              </h2>
-              <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>
-                {visibleMatches[match.matchId] ? "Close" : "Open"}
-              </button>
+              <div className="table-header">
+                <h2>
+                  {fighter1.fighterName} vs. {fighter2.fighterName}
+                </h2>
+                <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>
+                  {visibleMatches[match.matchId] ? "Close" : "Open"}
+                </button>
+              </div>
+
+              {visibleMatches[match.matchId] && (
+                <>
+                  <div className="fighter-table">
+                    <ScoreDisplayComponent fighter={fighter1} />
+                    <ScoreDisplayComponent fighter={fighter2} />
+                  </div>
+                  <TriggerJudgement matchId={match.matchId} refresh={false} />
+                  <TriggerJudgement matchId={match.matchId} refresh={true} />
+                </>
+              )}
             </div>
-
-            {visibleMatches[match.matchId] && (
-              <>
-                <div className="fighter-table">
-                  <ScoreDisplayComponent fighter={fighter1} />
-                  <ScoreDisplayComponent fighter={fighter2} />
-                </div>
-                <TriggerJudgement matchId={match.matchId} refresh={false} />
-                <TriggerJudgement matchId={match.matchId} refresh={true} />
-              </>
-            )}
-          </div>
-        );
-      })}
+          );
+        })
+      ) : (
+        <div>No matches available.</div> // Optional: handle the case when matches is empty or not loaded
+      )}
     </div>
   );
 };

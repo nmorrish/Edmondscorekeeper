@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { domain_uri } from '../utility/contants';
 import ScoreTable from './ScoreTable';
@@ -45,13 +45,14 @@ const JudgementManager: React.FC = () => {
     }
   }, []);
 
-  const handleNameSubmit = () => {
+  const handleNameSubmit = useCallback(() => {
     if (nameInput.trim()) {
-      setJudgeName(nameInput.trim());
-      setCookie('judgeName', nameInput.trim(), 2); // Store name in cookies for 2 days
-      sessionStorage.setItem('judgeName', nameInput.trim()); // Store name in session storage
+      const trimmedName = nameInput.trim();
+      setJudgeName(trimmedName);
+      setCookie('judgeName', trimmedName, 2); // Store name in cookies for 2 days
+      sessionStorage.setItem('judgeName', trimmedName); // Store name in session storage
     }
-  };
+  }, [nameInput]);
 
   // Polling fallback function
   const pollForUpdates = useCallback(() => {
@@ -72,65 +73,68 @@ const JudgementManager: React.FC = () => {
     return () => clearInterval(pollingInterval); // Clear interval on cleanup
   }, []);
 
-  const connectToSSE = useCallback((retriesLeft: number) => {
-    if (typeof EventSource !== 'undefined') {
-      const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
+  const connectToSSE = useCallback(
+    (retriesLeft: number) => {
+      if (typeof EventSource !== 'undefined') {
+        const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
 
-      eventSource.onmessage = (event) => {
-        if (event.data) {
-          try {
-            const data: JudgementData | null = JSON.parse(event.data);
-            if (data === null) {
-              console.log("Initial connection established.");
-            } else {
-              console.log("Received judgement request:", data);
+        eventSource.onmessage = (event) => {
+          if (event.data) {
+            try {
+              const data: JudgementData | null = JSON.parse(event.data);
+              if (data === null) {
+                console.log('Initial connection established.');
+              } else {
+                console.log('Received judgement request:', data);
 
-              const initialScores = {
-                [data.fighter1Id]: {
-                  contact: false,
-                  target: false,
-                  control: false,
-                  afterBlow: false,
-                  opponentSelfCall: false,
-                },
-                [data.fighter2Id]: {
-                  contact: false,
-                  target: false,
-                  control: false,
-                  afterBlow: false,
-                  opponentSelfCall: false,
-                },
-              };
+                const initialScores = {
+                  [data.fighter1Id]: {
+                    contact: false,
+                    target: false,
+                    control: false,
+                    afterBlow: false,
+                    opponentSelfCall: false,
+                  },
+                  [data.fighter2Id]: {
+                    contact: false,
+                    target: false,
+                    control: false,
+                    afterBlow: false,
+                    opponentSelfCall: false,
+                  },
+                };
 
-              setJudgementData(data);
-              setScores(initialScores);
-              retriesLeft = 3;
+                setJudgementData(data);
+                setScores(initialScores);
+                retriesLeft = 3;
+              }
+            } catch (error) {
+              console.error('Error parsing SSE data:', error);
             }
-          } catch (error) {
-            console.error('Error parsing SSE data:', error);
           }
-        }
-      };
+        };
 
-      eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
-        eventSource.close();
-        if (retriesLeft > 0) {
-          console.log(`Retrying SSE connection... (${retriesLeft} retries left)`);
-          setTimeout(() => connectToSSE(retriesLeft - 1), retryDelay);
-        } else {
-          console.log('SSE failed after maximum retries. Switching to polling.');
-          pollForUpdates();
-        }
-      };
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error:', error);
+          eventSource.close();
+          if (retriesLeft > 0) {
+            console.log(`Retrying SSE connection... (${retriesLeft} retries left)`);
+            setTimeout(() => connectToSSE(retriesLeft - 1), retryDelay);
+          } else {
+            console.log('SSE failed after maximum retries. Switching to polling.');
+            pollForUpdates();
+          }
+        };
 
-      return eventSource;
-    } else {
-      // Fallback to polling if SSE is not supported
-      pollForUpdates();
-      return null;
-    }
-  }, [pollForUpdates]);
+        return eventSource;
+      } else {
+        // Fallback to polling if SSE is not supported
+        pollForUpdates();
+        return null;
+      }
+    },
+    [pollForUpdates]
+  );
 
   useEffect(() => {
     const eventSource = connectToSSE(maxRetries);
@@ -140,7 +144,7 @@ const JudgementManager: React.FC = () => {
     };
   }, [connectToSSE]);
 
-  const handleCheckboxChange = (fighterId: number, criteria: string) => {
+  const handleCheckboxChange = useCallback((fighterId: number, criteria: string) => {
     setScores((prevScores) => ({
       ...prevScores,
       [fighterId]: {
@@ -148,65 +152,94 @@ const JudgementManager: React.FC = () => {
         [criteria]: !prevScores[fighterId]?.[criteria],
       },
     }));
-  };
+  }, []);
 
-  const handleSubmit = async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
-    if (judgementData && judgeName) {
-      const data = {
-        matchId: judgementData.matchId,
-        boutId: judgementData.boutId,
-        scores: {
-          [judgementData.fighter1Id]: {
-            contact: scores[judgementData.fighter1Id]?.contact || false,
-            target: scores[judgementData.fighter1Id]?.target || false,
-            control: scores[judgementData.fighter1Id]?.control || false,
-            afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false ? true : false,
-            opponentSelfCall: action.opponentId === judgementData.fighter1Id ? true : false,
-            doubleHit: action.doubleHit || false,
-            judgeName: judgeName,
+  const handleSubmit = useCallback(
+    async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
+      if (judgementData && judgeName) {
+        const data = {
+          matchId: judgementData.matchId,
+          boutId: judgementData.boutId,
+          scores: {
+            [judgementData.fighter1Id]: {
+              contact: scores[judgementData.fighter1Id]?.contact || false,
+              target: scores[judgementData.fighter1Id]?.target || false,
+              control: scores[judgementData.fighter1Id]?.control || false,
+              afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false ? true : false,
+              opponentSelfCall: action.opponentId === judgementData.fighter1Id ? true : false,
+              doubleHit: action.doubleHit || false,
+              judgeName: judgeName,
+            },
+            [judgementData.fighter2Id]: {
+              contact: scores[judgementData.fighter2Id]?.contact || false,
+              target: scores[judgementData.fighter2Id]?.target || false,
+              control: scores[judgementData.fighter2Id]?.control || false,
+              afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false ? true : false,
+              opponentSelfCall: action.opponentId === judgementData.fighter2Id ? true : false,
+              doubleHit: action.doubleHit || false,
+              judgeName: judgeName,
+            },
           },
-          [judgementData.fighter2Id]: {
-            contact: scores[judgementData.fighter2Id]?.contact || false,
-            target: scores[judgementData.fighter2Id]?.target || false,
-            control: scores[judgementData.fighter2Id]?.control || false,
-            afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false ? true : false,
-            opponentSelfCall: action.opponentId === judgementData.fighter2Id ? true : false,
-            doubleHit: action.doubleHit || false,
-            judgeName: judgeName,
-          },
-        },
-      };
+        };
 
-      try {
-        console.log("Submitting data:", data);
+        try {
+          console.log('Submitting data:', data);
 
-        const response = await fetch(`${domain_uri}/judgementScoreSubmit.php`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
+          const response = await fetch(`${domain_uri}/judgementScoreSubmit.php`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+          });
 
-        const result = await response.json();
-        console.log("Judgement submitted:", result);
-        setJudgementData(null);
-        setScores({}); // Reset scores after submission
-      } catch (error) {
-        console.error('Error submitting judgement:', error);
+          const result = await response.json();
+          console.log('Judgement submitted:', result);
+          setJudgementData(null);
+          setScores({}); // Reset scores after submission
+        } catch (error) {
+          console.error('Error submitting judgement:', error);
+        }
       }
-    }
-  };
+    },
+    [judgementData, scores, judgeName]
+  );
 
+  // Move fighter1 and fighter2 outside of the conditional rendering block
+  const fighter1 = useMemo(
+    () =>
+      judgementData
+        ? {
+            fighterId: judgementData.fighter1Id,
+            fighterName: judgementData.fighter1Name,
+            fighterColor: judgementData.fighter1Color,
+          }
+        : null,
+    [judgementData]
+  );
+
+  const fighter2 = useMemo(
+    () =>
+      judgementData
+        ? {
+            fighterId: judgementData.fighter2Id,
+            fighterName: judgementData.fighter2Name,
+            fighterColor: judgementData.fighter2Color,
+          }
+        : null,
+    [judgementData]
+  );
 
   if (!judgeName) {
     return (
       <div>
         <h1>Enter Your Name</h1>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          handleNameSubmit();
-        }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleNameSubmit();
+          }}
+        >
           <input
             type="text"
             placeholder="Enter your name"
@@ -234,37 +267,33 @@ const JudgementManager: React.FC = () => {
       </div>
     );
   } else {
-    const fighter1 = {
-      fighterId: judgementData.fighter1Id,
-      fighterName: judgementData.fighter1Name,
-      fighterColor: judgementData.fighter1Color,
-    };
-
-    const fighter2 = {
-      fighterId: judgementData.fighter2Id,
-      fighterName: judgementData.fighter2Name,
-      fighterColor: judgementData.fighter2Color,
-    };
-
     return (
       <div>
         <h1>Judgement Now Make!</h1>
-        <ScoreTable
-          fighter={fighter1}
-          opponent={fighter2}
-          scores={scores[fighter1.fighterId] || {}}
-          onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
-        />
-        <ScoreTable
-          fighter={fighter2}
-          opponent={fighter1}
-          scores={scores[fighter2.fighterId] || {}}
-          onCheckboxChange={handleCheckboxChange}
-          onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
-        />
-        <button className='judgement-submit' onClick={() => handleSubmit({})}>Submit Judgement</button>
-        <button className='judgement-submit double' onClick={() => handleSubmit({ doubleHit: true })}>Double Hit</button>
+        {fighter1 && fighter2 && (
+          <>
+            <ScoreTable
+              fighter={fighter1}
+              opponent={fighter2}
+              scores={scores[fighter1.fighterId] || {}}
+              onCheckboxChange={handleCheckboxChange}
+              onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
+            />
+            <ScoreTable
+              fighter={fighter2}
+              opponent={fighter1}
+              scores={scores[fighter2.fighterId] || {}}
+              onCheckboxChange={handleCheckboxChange}
+              onSubmit={handleSubmit} // Pass handleSubmit to ScoreTable
+            />
+          </>
+        )}
+        <button className="judgement-submit" onClick={() => handleSubmit({})}>
+          Submit Judgement
+        </button>
+        <button className="judgement-submit double" onClick={() => handleSubmit({ doubleHit: true })}>
+          Double Hit
+        </button>
         {isPolling && <aside>fallback: polling</aside>} {/* Show aside only when polling */}
       </div>
     );

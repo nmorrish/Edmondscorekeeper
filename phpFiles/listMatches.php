@@ -97,8 +97,14 @@ try {
                         'control' => ord($row['control']),
                         'afterBlow' => ord($row['afterBlow']),
                         'doubleHit' => ord($row['doubleHit']),
-                        'opponentSelfCall' => ord($row['opponentSelfCall']),
-                        'judgeName' => $row['judgeName']
+                        //comment above and uncomment the following when using localhost:
+                        // 'contact' => $row['contact'],
+                        // 'target' => $row['target'],
+                        // 'control' => $row['control'],
+                        // 'afterBlow' => $row['afterBlow'],
+                        // 'doubleHit' => $row['doubleHit'],
+                        // 'opponentSelfCall' => $row['opponentSelfCall'],
+                        // 'judgeName' => $row['judgeName']
                     ];
                 }
             }

@@ -1,5 +1,5 @@
 // src/components/FighterManagementPage.tsx
-import React, { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import FighterEntryForm from "./subComponents/FighterEntryForm";
 import FighterList from "./subComponents/FighterList";
 import MatchFighters from "./subComponents/MatchFighters";
@@ -7,17 +7,18 @@ import MatchTables from "./subComponents/MatchTables";
 import { RefreshProvider } from "../utility/RefreshContext";
 import useFighterData from "./subComponents/useFighterData";
 
+// Memoizing FighterList and MatchFighters to prevent unnecessary re-renders
+const MemoizedFighterList = memo(FighterList);
+const MemoizedMatchFighters = memo(MatchFighters);
+
 const FighterManagement: React.FC = () => {
   const [activeSidebarComponent, setActiveSidebarComponent] = useState<string | null>(null);
-  const { fighters, fetchFighterData } = useFighterData();
+  const { fighters = [], fetchFighterData } = useFighterData();
 
-  const toggleSidebar = (componentName: string) => {
-    if (activeSidebarComponent === componentName) {
-      setActiveSidebarComponent(null);
-    } else {
-      setActiveSidebarComponent(componentName);
-    }
-  };
+  // Memoize the toggleSidebar function to avoid re-creating it on every render
+  const toggleSidebar = useCallback((componentName: string) => {
+    setActiveSidebarComponent(prev => (prev === componentName ? null : componentName));
+  }, []);
 
   return (
     <RefreshProvider>
@@ -37,10 +38,10 @@ const FighterManagement: React.FC = () => {
           )}
           {activeSidebarComponent === "MatchFighters" && (
             <div className="sidebar">
-              <MatchFighters fighters={fighters} />
+              <MemoizedMatchFighters fighters={fighters} />
             </div>
           )}
-          <FighterList fighters={fighters} />
+          <MemoizedFighterList fighters={fighters} />
         </header>
         <main>
           <MatchTables />

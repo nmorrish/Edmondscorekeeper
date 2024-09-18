@@ -1,5 +1,4 @@
-// FighterList.tsx
-import React from "react";
+import React, { memo } from "react";
 
 interface Fighter {
   fighterId: number;
@@ -41,4 +40,5 @@ const FighterList: React.FC<FighterListProps> = ({ fighters }) => {
   );
 };
 
-export default FighterList;
+// Memoize the FighterList component to avoid unnecessary re-renders
+export default memo(FighterList);

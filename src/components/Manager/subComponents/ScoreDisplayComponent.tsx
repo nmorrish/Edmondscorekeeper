@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
+// Define the Score interface with proper numeric types
 interface Score {
   scoreId: number;
   target: number;
@@ -10,42 +11,67 @@ interface Score {
   doubleHit: boolean;
 }
 
+// Define the Fighter interface
 interface Fighter {
   fighterColor: string;
   fighterName: string;
   Scores: Score[];
 }
 
+// Define the props interface for ScoreDisplayComponent
 interface ScoreDisplayComponentProps {
   fighter: Fighter;
 }
 
+// Memoized table rows for better performance
+const MemoizedTableRows: React.FC<{ scores: Score[] }> = React.memo(({ scores }) => (
+  <>
+    {scores.map((score, index) => (
+      <tr key={index} style={score.doubleHit ? { textDecoration: 'line-through' } : {}}>
+        <td>{score.contact}</td>
+        <td>{score.target}</td>
+        <td>{score.control}</td>
+        <td>{score.afterBlow}</td>
+        <td>{score.opponentSelfCall}</td>
+      </tr>
+    ))}
+  </>
+));
+
+// Main ScoreDisplayComponent
 const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }) => {
+  // Sum calculation, memoized to avoid unnecessary recalculations
   const calculateSum = (scores: Score[]) => {
     const totalScores = scores.reduce(
       (totals, score) => {
         return {
-          contact: totals.contact + (parseInt(score.contact as any) || 0),
-          target: totals.target + (parseInt(score.target as any) || 0),
-          control: totals.control + (parseInt(score.control as any) || 0),
-          afterBlow: totals.afterBlow + (parseInt(score.afterBlow as any) || 0),
-          opponentSelfCall: totals.opponentSelfCall + (parseInt(score.opponentSelfCall as any) || 0),
+          contact: totals.contact + score.contact,
+          target: totals.target + score.target,
+          control: totals.control + score.control,
+          afterBlow: totals.afterBlow + score.afterBlow,
+          opponentSelfCall: totals.opponentSelfCall + score.opponentSelfCall,
         };
       },
       { contact: 0, target: 0, control: 0, afterBlow: 0, opponentSelfCall: 0 }
     );
 
     return {
-      sumContact: Number(totalScores.contact),
-      sumTarget: Number(totalScores.target),
-      sumControl: Number(totalScores.control),
-      sumAfterBlow: Number(totalScores.afterBlow),
-      sumSelfCall: Number(totalScores.opponentSelfCall),
-      total: Number(totalScores.contact + totalScores.target + totalScores.control + totalScores.afterBlow + totalScores.opponentSelfCall),
+      sumContact: totalScores.contact,
+      sumTarget: totalScores.target,
+      sumControl: totalScores.control,
+      sumAfterBlow: totalScores.afterBlow,
+      sumSelfCall: totalScores.opponentSelfCall,
+      total:
+        totalScores.contact +
+        totalScores.target +
+        totalScores.control +
+        totalScores.afterBlow +
+        totalScores.opponentSelfCall,
     };
   };
 
-  const sum = calculateSum(fighter.Scores);
+  // Memoize the result of the sum calculation
+  const sum = useMemo(() => calculateSum(fighter.Scores), [fighter.Scores]);
 
   return (
     <table className="match">
@@ -64,15 +90,8 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
         </tr>
       </thead>
       <tbody>
-        {fighter.Scores.map((score, index) => (
-          <tr key={index} style={score.doubleHit ? { textDecoration: 'line-through' } : {}}>
-            <td>{score.contact}</td>
-            <td>{score.target}</td>
-            <td>{score.control}</td>
-            <td>{score.afterBlow}</td>
-            <td>{score.opponentSelfCall}</td>
-          </tr>
-        ))}
+        {/* Render memoized table rows */}
+        <MemoizedTableRows scores={fighter.Scores} />
         <tr className="subtotal-row">
           <td>{sum.sumContact}</td>
           <td>{sum.sumTarget}</td>
@@ -88,4 +107,5 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
   );
 };
 
-export default ScoreDisplayComponent;
+// Memoize the entire ScoreDisplayComponent to prevent re-renders unless props change
+export default React.memo(ScoreDisplayComponent);

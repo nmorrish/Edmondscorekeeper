@@ -18,7 +18,7 @@ try {
     error_log("SSE Script: Connected to the database.");
 } catch (PDOException $e) {
     error_log('Database connection failed: ' . $e->getMessage());
-    sendSSEData(['status' => 'error', 'message' => 'Database connection error']);
+    sendSSEData(['status' => 'error', 'message' => 'updateJudgementSSE -Database connection error']);
     exit;
 }
 
