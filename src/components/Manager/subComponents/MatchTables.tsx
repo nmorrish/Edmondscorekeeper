@@ -16,20 +16,26 @@ interface Score {
 
 interface Bout {
   boutId: number;
-  fighterColor: string;
-  fighterId: number;
-  fighterName: string;
-  Scores: Score[];
+  fighter1: {
+    fighterColor: string;
+    fighterName: string;
+    Scores: Score[];
+  };
+  fighter2: {
+    fighterColor: string;
+    fighterName: string;
+    Scores: Score[];
+  };
 }
 
 interface Match {
   matchId: number;
   matchRing: number;
-  Bouts: Record<string, Bout>;
+  Bouts: Bout[];
 }
 
 const MatchTables: React.FC = () => {
-  const [matches, setMatches] = useState<Match[]>([]); // Initialize as an empty array
+  const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const { refreshKey } = useRefresh();
 
@@ -37,14 +43,13 @@ const MatchTables: React.FC = () => {
     try {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data = await response.json();
-      console.log("Fetched data:", data); // Check the structure of the data
+      console.log("Fetched data:", data);
 
-      // Ensure that data is an array before setting it to the state
       if (Array.isArray(data)) {
         setMatches(data);
       } else {
         console.error("Unexpected data format, expected an array:", data);
-        setMatches([]); // Set to an empty array in case of unexpected data
+        setMatches([]);
       }
     } catch (error) {
       console.error("Error fetching matches:", error);
@@ -63,7 +68,7 @@ const MatchTables: React.FC = () => {
           } else {
             console.log("Bout_Score update detected:", data);
             if (data.status === "Match updated") {
-              fetchMatches(); // Fetch the updated matches
+              fetchMatches();
             }
           }
         } catch (error) {
@@ -75,22 +80,18 @@ const MatchTables: React.FC = () => {
     eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       eventSource.close();
-      // Attempt to reconnect after a delay
       setTimeout(() => {
         console.log("Reconnecting to SSE...");
         connectToSSE();
-      }, 5000); // Reconnect after 5 seconds
+      }, 5000);
     };
 
     return eventSource;
   }, [fetchMatches]);
 
   useEffect(() => {
-    // Connect to SSE when the component mounts
     const eventSource = connectToSSE();
-
     return () => {
-      // Cleanup on component unmount
       eventSource.close();
     };
   }, [connectToSSE]);
@@ -100,8 +101,7 @@ const MatchTables: React.FC = () => {
     if (storedVisibility) {
       setVisibleMatches(JSON.parse(storedVisibility));
     }
-
-    fetchMatches(); // Trigger data fetch on component mount
+    fetchMatches();
   }, [refreshKey, fetchMatches]);
 
   useEffect(() => {
@@ -119,10 +119,23 @@ const MatchTables: React.FC = () => {
     <div>
       {Array.isArray(matches) && matches.length > 0 ? (
         matches.map((match) => {
-          const boutEntries = Object.values(match.Bouts);
-          if (boutEntries.length < 2) return null;
+          if (!match.Bouts || match.Bouts.length === 0) return null;
 
-          const [fighter1, fighter2] = boutEntries;
+          // For each bout, get the fighter1 and fighter2 scores and pass them to ScoreDisplayComponent
+          const fighter1Bouts = match.Bouts.map((bout) => bout.fighter1.Scores);
+          const fighter2Bouts = match.Bouts.map((bout) => bout.fighter2.Scores);
+
+          const fighter1 = {
+            fighterColor: match.Bouts[0].fighter1.fighterColor,
+            fighterName: match.Bouts[0].fighter1.fighterName,
+            Bouts: fighter1Bouts,
+          };
+
+          const fighter2 = {
+            fighterColor: match.Bouts[0].fighter2.fighterColor,
+            fighterName: match.Bouts[0].fighter2.fighterName,
+            Bouts: fighter2Bouts,
+          };
 
           return (
             <div key={match.matchId} className="match-table">
@@ -139,10 +152,12 @@ const MatchTables: React.FC = () => {
 
               {visibleMatches[match.matchId] && (
                 <>
-                  <div className="fighter-table">
+                  {/* Pass the bouts for each fighter to the ScoreDisplayComponent */}
+                  <div className="scoreTables">
                     <ScoreDisplayComponent fighter={fighter1} />
                     <ScoreDisplayComponent fighter={fighter2} />
                   </div>
+
                   <TriggerJudgement matchId={match.matchId} refresh={false} />
                   <TriggerJudgement matchId={match.matchId} refresh={true} />
                 </>
@@ -151,7 +166,7 @@ const MatchTables: React.FC = () => {
           );
         })
       ) : (
-        <div>No matches available.</div> // Optional: handle the case when matches is empty or not loaded
+        <div>No matches available.</div>
       )}
     </div>
   );

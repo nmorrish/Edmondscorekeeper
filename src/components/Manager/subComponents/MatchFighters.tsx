@@ -69,6 +69,8 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
         body: JSON.stringify(matchData),
       });
 
+      console.log(response);
+
       if (response.ok) {
         triggerRefresh(); // Trigger refresh after adding a match
       } else {

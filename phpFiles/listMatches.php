@@ -46,97 +46,101 @@ try {
 
     // Fetch the result set
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $matchId = (int)$row['matchId']; // Explicitly cast to integer
-        $boutId = $row['boutId'] !== null ? (int)$row['boutId'] : null; // Handle null boutId
+        $matchId = (int)$row['matchId'];
+        $boutId = $row['boutId'] !== null ? (int)$row['boutId'] : null;
 
-        // Initialize the match array if not already initialized
+        // Initialize the match if not already in the array
         if (!isset($matches[$matchId])) {
             $matches[$matchId] = [
-                'matchId' => $matchId, // Explicitly integer
-                'matchRing' => (int)$row['matchRing'], // Explicitly integer
-                'fighter1Id' => (int)$row['fighter1Id'], // Explicitly integer
+                'matchId' => $matchId,
+                'matchRing' => (int)$row['matchRing'],
+                'fighter1Id' => (int)$row['fighter1Id'],
                 'fighter1Name' => $row['fighter1Name'],
                 'fighter1Color' => $row['fighter1Color'],
-                'fighter2Id' => (int)$row['fighter2Id'], // Explicitly integer
+                'fighter2Id' => (int)$row['fighter2Id'],
                 'fighter2Name' => $row['fighter2Name'],
                 'fighter2Color' => $row['fighter2Color'],
                 'lastJudgement' => $row['lastJudgement'],
-                'Bouts' => [] // Initialize an empty array for bouts
+                'Bouts' => [] // Initialize an empty array for Bouts
             ];
         }
 
-        // Add bout data if boutId exists, otherwise add an empty bout placeholder
-        if ($boutId) {
-            // Check if this bout already exists in the Bouts array
-            $boutIndex = array_search($boutId, array_column($matches[$matchId]['Bouts'], 'boutId'));
-
-            if ($boutIndex === false) {
-                // If bout doesn't exist, add it
-                $matches[$matchId]['Bouts'][] = [
+        // Add bout data if boutId exists
+        if ($boutId !== null) {
+            // Check if this bout already exists
+            if (!isset($matches[$matchId]['Bouts'][$boutId])) {
+                // Add bout structure for both fighters, even if there are no scores
+                $matches[$matchId]['Bouts'][$boutId] = [
                     'boutId' => $boutId,
-                    'fighterColor' => $row['fighter1Color'],
-                    'fighterId' => (int)$row['fighter1Id'],
-                    'fighterName' => $row['fighter1Name'],
-                    'Scores' => []
-                ];
-                $matches[$matchId]['Bouts'][] = [
-                    'boutId' => $boutId,
-                    'fighterColor' => $row['fighter2Color'],
-                    'fighterId' => (int)$row['fighter2Id'],
-                    'fighterName' => $row['fighter2Name'],
-                    'Scores' => []
+                    'fighter1' => [
+                        'fighterColor' => $row['fighter1Color'],
+                        'fighterId' => (int)$row['fighter1Id'],
+                        'fighterName' => $row['fighter1Name'],
+                        'Scores' => [] // Initialize an empty Scores array for fighter1
+                    ],
+                    'fighter2' => [
+                        'fighterColor' => $row['fighter2Color'],
+                        'fighterId' => (int)$row['fighter2Id'],
+                        'fighterName' => $row['fighter2Name'],
+                        'Scores' => [] // Initialize an empty Scores array for fighter2
+                    ]
                 ];
             }
 
             // Add score data to the appropriate fighter in the bout
-            foreach ($matches[$matchId]['Bouts'] as &$bout) {
-                if ($bout['fighterId'] === (int)$row['scoreFighterId']) {
-                    $bout['Scores'][] = [
-                        'contact' => ord($row['contact']),
-                        'target' => ord($row['target']),
-                        'control' => ord($row['control']),
-                        'afterBlow' => ord($row['afterBlow']),
-                        'doubleHit' => ord($row['doubleHit']),
-                        //comment above and uncomment the following when using localhost:
-                        // 'contact' => $row['contact'],
-                        // 'target' => $row['target'],
-                        // 'control' => $row['control'],
-                        // 'afterBlow' => $row['afterBlow'],
-                        // 'doubleHit' => $row['doubleHit'],
-                        // 'opponentSelfCall' => $row['opponentSelfCall'],
-                        // 'judgeName' => $row['judgeName']
-                    ];
-                }
-            }
-        } else {
-            // If no boutId exists, add empty entries for fighters
-            if (empty($matches[$matchId]['Bouts'])) {
-                $matches[$matchId]['Bouts'][] = [
-                    'boutId' => null,
-                    'fighterColor' => $row['fighter1Color'],
-                    'fighterId' => (int)$row['fighter1Id'],
-                    'fighterName' => $row['fighter1Name'],
-                    'Scores' => []
+            if ((int)$row['scoreFighterId'] === (int)$row['fighter1Id']) {
+                $matches[$matchId]['Bouts'][$boutId]['fighter1']['Scores'][] = [
+                    'contact' => $row['contact'],
+                    'target' => $row['target'],
+                    'control' => $row['control'],
+                    'afterBlow' => $row['afterBlow'],
+                    'doubleHit' => $row['doubleHit'],
+                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'judgeName' => $row['judgeName']
                 ];
-                $matches[$matchId]['Bouts'][] = [
-                    'boutId' => null,
-                    'fighterColor' => $row['fighter2Color'],
-                    'fighterId' => (int)$row['fighter2Id'],
-                    'fighterName' => $row['fighter2Name'],
-                    'Scores' => []
+            } elseif ((int)$row['scoreFighterId'] === (int)$row['fighter2Id']) {
+                $matches[$matchId]['Bouts'][$boutId]['fighter2']['Scores'][] = [
+                    'contact' => $row['contact'],
+                    'target' => $row['target'],
+                    'control' => $row['control'],
+                    'afterBlow' => $row['afterBlow'],
+                    'doubleHit' => $row['doubleHit'],
+                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'judgeName' => $row['judgeName']
                 ];
             }
         }
     }
 
-    // Encode the matches array to JSON with pretty print
-    $matches_json = json_encode(array_values($matches), JSON_PRETTY_PRINT);
+    // Ensure that each match contains an array of bouts, even if no bout or score data is found
+    foreach ($matches as $matchId => &$match) {
+        // If no boutId was found, create an empty bout structure
+        if (empty($match['Bouts'])) {
+            $match['Bouts'][] = [
+                'boutId' => null,
+                'fighter1' => [
+                    'fighterColor' => $match['fighter1Color'],
+                    'fighterId' => $match['fighter1Id'],
+                    'fighterName' => $match['fighter1Name'],
+                    'Scores' => []
+                ],
+                'fighter2' => [
+                    'fighterColor' => $match['fighter2Color'],
+                    'fighterId' => $match['fighter2Id'],
+                    'fighterName' => $match['fighter2Name'],
+                    'Scores' => []
+                ]
+            ];
+        } else {
+            // If there are valid bouts, convert the bout structure to an array
+            $match['Bouts'] = array_values($match['Bouts']);
+        }
+    }
 
-    // Output the JSON
-    echo $matches_json;
+    // Encode the matches array to JSON
+    echo json_encode(array_values($matches), JSON_PRETTY_PRINT);
 
 } catch (PDOException $e) {
-    // Handle any errors
     $response = [
         'status' => 'error',
         'message' => $e->getMessage()

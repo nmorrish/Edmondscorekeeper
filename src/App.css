@@ -58,11 +58,18 @@ body {
   overflow: hidden;
   padding: 16px;
   background-color: #1e1e1e; /* Dark background for tables */
+  
 }
 
 .match {
   width: 100%;
   border-collapse: collapse;
+}
+
+.scoreTables{
+  display: flex;
+  justify-content: space-between; /* This will create space between the tables */
+  align-items: flex-start; /* Aligns the tables to the top */
 }
 
 .match th,
