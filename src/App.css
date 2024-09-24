@@ -102,8 +102,10 @@ h2 {
 }
 
 /* Add a thicker border between the scores for each fighter */
-.match td + td:nth-of-type(4),
-.match th + th:nth-of-type(4) {
+.match td + td:nth-of-type(2),
+.match th + th:nth-of-type(2),
+.match td + td:nth-of-type(5),
+.match th + th:nth-of-type(5) {
   border-left: 3px solid #ffffff; /* Change border width and color as needed */
 }
 
@@ -161,3 +163,4 @@ h2 {
 .fighter-table {
   display: flex;
 }
+

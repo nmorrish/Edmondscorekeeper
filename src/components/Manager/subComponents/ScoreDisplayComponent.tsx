@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 
 // Define the Score interface
 interface Score {
@@ -41,6 +41,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           control: 0,
           afterBlow: 0,
           opponentSelfCall: 0,
+          doubleHit: 0,
         },
         judgeCount: 0, // No scores = 0 judges
       };
@@ -82,16 +83,20 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
       acc.control += averages.avgControl;
       acc.afterBlow += averages.avgAfterBlow;
       acc.opponentSelfCall += averages.avgSelfCall;
+      acc.doubleHit += averages.avgDoubleHit;
       return acc;
     },
-    { contact: 0, target: 0, control: 0, afterBlow: 0, opponentSelfCall: 0 }
+    { contact: 0, target: 0, control: 0, afterBlow: 0, opponentSelfCall: 0, doubleHit: 0 }
   );
+
+  // Calculate the grand total
+  const GrandTotal = (overallTotals.contact + overallTotals.target + overallTotals.control + overallTotals.afterBlow + overallTotals.opponentSelfCall).toFixed(2);
 
   return (
     <table className="match">
       <thead>
         <tr>
-          <th colSpan={6} className={fighter.fighterColor}>{fighter.fighterName} ({fighter.fighterColor})</th>
+          <th colSpan={7} className={fighter.fighterColor}>{fighter.fighterName} ({fighter.fighterColor})</th>
         </tr>
         <tr>
           <th>Judges</th>
@@ -100,13 +105,22 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           <th>Control</th>
           <th>A/B</th>
           <th>Call</th>
+          <th>Doubles</th>
         </tr>
       </thead>
       <tbody>
         {fighter.Bouts.map((boutScores, index) => {
           const averages = calculateAverages(boutScores);
           return (
-            <tr key={index}><td>{averages.judgeCount}</td><td>{averages.avgContact.toFixed(2)}</td><td>{averages.avgTarget.toFixed(2)}</td><td>{averages.avgControl.toFixed(2)}</td><td>{averages.avgAfterBlow.toFixed(2)}</td><td>{averages.avgSelfCall.toFixed(2)}</td></tr>
+            <tr key={index}>
+              <td>{averages.judgeCount}</td>
+              <td>{averages.avgContact.toFixed(2)}</td>
+              <td>{averages.avgTarget.toFixed(2)}</td>
+              <td>{averages.avgControl.toFixed(2)}</td>
+              <td>{averages.avgAfterBlow.toFixed(2)}</td>
+              <td>{averages.avgSelfCall.toFixed(2)}</td>
+              <td>{averages.avgDoubleHit.toFixed(2)}</td>
+            </tr>
           );
         })}
         <tr className="subtotal-row">
@@ -116,6 +130,11 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           <td>{overallTotals.control.toFixed(2)}</td>
           <td>{overallTotals.afterBlow.toFixed(2)}</td>
           <td>{overallTotals.opponentSelfCall.toFixed(2)}</td>
+          <td>{overallTotals.doubleHit.toFixed(2)}</td>
+        </tr>
+        {/* Use GrandTotal variable */}
+        <tr>
+          <td colSpan={7}>{GrandTotal}</td>
         </tr>
       </tbody>
     </table>
