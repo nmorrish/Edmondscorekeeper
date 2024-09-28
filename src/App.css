@@ -164,3 +164,7 @@ h2 {
   display: flex;
 }
 
+/* Add this to your CSS file */
+.highlight {
+  color: #00ff00;
+}

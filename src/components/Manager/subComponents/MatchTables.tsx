@@ -3,6 +3,7 @@ import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
 import ScoreDisplayComponent from "./ScoreDisplayComponent";
+import TotalsCalculator from '../../utility/TotalsCalculator';
 
 interface Score {
   scoreId: number;
@@ -37,6 +38,8 @@ interface Match {
 const MatchTables: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
+  const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
+  const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
   const { refreshKey } = useRefresh();
 
   const fetchMatches = useCallback(async () => {
@@ -115,13 +118,46 @@ const MatchTables: React.FC = () => {
     }));
   };
 
+  const handleTotalsCalculatedForFighter1 = useCallback(
+    (matchId: number, totals: { grandTotal: string }) => {
+      setFighter1GrandTotals((prev) => {
+        if (prev[matchId] !== totals.grandTotal) {
+          return { ...prev, [matchId]: totals.grandTotal };
+        }
+        return prev;
+      });
+    },
+    []
+  );
+
+  const handleTotalsCalculatedForFighter2 = useCallback(
+    (matchId: number, totals: { grandTotal: string }) => {
+      setFighter2GrandTotals((prev) => {
+        if (prev[matchId] !== totals.grandTotal) {
+          return { ...prev, [matchId]: totals.grandTotal };
+        }
+        return prev;
+      });
+    },
+    []
+  );
+
+  // Determine which fighter to highlight based on non-zero grand total
+  const getHighlightClass = (fighter1Total: number, fighter2Total: number, isFighter1: boolean) => {
+    if (fighter1Total > fighter2Total && fighter1Total > 0 && isFighter1) {
+      return "highlight"; // Apply highlight class to fighter1
+    } else if (fighter2Total > fighter1Total && fighter2Total > 0 && !isFighter1) {
+      return "highlight"; // Apply highlight class to fighter2
+    }
+    return ""; // No class if no highlight is needed
+  };
+
   return (
     <div>
       {Array.isArray(matches) && matches.length > 0 ? (
         matches.map((match) => {
           if (!match.Bouts || match.Bouts.length === 0) return null;
 
-          // For each bout, get the fighter1 and fighter2 scores and pass them to ScoreDisplayComponent
           const fighter1Bouts = match.Bouts.map((bout) => bout.fighter1.Scores);
           const fighter2Bouts = match.Bouts.map((bout) => bout.fighter2.Scores);
 
@@ -137,13 +173,31 @@ const MatchTables: React.FC = () => {
             Bouts: fighter2Bouts,
           };
 
+          const fighter1GrandTotal = parseFloat(fighter1GrandTotals[match.matchId] || '0.00');
+          const fighter2GrandTotal = parseFloat(fighter2GrandTotals[match.matchId] || '0.00');
+
           return (
             <div key={match.matchId} className="match-table">
               <input type="hidden" value={match.matchId} />
 
+              <TotalsCalculator
+                fighter={fighter1}
+                onTotalsCalculated={(totals) => handleTotalsCalculatedForFighter1(match.matchId, totals)}
+              />
+              <TotalsCalculator
+                fighter={fighter2}
+                onTotalsCalculated={(totals) => handleTotalsCalculatedForFighter2(match.matchId, totals)}
+              />
+
               <div className="table-header">
                 <h2>
-                  {fighter1.fighterName} vs. {fighter2.fighterName}
+                  <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, true)}>
+                    {fighter1.fighterName} ({fighter1GrandTotal.toFixed(2)})
+                  </span>{" "}
+                  vs.{" "}
+                  <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, false)}>
+                    {fighter2.fighterName} ({fighter2GrandTotal.toFixed(2)})
+                  </span>
                 </h2>
                 <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>
                   {visibleMatches[match.matchId] ? "Close" : "Open"}
@@ -152,7 +206,6 @@ const MatchTables: React.FC = () => {
 
               {visibleMatches[match.matchId] && (
                 <>
-                  {/* Pass the bouts for each fighter to the ScoreDisplayComponent */}
                   <div className="scoreTables">
                     <ScoreDisplayComponent fighter={fighter1} />
                     <ScoreDisplayComponent fighter={fighter2} />
