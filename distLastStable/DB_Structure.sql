@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 16, 2024 at 01:07 PM
+-- Generation Time: Sep 28, 2024 at 05:20 PM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
 -- PHP Version: 8.1.2-1ubuntu2.18
 
@@ -27,12 +27,10 @@ SET time_zone = "+00:00";
 -- Table structure for table `Bouts`
 --
 
-DROP TABLE IF EXISTS `Bouts`;
 CREATE TABLE `Bouts` (
   `boutId` int(11) NOT NULL,
-  `fighterColor` varchar(20) DEFAULT NULL,
-  `fighterId` int(11) DEFAULT NULL,
-  `matchId` int(11) DEFAULT NULL
+  `matchId` int(11) DEFAULT NULL,
+  `lastJudgement` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -41,30 +39,18 @@ CREATE TABLE `Bouts` (
 -- Table structure for table `Bout_Score`
 --
 
-DROP TABLE IF EXISTS `Bout_Score`;
 CREATE TABLE `Bout_Score` (
   `scoreId` int(11) NOT NULL,
+  `fighterId` int(11) NOT NULL,
+  `judgeName` varchar(50) NOT NULL,
+  `doubleHit` bit(1) NOT NULL,
+  `boutId` int(11) DEFAULT NULL,
   `contact` bit(1) DEFAULT b'0',
   `target` bit(1) DEFAULT b'0',
   `control` bit(1) DEFAULT b'0',
-  `boutId` int(11) DEFAULT 0,
-  `timeStamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `afterBlow` bit(1) DEFAULT b'0',
-  `doubleHit` bit(1) DEFAULT b'0',
   `opponentSelfCall` bit(1) DEFAULT b'0',
-  `judgeName` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `data_dump`
---
-
-DROP TABLE IF EXISTS `data_dump`;
-CREATE TABLE `data_dump` (
-  `pk` int(11) NOT NULL,
-  `data` varchar(255) NOT NULL
+  `boutTimeStamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -73,7 +59,6 @@ CREATE TABLE `data_dump` (
 -- Table structure for table `Fighters`
 --
 
-DROP TABLE IF EXISTS `Fighters`;
 CREATE TABLE `Fighters` (
   `fighterId` int(11) NOT NULL,
   `fighterName` varchar(120) DEFAULT NULL,
@@ -86,11 +71,14 @@ CREATE TABLE `Fighters` (
 -- Table structure for table `Matches`
 --
 
-DROP TABLE IF EXISTS `Matches`;
 CREATE TABLE `Matches` (
   `matchId` int(11) NOT NULL,
   `matchRing` int(11) DEFAULT NULL,
-  `lastJudgement` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `fighter1Id` int(11) DEFAULT NULL,
+  `fighter2Id` int(11) DEFAULT NULL,
+  `fighter1Color` varchar(10) DEFAULT NULL,
+  `fighter2Color` varchar(10) DEFAULT NULL,
+  `lastJudgement` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -102,22 +90,15 @@ CREATE TABLE `Matches` (
 --
 ALTER TABLE `Bouts`
   ADD PRIMARY KEY (`boutId`),
-  ADD UNIQUE KEY `fighterId` (`fighterId`,`matchId`),
-  ADD KEY `matchId` (`matchId`),
-  ADD KEY `idx_fighter_match` (`fighterId`,`matchId`);
+  ADD KEY `matchId` (`matchId`);
 
 --
 -- Indexes for table `Bout_Score`
 --
 ALTER TABLE `Bout_Score`
   ADD PRIMARY KEY (`scoreId`),
-  ADD KEY `boutId` (`boutId`);
-
---
--- Indexes for table `data_dump`
---
-ALTER TABLE `data_dump`
-  ADD PRIMARY KEY (`pk`);
+  ADD KEY `Bout_Score_ibfk` (`boutId`),
+  ADD KEY `Bout_Score_bsf_1` (`fighterId`);
 
 --
 -- Indexes for table `Fighters`
@@ -131,7 +112,9 @@ ALTER TABLE `Fighters`
 -- Indexes for table `Matches`
 --
 ALTER TABLE `Matches`
-  ADD PRIMARY KEY (`matchId`);
+  ADD PRIMARY KEY (`matchId`),
+  ADD KEY `Matches_mffk_1` (`fighter1Id`),
+  ADD KEY `Matches_mffk_2` (`fighter2Id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -148,12 +131,6 @@ ALTER TABLE `Bouts`
 --
 ALTER TABLE `Bout_Score`
   MODIFY `scoreId` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `data_dump`
---
-ALTER TABLE `data_dump`
-  MODIFY `pk` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `Fighters`
@@ -175,14 +152,21 @@ ALTER TABLE `Matches`
 -- Constraints for table `Bouts`
 --
 ALTER TABLE `Bouts`
-  ADD CONSTRAINT `Bouts_ibfk_1` FOREIGN KEY (`fighterId`) REFERENCES `Fighters` (`fighterId`),
   ADD CONSTRAINT `Bouts_ibfk_2` FOREIGN KEY (`matchId`) REFERENCES `Matches` (`matchId`);
 
 --
 -- Constraints for table `Bout_Score`
 --
 ALTER TABLE `Bout_Score`
-  ADD CONSTRAINT `Bout_Score_ibfk_1` FOREIGN KEY (`boutId`) REFERENCES `Bouts` (`boutId`);
+  ADD CONSTRAINT `Bout_Score_bsf_1` FOREIGN KEY (`fighterId`) REFERENCES `Fighters` (`fighterId`),
+  ADD CONSTRAINT `Bout_Score_ibfk` FOREIGN KEY (`boutId`) REFERENCES `Bouts` (`boutId`);
+
+--
+-- Constraints for table `Matches`
+--
+ALTER TABLE `Matches`
+  ADD CONSTRAINT `Matches_mffk_1` FOREIGN KEY (`fighter1Id`) REFERENCES `Fighters` (`fighterId`),
+  ADD CONSTRAINT `Matches_mffk_2` FOREIGN KEY (`fighter2Id`) REFERENCES `Fighters` (`fighterId`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
