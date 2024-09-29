@@ -4,6 +4,7 @@ import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
 import ScoreDisplayComponent from "./ScoreDisplayComponent";
 import TotalsCalculator from '../../utility/TotalsCalculator';
+import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
 
 interface Score {
   scoreId: number;
@@ -41,6 +42,7 @@ const MatchTables: React.FC = () => {
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
   const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
   const { refreshKey } = useRefresh();
+  const addToast = useToast(); // Use the toast hook to trigger toast notifications
 
   const fetchMatches = useCallback(async () => {
     try {
@@ -70,6 +72,7 @@ const MatchTables: React.FC = () => {
             console.log("Initial connection established.");
           } else {
             console.log("Bout_Score update detected:", data);
+            addToast("Score update detected");
             if (data.status === "Match updated") {
               fetchMatches();
             }

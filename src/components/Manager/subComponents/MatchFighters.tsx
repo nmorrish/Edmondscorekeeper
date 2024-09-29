@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useRefresh } from "../../utility/RefreshContext"; // Import the refresh hook
 import { domain_uri } from "../../utility/contants";
+import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
 
 interface Fighter {
   fighterId: number;
@@ -15,6 +16,7 @@ interface MatchFightersProps {
 
 const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
   const { triggerRefresh } = useRefresh(); // Use refresh context
+  const addToast = useToast(); // Use the toast hook to trigger toast notifications
 
   if (fighters.length < 2) {
     return <div>Not enough fighters to match.</div>;
@@ -73,12 +75,14 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
 
       if (response.ok) {
         triggerRefresh(); // Trigger refresh after adding a match
+        addToast("Fighters Matched");
       } else {
         console.error("Failed to add match, server responded with:", response.status);
+        addToast("Match Error");
       }
     } catch (error) {
       console.error("Error submitting match data:", error);
-      alert("Failed to submit match data.");
+      addToast("Failed to submit match data.");
     }
   };
 

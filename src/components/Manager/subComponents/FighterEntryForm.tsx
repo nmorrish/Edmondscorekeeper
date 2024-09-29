@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import FormInputComponent from "./FormInputComponent";
 import { domain_uri } from "../../utility/contants";
+import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
 
 interface FighterEntryFormProps {
   onFightersAdded: () => void; // Callback to refresh data
@@ -13,6 +14,7 @@ interface FighterData {
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) => {
   const addFightersUrl = `${domain_uri}/addFighters.php`;
   const [fighters, setFighters] = useState<FighterData[]>([{ name: "" }]);
+  const addToast = useToast(); // Use the toast hook to trigger toast notifications
 
   // Memoized handleChange function
   const handleChange = useCallback(
@@ -48,6 +50,9 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) 
 
         // Trigger a refresh after adding fighters
         onFightersAdded();
+
+        addToast("Fighter(s) added");
+
       } else {
         console.error("Failed to add fighters, server responded with:", response.status);
       }
