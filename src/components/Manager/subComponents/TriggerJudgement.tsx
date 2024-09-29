@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { domain_uri } from '../../utility/contants';
+import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
 
 // Debounce function to prevent multiple rapid clicks
 const debounce = (func: Function, delay: number) => {
@@ -21,6 +22,7 @@ interface TriggerJudgementProps {
 
 const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh }) => {
   const [loading, setLoading] = useState(false);
+  const addToast = useToast(); // Use the toast hook to trigger toast notifications
 
   // Memoized handleButtonClick function with error handling and loading state
   const handleButtonClick = useCallback(async () => {
@@ -44,15 +46,20 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh })
         throw new Error('Network response was not ok');
       }
 
-      console.log(refresh ? 'Judgement refreshed successfully.' : 'Judgement triggered successfully.');
-      //alert(refresh ? 'Judgement refreshed successfully.' : 'Judgement triggered successfully.');
+      const successMessage = refresh
+        ? 'Judgement refreshed successfully.'
+        : 'Judgement triggered successfully.';
+
+      addToast(successMessage); // Trigger a success toast
+
+      console.log(successMessage);
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error);
-      //alert('An error occurred while processing the judgement. Please try again.');
+      addToast('An error occurred while processing the judgement. Please try again.'); // Trigger an error toast
     } finally {
       setLoading(false);
     }
-  }, [matchId, refresh, loading]);
+  }, [matchId, refresh, loading, addToast]);
 
   // Debounce the button click to avoid rapid multiple clicks
   const debouncedHandleButtonClick = useCallback(debounce(handleButtonClick, 300), [handleButtonClick]);
