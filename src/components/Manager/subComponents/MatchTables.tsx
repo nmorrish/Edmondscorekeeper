@@ -3,8 +3,9 @@ import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
 import ScoreDisplayComponent from "./ScoreDisplayComponent";
+import FighterSelector from "./FighterSelector"; // New FighterSelector Component
 import TotalsCalculator from '../../utility/TotalsCalculator';
-import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
+import { useToast } from '../../utility/ToastProvider';
 
 interface Score {
   scoreId: number;
@@ -21,11 +22,13 @@ interface Bout {
   fighter1: {
     fighterColor: string;
     fighterName: string;
+    fighterId: number;
     Scores: Score[];
   };
   fighter2: {
     fighterColor: string;
     fighterName: string;
+    fighterId: number;
     Scores: Score[];
   };
 }
@@ -42,18 +45,16 @@ const MatchTables: React.FC = () => {
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
   const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
   const { refreshKey } = useRefresh();
-  const addToast = useToast(); // Use the toast hook to trigger toast notifications
+  const addToast = useToast();
 
   const fetchMatches = useCallback(async () => {
     try {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data = await response.json();
-      console.log("Fetched data:", data);
 
       if (Array.isArray(data)) {
         setMatches(data);
       } else {
-        console.error("Unexpected data format, expected an array:", data);
         setMatches([]);
       }
     } catch (error) {
@@ -68,14 +69,9 @@ const MatchTables: React.FC = () => {
       if (event.data) {
         try {
           const data = JSON.parse(event.data);
-          if (data === null) {
-            console.log("Initial connection established.");
-          } else {
-            console.log("Bout_Score update detected:", data);
+          if (data && data.status === "Match updated") {
+            fetchMatches();
             addToast("Score update detected");
-            if (data.status === "Match updated") {
-              fetchMatches();
-            }
           }
         } catch (error) {
           console.error("Error parsing SSE data:", error);
@@ -86,10 +82,7 @@ const MatchTables: React.FC = () => {
     eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       eventSource.close();
-      setTimeout(() => {
-        console.log("Reconnecting to SSE...");
-        connectToSSE();
-      }, 5000);
+      setTimeout(() => connectToSSE(), 5000);
     };
 
     return eventSource;
@@ -97,9 +90,7 @@ const MatchTables: React.FC = () => {
 
   useEffect(() => {
     const eventSource = connectToSSE();
-    return () => {
-      eventSource.close();
-    };
+    return () => eventSource.close();
   }, [connectToSSE]);
 
   useEffect(() => {
@@ -123,41 +114,58 @@ const MatchTables: React.FC = () => {
 
   const handleTotalsCalculatedForFighter1 = useCallback(
     (matchId: number, totals: { grandTotal: string }) => {
-      setFighter1GrandTotals((prev) => {
-        if (prev[matchId] !== totals.grandTotal) {
-          return { ...prev, [matchId]: totals.grandTotal };
-        }
-        return prev;
-      });
+      setFighter1GrandTotals((prev) => ({
+        ...prev,
+        [matchId]: totals.grandTotal,
+      }));
     },
     []
   );
 
   const handleTotalsCalculatedForFighter2 = useCallback(
     (matchId: number, totals: { grandTotal: string }) => {
-      setFighter2GrandTotals((prev) => {
-        if (prev[matchId] !== totals.grandTotal) {
-          return { ...prev, [matchId]: totals.grandTotal };
-        }
-        return prev;
-      });
+      setFighter2GrandTotals((prev) => ({
+        ...prev,
+        [matchId]: totals.grandTotal,
+      }));
     },
     []
   );
 
-  // Determine which fighter to highlight based on non-zero grand total
+  // Ensure fighter updates are scoped to specific match
+  const handleFighterUpdate = (matchId: number, fighterNumber: "fighter1" | "fighter2", fighterId: number, fighterName: string, fighterColor: string) => {
+    setMatches((prevMatches) => 
+      prevMatches.map((match) => 
+        match.matchId === matchId 
+        ? {
+            ...match,
+            Bouts: match.Bouts.map((bout) => ({
+              ...bout,
+              [fighterNumber]: {
+                ...bout[fighterNumber],
+                fighterId,
+                fighterName,
+                fighterColor,
+              }
+            })),
+          } 
+        : match
+      )
+    );
+  };
+
   const getHighlightClass = (fighter1Total: number, fighter2Total: number, isFighter1: boolean) => {
     if (fighter1Total > fighter2Total && fighter1Total > 0 && isFighter1) {
-      return "highlight"; // Apply highlight class to fighter1
+      return "highlight";
     } else if (fighter2Total > fighter1Total && fighter2Total > 0 && !isFighter1) {
-      return "highlight"; // Apply highlight class to fighter2
+      return "highlight";
     }
-    return ""; // No class if no highlight is needed
+    return "";
   };
 
   return (
     <div>
-      {Array.isArray(matches) && matches.length > 0 ? (
+      {matches.length > 0 ? (
         matches.map((match) => {
           if (!match.Bouts || match.Bouts.length === 0) return null;
 
@@ -167,17 +175,21 @@ const MatchTables: React.FC = () => {
           const fighter1 = {
             fighterColor: match.Bouts[0].fighter1.fighterColor,
             fighterName: match.Bouts[0].fighter1.fighterName,
+            fighterId: match.Bouts[0].fighter1.fighterId,
+            matchId: match.matchId,
             Bouts: fighter1Bouts,
           };
 
           const fighter2 = {
             fighterColor: match.Bouts[0].fighter2.fighterColor,
             fighterName: match.Bouts[0].fighter2.fighterName,
+            fighterId: match.Bouts[0].fighter2.fighterId,
+            matchId: match.matchId,
             Bouts: fighter2Bouts,
           };
 
-          const fighter1GrandTotal = parseFloat(fighter1GrandTotals[match.matchId] || '0.00');
-          const fighter2GrandTotal = parseFloat(fighter2GrandTotals[match.matchId] || '0.00');
+          const fighter1GrandTotal = parseFloat(fighter1GrandTotals[match.matchId] || "0.00");
+          const fighter2GrandTotal = parseFloat(fighter2GrandTotals[match.matchId] || "0.00");
 
           return (
             <div key={match.matchId} className="match-table">
@@ -195,11 +207,28 @@ const MatchTables: React.FC = () => {
               <div className="table-header">
                 <h2>
                   <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, true)}>
-                    {fighter1.fighterName} ({fighter1GrandTotal.toFixed(2)})
+                  ({fighter1GrandTotal.toFixed(2)})
+                  <FighterSelector
+                      currentFighterId={fighter1.fighterId}
+                      currentFighterColor={fighter1.fighterColor}
+                      matchId={match.matchId}
+                      fighterNumber="fighter1"
+                      onUpdate={(fighterId, fighterName, fighterColor) =>
+                        handleFighterUpdate(match.matchId, "fighter1", fighterId, fighterName, fighterColor)
+                      }
+                    /> 
                   </span>{" "}
                   vs.{" "}
                   <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, false)}>
-                    {fighter2.fighterName} ({fighter2GrandTotal.toFixed(2)})
+                  <FighterSelector
+                      currentFighterId={fighter2.fighterId}
+                      currentFighterColor={fighter2.fighterColor}
+                      matchId={match.matchId}
+                      fighterNumber="fighter2"
+                      onUpdate={(fighterId, fighterName, fighterColor) =>
+                        handleFighterUpdate(match.matchId, "fighter2", fighterId, fighterName, fighterColor)
+                      }
+                    /> ({fighter2GrandTotal.toFixed(2)})
                   </span>
                 </h2>
                 <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>

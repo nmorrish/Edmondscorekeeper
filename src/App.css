@@ -225,3 +225,37 @@ h2 {
     transform: translateX(100%);
   }
 }
+
+
+/* Custom dropdown styling without border and background */
+.select-dropdown {
+  background-color: transparent;
+  border: none;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  appearance: none; 
+  -webkit-appearance: none; 
+  -moz-appearance: none;
+  display: inline; /* Keep the dropdown inline with text */
+  position: relative;
+  padding-right: 20px; /* Add space for custom arrow */
+}
+
+/* Custom arrow for the dropdown */
+.select-dropdown::after {
+  content: '\25BC'; /* Unicode for a downward arrow */
+  position: absolute;
+  right: 5px;
+  pointer-events: none; /* Prevents arrow from being clickable */
+  font-size: 0.8em; /* Adjust size of the arrow */
+  color: #ffffff; /* Match the color of the text */
+}
+
+/* Ensure dropdown stays inline */
+.dropdown-container {
+  display: inline-flex;
+  align-items: center;
+}
