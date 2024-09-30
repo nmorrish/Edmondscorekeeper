@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Sep 28, 2024 at 05:20 PM
+-- Generation Time: Sep 29, 2024 at 11:01 PM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
 -- PHP Version: 8.1.2-1ubuntu2.18
 
@@ -78,8 +78,29 @@ CREATE TABLE `Matches` (
   `fighter2Id` int(11) DEFAULT NULL,
   `fighter1Color` varchar(10) DEFAULT NULL,
   `fighter2Color` varchar(10) DEFAULT NULL,
-  `lastJudgement` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `fighter1Adjustment` float NOT NULL DEFAULT 0,
+  `fighter2Adjustment` int(11) NOT NULL DEFAULT 0,
+  `lastJudgement` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `Active` bit(1) NOT NULL DEFAULT b'0',
+  `matchComplete` bit(1) NOT NULL DEFAULT b'0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Triggers `Matches`
+--
+DELIMITER $$
+CREATE TRIGGER `set_active_match` BEFORE UPDATE ON `Matches` FOR EACH ROW BEGIN
+  -- Only execute if the Active bit is being set to 1
+  IF NEW.Active = b'1' THEN
+    -- Set Active to 0 for all other matches where Active is currently 1
+    UPDATE Matches 
+    SET Active = b'0' 
+    WHERE Active = b'1' 
+    AND matchId != NEW.matchId;
+  END IF;
+END
+$$
+DELIMITER ;
 
 --
 -- Indexes for dumped tables
@@ -152,14 +173,14 @@ ALTER TABLE `Matches`
 -- Constraints for table `Bouts`
 --
 ALTER TABLE `Bouts`
-  ADD CONSTRAINT `Bouts_ibfk_2` FOREIGN KEY (`matchId`) REFERENCES `Matches` (`matchId`);
+  ADD CONSTRAINT `Bouts_ibfk_2` FOREIGN KEY (`matchId`) REFERENCES `Matches` (`matchId`) ON DELETE CASCADE;;
 
 --
 -- Constraints for table `Bout_Score`
 --
 ALTER TABLE `Bout_Score`
   ADD CONSTRAINT `Bout_Score_bsf_1` FOREIGN KEY (`fighterId`) REFERENCES `Fighters` (`fighterId`),
-  ADD CONSTRAINT `Bout_Score_ibfk` FOREIGN KEY (`boutId`) REFERENCES `Bouts` (`boutId`);
+  ADD CONSTRAINT `Bout_Score_ibfk` FOREIGN KEY (`boutId`) REFERENCES `Bouts` (`boutId`) ON DELETE CASCADE;;
 
 --
 -- Constraints for table `Matches`

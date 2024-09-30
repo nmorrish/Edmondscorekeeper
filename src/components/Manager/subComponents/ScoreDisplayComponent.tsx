@@ -16,6 +16,7 @@ interface Score {
 interface Fighter {
   fighterColor: string;
   fighterName: string;
+  fighterId: number;
   Bouts: Score[][];
 }
 

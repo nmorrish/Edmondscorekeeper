@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import useFighterData from './useFighterData';
 import { domain_uri } from "../../utility/contants";
+import { useToast } from '../../utility/ToastProvider';
+
 
 interface FighterSelectorProps {
   currentFighterId: number;
@@ -20,6 +22,7 @@ const FighterSelector: React.FC<FighterSelectorProps> = ({
   const [selectedFighterId, setSelectedFighterId] = useState(currentFighterId);
   const [selectedFighterName, setSelectedFighterName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const addToast = useToast(); // Move useToast hook here
 
   const { fighters } = useFighterData();
 
@@ -52,11 +55,14 @@ const FighterSelector: React.FC<FighterSelectorProps> = ({
         const result = await response.json();
 
         if (result.status === 'success') {
+          addToast("Fighter changed")
           onUpdate(newFighterId, selectedFighterData.fighterName, currentFighterColor);
         } else {
+            addToast("Fighter change error")
           console.error('Error updating fighter:', result.message);
         }
       } catch (error) {
+        addToast("Fighter change error")
         console.error('Error sending update request:', error);
       } finally {
         setIsUpdating(false);

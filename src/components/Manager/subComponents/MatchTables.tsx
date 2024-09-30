@@ -3,9 +3,10 @@ import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
 import { domain_uri } from "../../utility/contants";
 import ScoreDisplayComponent from "./ScoreDisplayComponent";
-import FighterSelector from "./FighterSelector"; // New FighterSelector Component
+import FighterSelector from "./FighterSelector";
 import TotalsCalculator from '../../utility/TotalsCalculator';
 import { useToast } from '../../utility/ToastProvider';
+import SetActiveMatchButton from "./setActiveMatch";
 
 interface Score {
   scoreId: number;
@@ -44,7 +45,7 @@ const MatchTables: React.FC = () => {
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
   const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
-  const { refreshKey } = useRefresh();
+  const { refreshKey, triggerRefresh } = useRefresh(); // Updated to include triggerRefresh
   const addToast = useToast();
 
   const fetchMatches = useCallback(async () => {
@@ -132,7 +133,7 @@ const MatchTables: React.FC = () => {
     []
   );
 
-  // Ensure fighter updates are scoped to specific match
+  // Ensure fighter updates are scoped to specific match and trigger a refresh
   const handleFighterUpdate = (matchId: number, fighterNumber: "fighter1" | "fighter2", fighterId: number, fighterName: string, fighterColor: string) => {
     setMatches((prevMatches) => 
       prevMatches.map((match) => 
@@ -152,6 +153,7 @@ const MatchTables: React.FC = () => {
         : match
       )
     );
+    triggerRefresh(); // Trigger refresh when fighter is updated
   };
 
   const getHighlightClass = (fighter1Total: number, fighter2Total: number, isFighter1: boolean) => {
@@ -242,9 +244,13 @@ const MatchTables: React.FC = () => {
                     <ScoreDisplayComponent fighter={fighter1} />
                     <ScoreDisplayComponent fighter={fighter2} />
                   </div>
+                  <span>
+                    <SetActiveMatchButton matchId={match.matchId} />
+                    <TriggerJudgement matchId={match.matchId} refresh={false} />
+                    <TriggerJudgement matchId={match.matchId} refresh={true} />
+                  </span>
+                  
 
-                  <TriggerJudgement matchId={match.matchId} refresh={false} />
-                  <TriggerJudgement matchId={match.matchId} refresh={true} />
                 </>
               )}
             </div>
