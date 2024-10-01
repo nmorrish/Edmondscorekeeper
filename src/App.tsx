@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import "./App.css";
-import FighterManagement from "./components/Manager/FighterManagement";
+import FighterManagementWithProvider from "./components/Manager/FighterManagement"; // Use the version wrapped with RefreshProvider
 import JudgementManager from "./components/Judgement/JudgementManager";
 
 const App: React.FC = () => {
@@ -9,8 +9,8 @@ const App: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/judgement/:ringNumber" element={<JudgementManager />} />
-        <Route path="/manager" element={<FighterManagement />} />
-        <Route path="/" element={<FighterManagement />} />
+        <Route path="/manager" element={<FighterManagementWithProvider />} />
+        <Route path="/" element={<FighterManagementWithProvider />} />
       </Routes>
     </Router>
   );

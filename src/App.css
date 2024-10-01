@@ -52,14 +52,20 @@ body {
 
 /*Styling for the tables*/
 .match-table {
+  border: 1px solid #ccc;
+  padding: 10px;
   margin-bottom: 20px;
-  border: 1px solid #555555;
   border-radius: 8px;
-  overflow: hidden;
-  padding: 16px;
-  background-color: #1e1e1e; /* Dark background for tables */
-  
 }
+
+.active-match {
+  border-color: green; /* Green border for active matches */
+}
+
+.completed-match {
+  border-color: blue; /* Blue border for completed matches */
+}
+
 
 .match {
   width: 100%;
@@ -233,29 +239,22 @@ h2 {
   border: none;
   font-size: inherit;
   color: inherit;
-  padding: 0;
   outline: none;
   cursor: pointer;
-  appearance: none; 
-  -webkit-appearance: none; 
-  -moz-appearance: none;
-  display: inline; /* Keep the dropdown inline with text */
+  display: inline; 
   position: relative;
-  padding-right: 20px; /* Add space for custom arrow */
-}
-
-/* Custom arrow for the dropdown */
-.select-dropdown::after {
-  content: '\25BC'; /* Unicode for a downward arrow */
-  position: absolute;
-  right: 5px;
-  pointer-events: none; /* Prevents arrow from being clickable */
-  font-size: 0.8em; /* Adjust size of the arrow */
-  color: #ffffff; /* Match the color of the text */
+  /*appearance: none; 
+  -webkit-appearance: none; 
+  -moz-appearance: none;*/
 }
 
 /* Ensure dropdown stays inline */
 .dropdown-container {
   display: inline-flex;
   align-items: center;
+}
+
+.strike-button {
+  background-color: transparent;
+  color: rgb(255, 0, 0);
 }

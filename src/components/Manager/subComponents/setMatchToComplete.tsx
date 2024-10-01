@@ -3,20 +3,20 @@ import { domain_uri } from "../../utility/contants";
 import { useToast } from '../../utility/ToastProvider';
 import { useRefresh } from '../../utility/RefreshContext'; // Import useRefresh to trigger the refresh
 
-interface SetActiveMatchButtonProps {
-  matchId: number; // The ID of the match that should be set as active
+interface SetCompleteMatchButtonProps {
+  matchId: number; // The ID of the match that should be marked as complete
 }
 
-const SetActiveMatchButton: React.FC<SetActiveMatchButtonProps> = ({ matchId }) => {
+const SetCompleteMatchButton: React.FC<SetCompleteMatchButtonProps> = ({ matchId }) => {
   const [loading, setLoading] = useState(false);
   const addToast = useToast(); // Initialize the toast
   const { triggerRefresh } = useRefresh(); // Get triggerRefresh from the context
 
-  const handleSetActiveMatch = async () => {
+  const handleSetCompleteMatch = async () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${domain_uri}/setActiveMatch.php`, {
+      const response = await fetch(`${domain_uri}/setMatchToComplete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,16 +27,16 @@ const SetActiveMatchButton: React.FC<SetActiveMatchButtonProps> = ({ matchId }) 
       const data = await response.json();
 
       if (data.status === 'success') {
-        addToast("Match set to active");
+        addToast("Match marked as complete");
 
-        // Trigger a refresh after successfully setting the active match
+        // Trigger a refresh after successfully marking the match as complete
         triggerRefresh(); 
       } else {
         addToast(`Error: ${data.message}`);
       }
     } catch (error) {
-      addToast('An error occurred while setting the match as active.');
-      console.error('Error setting active match:', error);
+      addToast('An error occurred while marking the match as complete.');
+      console.error('Error marking match as complete:', error);
     } finally {
       setLoading(false);
     }
@@ -44,11 +44,11 @@ const SetActiveMatchButton: React.FC<SetActiveMatchButtonProps> = ({ matchId }) 
 
   return (
     <div>
-      <button onClick={handleSetActiveMatch} disabled={loading}>
-        {loading ? 'Setting Active...' : 'Set Match Active'}
+      <button onClick={handleSetCompleteMatch} disabled={loading}>
+        {loading ? 'Marking Complete...' : 'Mark Match Complete'}
       </button>
     </div>
   );
 };
 
-export default SetActiveMatchButton;
+export default SetCompleteMatchButton;

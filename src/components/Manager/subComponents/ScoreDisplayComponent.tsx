@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TotalsCalculator from '../../utility/TotalsCalculator';
+import IncrementFighterStrikeButton from './incrementFighterStrikes'; // Import the strike button
+import { useRefresh } from '../../utility/RefreshContext'; // Use the refresh hook
 
 // Define the Score interface
 interface Score {
@@ -27,9 +29,16 @@ interface ScoreDisplayComponentProps {
 
 const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }) => {
   const [totals, setTotals] = useState<{ boutTotals: any[]; overallTotals: any; grandTotal: string } | null>(null);
+  const { refreshKey } = useRefresh(); // Use refreshKey to trigger recalculation
+
+  useEffect(() => {
+    // Any side effects or logic that needs to happen when refreshKey or fighter changes can go here
+    // Optionally clear the totals or set a loading state if needed
+    setTotals(null); // Reset totals before recalculation
+  }, [fighter, refreshKey]); // Trigger recalculation when refreshKey changes
 
   const handleTotalsCalculated = (totals: { boutTotals: any[]; overallTotals: any; grandTotal: string }) => {
-    setTotals(totals);
+    setTotals(totals); // Set totals when calculated
   };
 
   return (
@@ -41,7 +50,9 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
         <thead>
           <tr>
             <th colSpan={7} className={fighter.fighterColor}>
-              {fighter.fighterName} ({fighter.fighterColor})
+              {fighter.fighterName} ({fighter.fighterColor}) 
+              {/* Add the IncrementFighterStrikeButton */}
+              <IncrementFighterStrikeButton fighterId={fighter.fighterId} />
             </th>
           </tr>
           <tr>

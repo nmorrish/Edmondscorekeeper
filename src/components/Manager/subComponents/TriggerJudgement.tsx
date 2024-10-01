@@ -123,7 +123,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh })
           Refresh Judgement
         </button>
       ) : (
-        <button onClick={isRunning ? stopTimer : startTimer} disabled={loading}>
+        <button onClick={isRunning ? stopTimer : startTimer} disabled={loading} style={{fontSize:'30px'}}>
           {isRunning ? `Stop (${formatTime(timer)}s)` : `Start (${formatTime(timer)}s)`}
         </button>
       )}

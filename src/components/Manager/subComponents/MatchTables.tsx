@@ -7,6 +7,7 @@ import FighterSelector from "./FighterSelector";
 import TotalsCalculator from '../../utility/TotalsCalculator';
 import { useToast } from '../../utility/ToastProvider';
 import SetActiveMatchButton from "./setActiveMatch";
+import SetCompleteMatchButton from "./setMatchToComplete";  // Import the SetCompleteMatchButton
 
 interface Score {
   scoreId: number;
@@ -38,6 +39,8 @@ interface Match {
   matchId: number;
   matchRing: number;
   Bouts: Bout[];
+  Active: boolean;
+  matchComplete: boolean;
 }
 
 const MatchTables: React.FC = () => {
@@ -165,6 +168,17 @@ const MatchTables: React.FC = () => {
     return "";
   };
 
+  // Get class for match table border based on active and completed status
+  const getMatchTableClass = (active: boolean, matchComplete: boolean) => {
+    if (active) {
+      return "match-table active-match"; // Green border for active match
+    } else if (matchComplete) {
+      return "match-table completed-match"; // Blue border for completed match
+    } else {
+      return "match-table"; // Default class
+    }
+  };
+
   return (
     <div>
       {matches.length > 0 ? (
@@ -194,7 +208,7 @@ const MatchTables: React.FC = () => {
           const fighter2GrandTotal = parseFloat(fighter2GrandTotals[match.matchId] || "0.00");
 
           return (
-            <div key={match.matchId} className="match-table">
+            <div key={match.matchId} className={getMatchTableClass(match.Active, match.matchComplete)}>
               <input type="hidden" value={match.matchId} />
 
               <TotalsCalculator
@@ -244,13 +258,12 @@ const MatchTables: React.FC = () => {
                     <ScoreDisplayComponent fighter={fighter1} />
                     <ScoreDisplayComponent fighter={fighter2} />
                   </div>
-                  <span>
+                  <TriggerJudgement matchId={match.matchId} refresh={false} />
+                  <TriggerJudgement matchId={match.matchId} refresh={true} />
+                  <span style={{ display: 'flex', justifyContent:'center' }}>
                     <SetActiveMatchButton matchId={match.matchId} />
-                    <TriggerJudgement matchId={match.matchId} refresh={false} />
-                    <TriggerJudgement matchId={match.matchId} refresh={true} />
+                    <SetCompleteMatchButton matchId={match.matchId} />
                   </span>
-                  
-
                 </>
               )}
             </div>

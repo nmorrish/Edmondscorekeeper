@@ -17,6 +17,10 @@ try {
             m.fighter2Id, 
             m.fighter1Color,
             m.fighter2Color,
+            m.fighter1Adjustment,
+            m.fighter2Adjustment,
+            m.Active,
+            m.matchComplete,
             m.lastJudgement,
             f1.fighterName AS fighter1Name,
             f2.fighterName AS fighter2Name,
@@ -57,9 +61,13 @@ try {
                 'fighter1Id' => (int)$row['fighter1Id'],
                 'fighter1Name' => $row['fighter1Name'],
                 'fighter1Color' => $row['fighter1Color'],
+                'fighter1Adjustment' => (float)$row['fighter1Adjustment'], // Add fighter1Adjustment
                 'fighter2Id' => (int)$row['fighter2Id'],
                 'fighter2Name' => $row['fighter2Name'],
                 'fighter2Color' => $row['fighter2Color'],
+                'fighter2Adjustment' => (float)$row['fighter2Adjustment'], // Add fighter2Adjustment
+                'Active' => (bool)$row['Active'], // Add Active flag
+                'matchComplete' => (bool)$row['matchComplete'], // Add matchComplete flag
                 'lastJudgement' => $row['lastJudgement'],
                 'Bouts' => [] // Initialize an empty array for Bouts
             ];
