@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import TotalsCalculator from '../../utility/TotalsCalculator';
-import IncrementFighterStrikeButton from './incrementFighterStrikes'; // Import the strike button
-import { useRefresh } from '../../utility/RefreshContext'; // Use the refresh hook
+import IncrementFighterStrikeButton from './incrementFighterStrikes'; // Assuming you use this button for strikes
 
 // Define the Score interface
 interface Score {
@@ -29,16 +28,10 @@ interface ScoreDisplayComponentProps {
 
 const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }) => {
   const [totals, setTotals] = useState<{ boutTotals: any[]; overallTotals: any; grandTotal: string } | null>(null);
-  const { refreshKey } = useRefresh(); // Use refreshKey to trigger recalculation
-
-  useEffect(() => {
-    // Any side effects or logic that needs to happen when refreshKey or fighter changes can go here
-    // Optionally clear the totals or set a loading state if needed
-    setTotals(null); // Reset totals before recalculation
-  }, [fighter, refreshKey]); // Trigger recalculation when refreshKey changes
 
   const handleTotalsCalculated = (totals: { boutTotals: any[]; overallTotals: any; grandTotal: string }) => {
-    setTotals(totals); // Set totals when calculated
+    // console.log("Received totals for fighter:", fighter.fighterName, totals); // Log the totals
+    setTotals(totals); // Update the state with the calculated totals
   };
 
   return (
@@ -50,7 +43,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
         <thead>
           <tr>
             <th colSpan={7} className={fighter.fighterColor}>
-              {fighter.fighterName} ({fighter.fighterColor}) 
+              {fighter.fighterName} ({fighter.fighterColor})
               {/* Add the IncrementFighterStrikeButton */}
               <IncrementFighterStrikeButton fighterId={fighter.fighterId} />
             </th>
@@ -66,6 +59,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           </tr>
         </thead>
         <tbody>
+          {/* Display bout-specific averages */}
           {fighter.Bouts.map((_, index) => {
             const boutAverages = totals?.boutTotals?.[index] || {}; // Fetch bout-specific averages
             return (
@@ -80,6 +74,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
               </tr>
             );
           })}
+          {/* Display overall totals if available */}
           {totals && (
             <>
               <tr className="subtotal-row">
@@ -92,7 +87,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
                 <td>{totals.overallTotals.doubleHit.toFixed(2)}</td>
               </tr>
               <tr>
-                <td colSpan={7}>{totals.grandTotal}</td>
+                <td colSpan={7}>Grand Total: {totals.grandTotal}</td>
               </tr>
             </>
           )}

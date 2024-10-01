@@ -7,7 +7,7 @@ import FighterSelector from "./FighterSelector";
 import TotalsCalculator from '../../utility/TotalsCalculator';
 import { useToast } from '../../utility/ToastProvider';
 import SetActiveMatchButton from "./setActiveMatch";
-import SetCompleteMatchButton from "./setMatchToComplete";  // Import the SetCompleteMatchButton
+import SetCompleteMatchButton from "./setMatchToComplete";
 
 interface Score {
   scoreId: number;
@@ -48,17 +48,18 @@ const MatchTables: React.FC = () => {
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
   const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
-  const { refreshKey, triggerRefresh } = useRefresh(); // Updated to include triggerRefresh
+  const { refreshKey, triggerRefresh } = useRefresh(); 
   const addToast = useToast();
 
   const fetchMatches = useCallback(async () => {
     try {
       const response = await fetch(`${domain_uri}/listMatches.php`);
       const data = await response.json();
-
+      console.log("Fetched Matches Data:", data); // Add this log to check fetched data
       if (Array.isArray(data)) {
         setMatches(data);
       } else {
+        console.error("Data is not in expected format:", data);
         setMatches([]);
       }
     } catch (error) {
@@ -98,6 +99,7 @@ const MatchTables: React.FC = () => {
   }, [connectToSSE]);
 
   useEffect(() => {
+    console.log("Refresh key triggered:", refreshKey); // Add logging to verify refresh
     const storedVisibility = localStorage.getItem("visibleMatches");
     if (storedVisibility) {
       setVisibleMatches(JSON.parse(storedVisibility));
@@ -136,7 +138,6 @@ const MatchTables: React.FC = () => {
     []
   );
 
-  // Ensure fighter updates are scoped to specific match and trigger a refresh
   const handleFighterUpdate = (matchId: number, fighterNumber: "fighter1" | "fighter2", fighterId: number, fighterName: string, fighterColor: string) => {
     setMatches((prevMatches) => 
       prevMatches.map((match) => 
@@ -168,14 +169,13 @@ const MatchTables: React.FC = () => {
     return "";
   };
 
-  // Get class for match table border based on active and completed status
   const getMatchTableClass = (active: boolean, matchComplete: boolean) => {
     if (active) {
-      return "match-table active-match"; // Green border for active match
+      return "match-table active-match";
     } else if (matchComplete) {
-      return "match-table completed-match"; // Blue border for completed match
+      return "match-table completed-match";
     } else {
-      return "match-table"; // Default class
+      return "match-table";
     }
   };
 
