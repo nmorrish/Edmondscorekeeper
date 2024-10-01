@@ -61,36 +61,37 @@ try {
                 'fighter1Id' => (int)$row['fighter1Id'],
                 'fighter1Name' => $row['fighter1Name'],
                 'fighter1Color' => $row['fighter1Color'],
-                'fighter1Adjustment' => (float)$row['fighter1Adjustment'], // Add fighter1Adjustment
+                'fighter1Adjustment' => (float)$row['fighter1Adjustment'],
                 'fighter2Id' => (int)$row['fighter2Id'],
                 'fighter2Name' => $row['fighter2Name'],
                 'fighter2Color' => $row['fighter2Color'],
-                'fighter2Adjustment' => (float)$row['fighter2Adjustment'], // Add fighter2Adjustment
-                'Active' => (bool)$row['Active'], // Add Active flag
-                'matchComplete' => (bool)$row['matchComplete'], // Add matchComplete flag
+                'fighter2Adjustment' => (float)$row['fighter2Adjustment'],
+                ord($row['Active']),
+                ord($row['matchComplete']),
+                // Uncomment the following for localhost:
+                // 'Active' => (bool)$row['Active'], 
+                // 'matchComplete' => (bool)$row['matchComplete'], 
                 'lastJudgement' => $row['lastJudgement'],
-                'Bouts' => [] // Initialize an empty array for Bouts
+                'Bouts' => []
             ];
         }
 
         // Add bout data if boutId exists
         if ($boutId !== null) {
-            // Check if this bout already exists
             if (!isset($matches[$matchId]['Bouts'][$boutId])) {
-                // Add bout structure for both fighters, even if there are no scores
                 $matches[$matchId]['Bouts'][$boutId] = [
                     'boutId' => $boutId,
                     'fighter1' => [
                         'fighterColor' => $row['fighter1Color'],
                         'fighterId' => (int)$row['fighter1Id'],
                         'fighterName' => $row['fighter1Name'],
-                        'Scores' => [] // Initialize an empty Scores array for fighter1
+                        'Scores' => []
                     ],
                     'fighter2' => [
                         'fighterColor' => $row['fighter2Color'],
                         'fighterId' => (int)$row['fighter2Id'],
                         'fighterName' => $row['fighter2Name'],
-                        'Scores' => [] // Initialize an empty Scores array for fighter2
+                        'Scores' => []
                     ]
                 ];
             }
@@ -98,31 +99,41 @@ try {
             // Add score data to the appropriate fighter in the bout
             if ((int)$row['scoreFighterId'] === (int)$row['fighter1Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter1']['Scores'][] = [
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'contact' => ord($row['contact']),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
                     'judgeName' => $row['judgeName']
+                    // Uncomment the following for localhost:
+                    // 'contact' => $row['contact'],
+                    // 'target' => $row['target'],
+                    // 'control' => $row['control'],
+                    // 'afterBlow' => $row['afterBlow'],
+                    // 'doubleHit' => $row['doubleHit'],
                 ];
             } elseif ((int)$row['scoreFighterId'] === (int)$row['fighter2Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter2']['Scores'][] = [
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'contact' => ord($row['contact']),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
                     'judgeName' => $row['judgeName']
+                    // Uncomment the following for localhost:
+                    // 'contact' => $row['contact'],
+                    // 'target' => $row['target'],
+                    // 'control' => $row['control'],
+                    // 'afterBlow' => $row['afterBlow'],
+                    // 'doubleHit' => $row['doubleHit'],
                 ];
             }
         }
     }
 
-    // Ensure that each match contains an array of bouts, even if no bout or score data is found
     foreach ($matches as $matchId => &$match) {
-        // If no boutId was found, create an empty bout structure
         if (empty($match['Bouts'])) {
             $match['Bouts'][] = [
                 'boutId' => null,
@@ -140,12 +151,10 @@ try {
                 ]
             ];
         } else {
-            // If there are valid bouts, convert the bout structure to an array
             $match['Bouts'] = array_values($match['Bouts']);
         }
     }
 
-    // Encode the matches array to JSON
     echo json_encode(array_values($matches), JSON_PRETTY_PRINT);
 
 } catch (PDOException $e) {
@@ -156,5 +165,4 @@ try {
     echo json_encode($response);
 }
 
-// Close the database connection
 $db = null;
