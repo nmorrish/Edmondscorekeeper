@@ -8,7 +8,13 @@ try {
     // Set the content type to application/json
     header('Content-Type: application/json');
 
-    // Prepare and execute the SQL query to fetch match and bout data
+    // Get the matchRing parameter from the request
+    if (!isset($_GET['matchRing']) || !is_numeric($_GET['matchRing'])) {
+        throw new Exception('matchRing parameter is required and must be an integer.');
+    }
+    $matchRing = (int)$_GET['matchRing'];
+
+    // Prepare and execute the SQL query to fetch match and bout data for the specific ring
     $sql = "
         SELECT 
             m.matchId, 
@@ -38,11 +44,12 @@ try {
         LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
         LEFT JOIN Bouts b ON m.matchId = b.matchId
         LEFT JOIN Bout_Score bs ON b.boutId = bs.boutId
-        WHERE m.matchId IS NOT NULL
+        WHERE m.matchRing = :matchRing
         ORDER BY m.matchId, b.boutId, bs.scoreId
     ";
 
     $stmt = $db->prepare($sql);
+    $stmt->bindParam(':matchRing', $matchRing, PDO::PARAM_INT);
     $stmt->execute();
 
     // Initialize an empty array to hold the data
@@ -66,13 +73,16 @@ try {
                 'fighter2Name' => $row['fighter2Name'],
                 'fighter2Color' => $row['fighter2Color'],
                 'fighter2Adjustment' => (float)$row['fighter2Adjustment'],
-                ord($row['Active']),
-                ord($row['matchComplete']),
-                // Uncomment the following for localhost:
-                // 'Active' => (bool)$row['Active'], 
-                // 'matchComplete' => (bool)$row['matchComplete'], 
                 'lastJudgement' => $row['lastJudgement'],
-                'Bouts' => []
+                'Bouts' => [],
+
+                // Uncomment the following for web host:
+                // ord($row['Active']),
+                // ord($row['matchComplete']),
+
+                // Uncomment the following for localhost:
+                'Active' => (bool)$row['Active'], 
+                'matchComplete' => (bool)$row['matchComplete'], 
             ];
         }
 
@@ -99,35 +109,43 @@ try {
             // Add score data to the appropriate fighter in the bout
             if ((int)$row['scoreFighterId'] === (int)$row['fighter1Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter1']['Scores'][] = [
-                    'contact' => ord($row['contact']),
-                    'target' => ord($row['target']),
-                    'control' => ord($row['control']),
-                    'afterBlow' => ord($row['afterBlow']),
-                    'doubleHit' => ord($row['doubleHit']),
-                    'opponentSelfCall' => ord($row['opponentSelfCall']),
-                    'judgeName' => $row['judgeName']
+                    'judgeName' => $row['judgeName'],
+
+                    //Uncomment the following for web host:
+                    // 'contact' => ord($row['contact']),
+                    // 'target' => ord($row['target']),
+                    // 'control' => ord($row['control']),
+                    // 'afterBlow' => ord($row['afterBlow']),
+                    // 'doubleHit' => ord($row['doubleHit']),
+                    // 'opponentSelfCall' => ord($row['opponentSelfCall']),
+
                     // Uncomment the following for localhost:
-                    // 'contact' => $row['contact'],
-                    // 'target' => $row['target'],
-                    // 'control' => $row['control'],
-                    // 'afterBlow' => $row['afterBlow'],
-                    // 'doubleHit' => $row['doubleHit'],
+                    'contact' => $row['contact'],
+                    'target' => $row['target'],
+                    'control' => $row['control'],
+                    'afterBlow' => $row['afterBlow'],
+                    'doubleHit' => $row['doubleHit'],
+                    'opponentSelfCall' => $row['opponentSelfCall']
                 ];
             } elseif ((int)$row['scoreFighterId'] === (int)$row['fighter2Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter2']['Scores'][] = [
-                    'contact' => ord($row['contact']),
-                    'target' => ord($row['target']),
-                    'control' => ord($row['control']),
-                    'afterBlow' => ord($row['afterBlow']),
-                    'doubleHit' => ord($row['doubleHit']),
-                    'opponentSelfCall' => ord($row['opponentSelfCall']),
-                    'judgeName' => $row['judgeName']
+                    'judgeName' => $row['judgeName'],
+
+                    //Uncomment the following for web host:
+                    // 'contact' => ord($row['contact']),
+                    // 'target' => ord($row['target']),
+                    // 'control' => ord($row['control']),
+                    // 'afterBlow' => ord($row['afterBlow']),
+                    // 'doubleHit' => ord($row['doubleHit']),
+                    // 'opponentSelfCall' => ord($row['opponentSelfCall']),
+
                     // Uncomment the following for localhost:
-                    // 'contact' => $row['contact'],
-                    // 'target' => $row['target'],
-                    // 'control' => $row['control'],
-                    // 'afterBlow' => $row['afterBlow'],
-                    // 'doubleHit' => $row['doubleHit'],
+                    'contact' => $row['contact'],
+                    'target' => $row['target'],
+                    'control' => $row['control'],
+                    'afterBlow' => $row['afterBlow'],
+                    'doubleHit' => $row['doubleHit'],
+                    'opponentSelfCall' => $row['opponentSelfCall']
                 ];
             }
         }
@@ -157,7 +175,7 @@ try {
 
     echo json_encode(array_values($matches), JSON_PRETTY_PRINT);
 
-} catch (PDOException $e) {
+} catch (Exception $e) {
     $response = [
         'status' => 'error',
         'message' => $e->getMessage()

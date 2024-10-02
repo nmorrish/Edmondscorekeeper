@@ -258,3 +258,35 @@ h2 {
   background-color: transparent;
   color: rgb(255, 0, 0);
 }
+
+/*buttons for selecting rings*/
+.ring-selection-buttons {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  background-color: #333;
+  padding: 10px 0;
+  z-index: 1000; /* Make sure it stays on top of everything else */
+}
+
+.ring-selection-buttons button {
+  background-color: gray;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin: 0 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.ring-selection-buttons button.active-ring {
+  background-color: blue; /* Active ring button */
+}
+
+.App-header {
+  padding-top: 60px; /* Ensure there's space below the sticky buttons */
+}
+

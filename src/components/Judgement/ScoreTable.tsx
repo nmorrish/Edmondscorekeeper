@@ -23,9 +23,16 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
   onSubmit,
   onConfirm,
 }) => {
+  // Handles the checkbox change and clears the opponent's scores
   const handleCheckboxChange = useCallback(
-    (criteria: string) => onCheckboxChange(fighter.fighterId, criteria),
-    [fighter.fighterId, onCheckboxChange]
+    (criteria: string) => {
+      // First, clear the opponent's scores
+      onCheckboxChange(opponent.fighterId, 'clear');
+
+      // Then, update the fighter's scores
+      onCheckboxChange(fighter.fighterId, criteria);
+    },
+    [fighter.fighterId, opponent.fighterId, onCheckboxChange]
   );
 
   const handleAfterBlowSubmit = useCallback(

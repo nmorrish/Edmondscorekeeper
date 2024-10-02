@@ -43,19 +43,24 @@ interface Match {
   matchComplete: boolean;
 }
 
-const MatchTables: React.FC = () => {
+interface MatchTablesProps {
+  ringNumber: number; // Accepting ringNumber as a prop
+}
+
+const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
   const [fighter2GrandTotals, setFighter2GrandTotals] = useState<Record<number, string>>({});
-  const { refreshKey, triggerRefresh } = useRefresh(); 
+  const { refreshKey, triggerRefresh } = useRefresh();
   const addToast = useToast();
 
+  // Fetch matches with the specific ringNumber
   const fetchMatches = useCallback(async () => {
     try {
-      const response = await fetch(`${domain_uri}/listMatches.php`);
+      const response = await fetch(`${domain_uri}/listMatches.php?matchRing=${ringNumber}`); // Pass ringNumber as a query parameter
       const data = await response.json();
-      console.log("Fetched Matches Data:", data); // Add this log to check fetched data
+      console.log("Fetched Matches Data:", data);
       if (Array.isArray(data)) {
         setMatches(data);
       } else {
@@ -65,7 +70,7 @@ const MatchTables: React.FC = () => {
     } catch (error) {
       console.error("Error fetching matches:", error);
     }
-  }, []);
+  }, [ringNumber]); // Dependency on ringNumber
 
   const connectToSSE = useCallback(() => {
     const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
@@ -99,7 +104,7 @@ const MatchTables: React.FC = () => {
   }, [connectToSSE]);
 
   useEffect(() => {
-    console.log("Refresh key triggered:", refreshKey); // Add logging to verify refresh
+    console.log("Refresh key triggered:", refreshKey);
     const storedVisibility = localStorage.getItem("visibleMatches");
     if (storedVisibility) {
       setVisibleMatches(JSON.parse(storedVisibility));
@@ -157,7 +162,7 @@ const MatchTables: React.FC = () => {
         : match
       )
     );
-    triggerRefresh(); // Trigger refresh when fighter is updated
+    triggerRefresh();
   };
 
   const getHighlightClass = (fighter1Total: number, fighter2Total: number, isFighter1: boolean) => {

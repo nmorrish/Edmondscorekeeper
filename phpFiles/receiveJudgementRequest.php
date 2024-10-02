@@ -16,15 +16,24 @@ if ($data && isset($data['matchId'])) {
         // Begin a transaction to ensure all queries are executed together
         $db->beginTransaction();
 
-        // Check if the match is already active
-        $stmt = $db->prepare("SELECT Active FROM Matches WHERE matchId = :matchId");
+        // Get the matchRing of the match to be activated
+        $stmt = $db->prepare("SELECT matchRing, Active FROM Matches WHERE matchId = :matchId");
         $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($result && $result['Active'] == 0) {
-            // Deactivate all other active matches
-            $stmt = $db->prepare("UPDATE Matches SET Active = 0 WHERE Active = 1");
+        if (!$result) {
+            throw new Exception('Match not found');
+        }
+
+        $matchRing = $result['matchRing']; // Get the ring of the match
+        $isActive = $result['Active']; // Check if the match is already active
+
+        // If the match is not already active, proceed with activating it
+        if ($isActive == 0) {
+            // Deactivate all other active matches within the same matchRing
+            $stmt = $db->prepare("UPDATE Matches SET Active = 0 WHERE Active = 1 AND matchRing = :matchRing");
+            $stmt->bindParam(':matchRing', $matchRing, PDO::PARAM_INT);
             $stmt->execute();
 
             // Set the current match as active
@@ -51,6 +60,8 @@ if ($data && isset($data['matchId'])) {
         // Roll back the transaction if something failed
         $db->rollBack();
         echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);

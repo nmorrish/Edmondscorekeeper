@@ -15,9 +15,22 @@ if ($data && isset($data['matchId'])) {
         // Start transaction
         $db->beginTransaction();
 
-        // Deactivate all matches except the one being activated
-        $stmt1 = $db->prepare("UPDATE Matches SET Active = 0 WHERE Active = 1 AND matchId != :matchId");
+        // Get the matchRing of the match to be activated
+        $stmt0 = $db->prepare("SELECT matchRing FROM Matches WHERE matchId = :matchId");
+        $stmt0->bindParam(':matchId', $matchId, PDO::PARAM_INT);
+        $stmt0->execute();
+        $result = $stmt0->fetch(PDO::FETCH_ASSOC);
+
+        if (!$result) {
+            throw new Exception('Match not found');
+        }
+
+        $matchRing = $result['matchRing']; // Get the ring of the match to be activated
+
+        // Deactivate all matches in the same matchRing except the one being activated
+        $stmt1 = $db->prepare("UPDATE Matches SET Active = 0 WHERE Active = 1 AND matchId != :matchId AND matchRing = :matchRing");
         $stmt1->bindParam(':matchId', $matchId, PDO::PARAM_INT);
+        $stmt1->bindParam(':matchRing', $matchRing, PDO::PARAM_INT);
         $stmt1->execute();
 
         // Activate the specified match
@@ -32,6 +45,8 @@ if ($data && isset($data['matchId'])) {
     } catch (PDOException $e) {
         // Rollback in case of an error
         $db->rollBack();
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
 

@@ -129,9 +129,17 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
       <div>
         <label>Ring:</label>
         <select value={selectedRing} onChange={handleRingChange}>
-          {Array.from({ length: 6 }, (_, i) => i + 1).map((ring) => (
+          {/* {Array.from({ length: 6 }, (_, i) => i + 1).map((ring) => (
             <option key={ring} value={ring}>{`Ring ${ring}`}</option>
-          ))}
+          ))} */}
+          {/* Temp values for the tournament */}
+          <option key={1} value={1}>{`Open Longsword Ring 1`}</option>
+          <option key={2} value={2}>{`Open Longsword Ring 2`}</option>
+          <option key={3} value={3}>{`Women's Longsword`}</option>
+          <option key={4} value={4}>{`Basket Hilt Ring 1`}</option>
+          <option key={5} value={5}>{`Basket Hilt Ring 2`}</option>
+          <option key={6} value={6}>{`Mixed Weapons Ring 1`}</option>
+          <option key={7} value={7}>{`Mixed Weapons Ring 2`}</option>
         </select>
       </div>
       <button onClick={handleSubmit}>Submit Match</button>

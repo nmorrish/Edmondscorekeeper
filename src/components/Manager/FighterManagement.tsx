@@ -8,6 +8,7 @@ import useFighterData from "./subComponents/useFighterData";
 
 const FighterManagement: React.FC = () => {
   const [activeSidebarComponent, setActiveSidebarComponent] = useState<string | null>(null);
+  const [selectedRing, setSelectedRing] = useState<number>(1); // State to track selected ring
   const { fighters, fetchFighterData } = useFighterData(); // Get fighter data
   const { refreshKey } = useRefresh(); // Use refresh context
 
@@ -21,8 +22,34 @@ const FighterManagement: React.FC = () => {
     setActiveSidebarComponent(prev => (prev === componentName ? null : componentName));
   }, []);
 
+  // Handler to update selected ring
+  const handleRingSelection = (ringNumber: number) => {
+    setSelectedRing(ringNumber);
+  };
+
   return (
     <div className="App">
+      {/* Buttons for selecting the ring - placed outside of header for better layout control */}
+      <div className="ring-selection-buttons">
+        {/* {[1, 2, 3, 4, 5, 6].map(ring => (
+          <button
+            key={ring}
+            onClick={() => handleRingSelection(ring)}
+            className={selectedRing === ring ? "active-ring" : ""}
+          >
+            Ring {ring}
+          </button>
+        ))} */}
+        {/* Matches are hardcoded for now */}
+        <button key={1} onClick={() => handleRingSelection(1)} className={selectedRing === 1 ? "active-ring" : ""}>Open Longsword Ring 1</button>
+        <button key={2} onClick={() => handleRingSelection(2)} className={selectedRing === 2 ? "active-ring" : ""}>Open Longsword Ring 2</button>
+        <button key={3} onClick={() => handleRingSelection(3)} className={selectedRing === 3 ? "active-ring" : ""}>Women's Longsword</button>
+        <button key={4} onClick={() => handleRingSelection(4)} className={selectedRing === 4 ? "active-ring" : ""}>Basket Hilt Ring 1</button>
+        <button key={5} onClick={() => handleRingSelection(5)} className={selectedRing === 5 ? "active-ring" : ""}>Basket Hilt Ring 2</button>
+        <button key={6} onClick={() => handleRingSelection(6)} className={selectedRing === 6 ? "active-ring" : ""}>Mixed Weapons Ring 1</button>
+        <button key={7} onClick={() => handleRingSelection(7)} className={selectedRing === 7 ? "active-ring" : ""}>Mixed Weapons Ring 2</button>
+      </div>
+
       <header className="App-header">
         <button onClick={() => toggleSidebar("FighterEntryForm")}>
           {activeSidebarComponent === "FighterEntryForm" ? "Stop Adding Fighters" : "Add Fighters"}
@@ -41,10 +68,13 @@ const FighterManagement: React.FC = () => {
             <MatchFighters fighters={fighters} />
           </div>
         )}
+
         <FighterList fighters={fighters} />
       </header>
+
       <main>
-        <MatchTables />
+        {/* Only render MatchTables for the selected ring */}
+        <MatchTables ringNumber={selectedRing} />
       </main>
     </div>
   );

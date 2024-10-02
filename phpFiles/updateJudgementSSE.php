@@ -27,17 +27,11 @@ $lastUpdateTime = null;
 
 while (true) {
     try {
-        // Log the start of the update check
-        error_log("SSE Script: Checking for updates...");
-
         // Fetch the latest lastJudgement timestamp from the Bouts table
         $stmt = $db->prepare("SELECT MAX(lastJudgement) AS lastUpdateTime FROM Bouts");
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $currentUpdateTime = $result['lastUpdateTime'] ?? null;
-
-        // Log the fetched timestamp
-        error_log("SSE Script: Current Update Time - " . $currentUpdateTime);
 
         // Check if there's an update since the last check
         if ($lastUpdateTime !== $currentUpdateTime && $currentUpdateTime !== null) {

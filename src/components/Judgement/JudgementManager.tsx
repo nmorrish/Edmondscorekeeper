@@ -86,14 +86,30 @@ const JudgementManager: React.FC = () => {
   }, [connectToSSE]);
 
   const handleCheckboxChange = useCallback((fighterId: number, criteria: string) => {
-    setScores((prevScores) => ({
-      ...prevScores,
-      [fighterId]: {
-        ...prevScores[fighterId],
-        [criteria]: !prevScores[fighterId]?.[criteria],
-      },
-    }));
+    if (criteria === 'clear') {
+      // Reset all scores for the given fighter
+      setScores((prevScores) => ({
+        ...prevScores,
+        [fighterId]: {
+          contact: false,
+          target: false,
+          control: false,
+          afterBlow: false,
+          opponentSelfCall: false,
+        },
+      }));
+    } else {
+      // Update the specific score criteria for the given fighter
+      setScores((prevScores) => ({
+        ...prevScores,
+        [fighterId]: {
+          ...prevScores[fighterId],
+          [criteria]: !prevScores[fighterId]?.[criteria],
+        },
+      }));
+    }
   }, []);
+  
 
   const handleConfirmation = (message: string, action: () => void) => {
     if (window.confirm(message)) {
