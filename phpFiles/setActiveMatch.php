@@ -7,9 +7,9 @@ $data = json_decode($jsonData, true);
 
 if ($data && isset($data['matchId'])) {
     require_once("connect.php");
-    $db = connect();
-    
+
     try {
+        $db = connect();
         $matchId = $data['matchId']; // The match to be set as active
 
         // Start transaction
@@ -42,12 +42,18 @@ if ($data && isset($data['matchId'])) {
         $db->commit();
 
         echo json_encode(['status' => 'success', 'message' => 'Active match set successfully']);
+
     } catch (PDOException $e) {
         // Rollback in case of an error
         $db->rollBack();
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+    } finally {
+        // Ensure the database connection is closed
+        $db = null;
     }
 
 } else {

@@ -3,7 +3,6 @@
 require_once("connect.php");
 
 try {
-
     $db = connect();
 
     // Set the content type to application/json
@@ -16,9 +15,6 @@ try {
     // Fetch all results as an associative array
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Set the content type to application/json
-    header('Content-Type: application/json');
-
     // Output the results as JSON
     echo json_encode($results);
 
@@ -29,7 +25,8 @@ try {
         'message' => $e->getMessage()
     ];
     echo json_encode($response);
-}
 
-// Close the database connection
-$db = null;
+} finally {
+    // Ensure the database connection is closed
+    $db = null;
+}

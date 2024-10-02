@@ -7,12 +7,13 @@ $data = json_decode($jsonData, true);
 // Check if JSON data was received and contains matchId
 if ($data && isset($data['matchId'])) {
     require_once("connect.php");
-    $db = connect();
-
-    // Extract the matchId from the received data
-    $matchId = $data['matchId'];
 
     try {
+        $db = connect();
+
+        // Extract the matchId from the received data
+        $matchId = $data['matchId'];
+
         // Check if any bouts exist for the given matchId
         $checkStmt = $db->prepare("SELECT COUNT(*) FROM Bouts WHERE matchId = :matchId");
         $checkStmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
@@ -41,9 +42,15 @@ if ($data && isset($data['matchId'])) {
             // No bouts found, do nothing
             echo json_encode(['status' => 'error', 'message' => 'No bouts found for the given matchId, no action taken']);
         }
+
     } catch (PDOException $e) {
         echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+
+    } finally {
+        // Ensure the database connection is closed
+        $db = null;
     }
+
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
 }

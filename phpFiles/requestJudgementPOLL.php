@@ -68,4 +68,7 @@ try {
     // Log and send error if the query fails
     error_log("Query failed: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'message' => 'Query failed.']);
+} finally {
+    // Ensure the database connection is closed
+    $db = null;
 }

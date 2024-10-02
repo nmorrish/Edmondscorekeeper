@@ -7,12 +7,13 @@ $data = json_decode($jsonData, true);
 // Check if JSON data was received
 if ($data && isset($data['matchId'])) {
     require_once("connect.php");
-    $db = connect();
-
-    // Extract the matchId from the received data
-    $matchId = $data['matchId'];
 
     try {
+        $db = connect();
+
+        // Extract the matchId from the received data
+        $matchId = $data['matchId'];
+
         // Begin a transaction to ensure all queries are executed together
         $db->beginTransaction();
 
@@ -56,13 +57,20 @@ if ($data && isset($data['matchId'])) {
         $db->commit();
 
         echo json_encode(['status' => 'success', 'message' => 'Match set as active, last judgement timestamp updated, and new bout created successfully', 'receivedData' => $data]);
+
     } catch (PDOException $e) {
         // Roll back the transaction if something failed
         $db->rollBack();
         echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+    } finally {
+        // Ensure the database connection is closed
+        $db = null;
     }
+
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
 }

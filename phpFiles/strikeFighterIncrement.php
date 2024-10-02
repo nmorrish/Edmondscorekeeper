@@ -7,9 +7,9 @@ $data = json_decode($jsonData, true);
 
 if ($data && isset($data['fighterId'])) {
     require_once("connect.php");
-    $db = connect();
-    
+
     try {
+        $db = connect();
         $fighterId = $data['fighterId']; // The fighter whose strikes are to be incremented
 
         // Start a transaction
@@ -54,6 +54,10 @@ if ($data && isset($data['fighterId'])) {
         // Rollback transaction in case of an error
         $db->rollBack();
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+    } finally {
+        // Ensure the database connection is closed
+        $db = null;
     }
 
 } else {

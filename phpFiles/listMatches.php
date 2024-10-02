@@ -77,12 +77,12 @@ try {
                 'Bouts' => [],
 
                 // Uncomment the following for web host:
-                // ord($row['Active']),
-                // ord($row['matchComplete']),
+                ord($row['Active']),
+                ord($row['matchComplete']),
 
                 // Uncomment the following for localhost:
-                'Active' => (bool)$row['Active'], 
-                'matchComplete' => (bool)$row['matchComplete'], 
+                // 'Active' => (bool)$row['Active'], 
+                // 'matchComplete' => (bool)$row['matchComplete'], 
             ];
         }
 
@@ -112,40 +112,40 @@ try {
                     'judgeName' => $row['judgeName'],
 
                     //Uncomment the following for web host:
-                    // 'contact' => ord($row['contact']),
-                    // 'target' => ord($row['target']),
-                    // 'control' => ord($row['control']),
-                    // 'afterBlow' => ord($row['afterBlow']),
-                    // 'doubleHit' => ord($row['doubleHit']),
-                    // 'opponentSelfCall' => ord($row['opponentSelfCall']),
+                    'contact' => ord($row['contact']),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
 
                     // Uncomment the following for localhost:
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall']
+                    // 'contact' => $row['contact'],
+                    // 'target' => $row['target'],
+                    // 'control' => $row['control'],
+                    // 'afterBlow' => $row['afterBlow'],
+                    // 'doubleHit' => $row['doubleHit'],
+                    // 'opponentSelfCall' => $row['opponentSelfCall']
                 ];
             } elseif ((int)$row['scoreFighterId'] === (int)$row['fighter2Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter2']['Scores'][] = [
                     'judgeName' => $row['judgeName'],
 
                     //Uncomment the following for web host:
-                    // 'contact' => ord($row['contact']),
-                    // 'target' => ord($row['target']),
-                    // 'control' => ord($row['control']),
-                    // 'afterBlow' => ord($row['afterBlow']),
-                    // 'doubleHit' => ord($row['doubleHit']),
-                    // 'opponentSelfCall' => ord($row['opponentSelfCall']),
+                    'contact' => ord($row['contact']),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
 
                     // Uncomment the following for localhost:
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall']
+                    // 'contact' => $row['contact'],
+                    // 'target' => $row['target'],
+                    // 'control' => $row['control'],
+                    // 'afterBlow' => $row['afterBlow'],
+                    // 'doubleHit' => $row['doubleHit'],
+                    // 'opponentSelfCall' => $row['opponentSelfCall']
                 ];
             }
         }
@@ -181,6 +181,8 @@ try {
         'message' => $e->getMessage()
     ];
     echo json_encode($response);
-}
 
-$db = null;
+} finally {
+    // Ensure the database connection is closed
+    $db = null;
+}

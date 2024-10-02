@@ -1,7 +1,6 @@
 <?php
 // judgementSubmit.php
 require_once("connect.php");
-$db = connect();
 
 // Set the content type to application/json
 header('Content-Type: application/json');
@@ -15,6 +14,8 @@ $data = json_decode($jsonData, true);
 $response = [];
 
 try {
+    $db = connect();
+
     // Begin transaction
     $db->beginTransaction();
 
@@ -89,10 +90,10 @@ try {
         'status' => 'error',
         'message' => 'Database error: ' . $e->getMessage()
     ];
+} finally {
+    // Close the database connection
+    $db = null;
 }
-
-// Close the database connection
-$db = null;
 
 // Encode the response as JSON and output it
 echo json_encode($response);

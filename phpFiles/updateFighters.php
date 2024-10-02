@@ -7,23 +7,28 @@ $data = json_decode($jsonData, true);
 
 if ($data) {
     require_once("connect.php");
-    $db = connect();
-
-    $matchId = $data['matchId'];
-
-    // Get existing fighter data from DB for this match
-    $stmtExisting = $db->prepare("SELECT fighter1Id, fighter1Color, fighter2Id, fighter2Color FROM Matches WHERE matchId = :matchId");
-    $stmtExisting->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-    $stmtExisting->execute();
-    $existingFighterData = $stmtExisting->fetch(PDO::FETCH_ASSOC);
-
-    // Retain existing values if not passed in request
-    $fighter1Id = $data['fighter1']['id'] ?? $existingFighterData['fighter1Id'];
-    $fighter1Color = $data['fighter1']['color'] ?? $existingFighterData['fighter1Color'];
-    $fighter2Id = $data['fighter2']['id'] ?? $existingFighterData['fighter2Id'];
-    $fighter2Color = $data['fighter2']['color'] ?? $existingFighterData['fighter2Color'];
 
     try {
+        $db = connect();
+        $matchId = $data['matchId'];
+
+        // Get existing fighter data from DB for this match
+        $stmtExisting = $db->prepare("SELECT fighter1Id, fighter1Color, fighter2Id, fighter2Color FROM Matches WHERE matchId = :matchId");
+        $stmtExisting->bindParam(':matchId', $matchId, PDO::PARAM_INT);
+        $stmtExisting->execute();
+        $existingFighterData = $stmtExisting->fetch(PDO::FETCH_ASSOC);
+
+        if (!$existingFighterData) {
+            throw new Exception('Match not found');
+        }
+
+        // Retain existing values if not passed in request
+        $fighter1Id = $data['fighter1']['id'] ?? $existingFighterData['fighter1Id'];
+        $fighter1Color = $data['fighter1']['color'] ?? $existingFighterData['fighter1Color'];
+        $fighter2Id = $data['fighter2']['id'] ?? $existingFighterData['fighter2Id'];
+        $fighter2Color = $data['fighter2']['color'] ?? $existingFighterData['fighter2Color'];
+
+        // Start transaction
         $db->beginTransaction();
 
         // Update fighter1 and fighter2 in the Matches table
@@ -58,7 +63,13 @@ if ($data) {
     } catch (PDOException $e) {
         $db->rollBack();
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    } finally {
+        // Ensure the database connection is closed
+        $db = null;
     }
+
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid JSON']);
 }

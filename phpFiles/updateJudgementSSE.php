@@ -9,7 +9,7 @@ function sendSSEData($data) {
     $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo "id: " . time() . "\n";
     echo "data: " . $jsonData . "\n\n";
-    ob_end_flush(); // Ensure the output is not buffered
+    ob_flush(); // Ensure the output is flushed properly
     flush(); // Send the output to the browser
 }
 
@@ -18,11 +18,11 @@ try {
     error_log("SSE Script: Connected to the database.");
 } catch (PDOException $e) {
     error_log('Database connection failed: ' . $e->getMessage());
-    sendSSEData(['status' => 'error', 'message' => 'updateJudgementSSE -Database connection error']);
+    sendSSEData(['status' => 'error', 'message' => 'updateJudgementSSE - Database connection error']);
     exit;
 }
 
-sendSSEData(null); // Initial connection message
+sendSSEData(null); // Optional initial connection message
 $lastUpdateTime = null;
 
 while (true) {
