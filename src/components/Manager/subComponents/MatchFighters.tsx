@@ -1,8 +1,8 @@
-// MatchFighters.tsx
-import React, { useState, useCallback, useMemo } from "react";
-import { useRefresh } from "../../utility/RefreshContext"; // Import the refresh hook
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useRefresh } from "../../utility/RefreshContext"; 
 import { domain_uri } from "../../utility/contants";
-import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
+import { useToast } from '../../utility/ToastProvider'; 
+import useEvents from './useEvents'; 
 
 interface Fighter {
   fighterId: number;
@@ -15,17 +15,30 @@ interface MatchFightersProps {
 }
 
 const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
-  const { triggerRefresh } = useRefresh(); // Use refresh context
-  const addToast = useToast(); // Use the toast hook to trigger toast notifications
+  const { triggerRefresh } = useRefresh(); 
+  const addToast = useToast(); 
+  const { events, loading: loadingEvents, error: eventError } = useEvents(); 
 
+  // Log events fetched
+  console.log("Fetched events: ", events);
+  
   if (fighters.length < 2) {
+    console.log("Not enough fighters to match.");
     return <div>Not enough fighters to match.</div>;
   }
 
   const [selectedFighter1, setSelectedFighter1] = useState(fighters[0].fighterId);
   const [selectedFighter2, setSelectedFighter2] = useState(fighters[1].fighterId);
   const [selectedRing, setSelectedRing] = useState(1);
-  const [colorFighter1, setColorFighter1] = useState("Red"); // Default first fighter to Red
+  const [selectedEvent, setSelectedEvent] = useState<number | null>(null); // Start with null
+  const [colorFighter1, setColorFighter1] = useState("Red");
+
+  // Set the selectedEvent when events are available
+  useEffect(() => {
+    if (events.length > 0 && selectedEvent === null) {
+      setSelectedEvent(events[0].eventId); // Set the first event as default
+    }
+  }, [events, selectedEvent]);
 
   // Memoized change handlers
   const handleFighter1Change = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -38,6 +51,10 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
 
   const handleRingChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedRing(parseInt(event.target.value));
+  }, []);
+
+  const handleEventChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedEvent(parseInt(event.target.value));
   }, []);
 
   const handleColorChange = useCallback((color: string) => {
@@ -56,13 +73,22 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
   );
 
   const handleSubmit = async () => {
+    if (!selectedEvent) {
+      addToast("Please select an event.");
+      return;
+    }
+
     const matchData = {
       fighter1: selectedFighter1,
       fighter2: selectedFighter2,
       colorFighter1: colorFighter1,
-      colorFighter2: colorFighter1 === "Red" ? "Blue" : "Red", // Automatically assign the opposite color
+      colorFighter2: colorFighter1 === "Red" ? "Blue" : "Red",
       ring: selectedRing,
+      eventId: selectedEvent, // Ensure eventId is passed
     };
+
+    // Log the data before submitting
+    console.log("Submitting match data: ", matchData);
 
     try {
       const response = await fetch(`${domain_uri}/addFighterToMatch.php`, {
@@ -71,10 +97,12 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
         body: JSON.stringify(matchData),
       });
 
-      console.log(response);
+      console.log("Server response: ", response);
 
       if (response.ok) {
-        triggerRefresh(); // Trigger refresh after adding a match
+        const responseData = await response.json();
+        console.log("Response data: ", responseData);
+        triggerRefresh(); 
         addToast("Fighters Matched");
       } else {
         console.error("Failed to add match, server responded with:", response.status);
@@ -87,10 +115,10 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
   };
 
   return (
-    <div>
+    <div className="container">
       <h2>Match Fighters</h2>
       <div>
-        <label>Fighter 1:</label>
+        <label>Fighter&nbsp;1:</label>
         <select value={selectedFighter1} onChange={handleFighter1Change}>
           {filteredFighter1Options.map((fighter) => (
             <option key={fighter.fighterId} value={fighter.fighterId}>
@@ -98,22 +126,24 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
             </option>
           ))}
         </select>
-        <label>
-          <input
-            type="radio"
-            checked={colorFighter1 === "Red"}
-            onChange={() => handleColorChange("Red")}
-          />
-          Red
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={colorFighter1 === "Blue"}
-            onChange={() => handleColorChange("Blue")}
-          />
-          Blue
-        </label>
+        <div className="radio-group">
+          <label>
+            <input
+              type="radio"
+              checked={colorFighter1 === "Red"}
+              onChange={() => handleColorChange("Red")}
+            />
+            Red
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={colorFighter1 === "Blue"}
+              onChange={() => handleColorChange("Blue")}
+            />
+            Blue
+          </label>
+        </div>
       </div>
       <div>
         <label>Fighter 2:</label>
@@ -129,19 +159,30 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
       <div>
         <label>Ring:</label>
         <select value={selectedRing} onChange={handleRingChange}>
-          {/* {Array.from({ length: 6 }, (_, i) => i + 1).map((ring) => (
+          {Array.from({ length: 6 }, (_, i) => i + 1).map((ring) => (
             <option key={ring} value={ring}>{`Ring ${ring}`}</option>
-          ))} */}
-          {/* Temp values for the tournament */}
-          <option key={1} value={1}>{`Open Longsword Ring 1`}</option>
-          <option key={2} value={2}>{`Open Longsword Ring 2`}</option>
-          <option key={3} value={3}>{`Women's Longsword`}</option>
-          <option key={4} value={4}>{`Basket Hilt Ring 1`}</option>
-          <option key={5} value={5}>{`Basket Hilt Ring 2`}</option>
-          <option key={6} value={6}>{`Mixed Weapons Ring 1`}</option>
-          <option key={7} value={7}>{`Mixed Weapons Ring 2`}</option>
+          ))}
         </select>
       </div>
+
+      {/* Dropdown for selecting the event */}
+      <div>
+        <label>Event:</label>
+        {loadingEvents ? (
+          <p>Loading events...</p>
+        ) : eventError ? (
+          <p>Error: {eventError}</p>
+        ) : (
+          <select value={selectedEvent || undefined} onChange={handleEventChange}>
+            {events.map((event) => (
+              <option key={event.eventId} value={event.eventId}>
+                {event.eventName}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
       <button onClick={handleSubmit}>Submit Match</button>
     </div>
   );

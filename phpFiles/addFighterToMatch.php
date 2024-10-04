@@ -16,11 +16,12 @@ if ($data) {
         $fighter2Id = $data['fighter2'];
         $colorFighter2 = $data['colorFighter2'];
         $ring = $data['ring'];
+        $eventId = $data['eventId']; // Extract eventId
 
-        // Prepare and execute the query to insert the match with fighter details and update lastJudgement to the current timestamp
+        // Prepare and execute the query to insert the match with fighter details, eventId, and update lastJudgement to the current timestamp
         $stmt = $db->prepare("
-            INSERT INTO Matches (matchRing, fighter1Id, fighter2Id, fighter1Color, fighter2Color, lastJudgement) 
-            VALUES (:ring, :fighter1Id, :fighter2Id, :fighter1Color, :fighter2Color, CURRENT_TIMESTAMP)
+            INSERT INTO Matches (matchRing, fighter1Id, fighter2Id, fighter1Color, fighter2Color, eventId, lastJudgement) 
+            VALUES (:ring, :fighter1Id, :fighter2Id, :fighter1Color, :fighter2Color, :eventId, CURRENT_TIMESTAMP)
         ");
 
         // Bind the parameters
@@ -29,6 +30,7 @@ if ($data) {
         $stmt->bindParam(':fighter2Id', $fighter2Id, PDO::PARAM_INT);
         $stmt->bindParam(':fighter1Color', $colorFighter1, PDO::PARAM_STR);
         $stmt->bindParam(':fighter2Color', $colorFighter2, PDO::PARAM_STR);
+        $stmt->bindParam(':eventId', $eventId, PDO::PARAM_INT); // Bind the eventId parameter
 
         // Execute the statement
         $stmt->execute();

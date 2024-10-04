@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 01, 2024 at 01:00 AM
+-- Generation Time: Oct 04, 2024 at 01:23 AM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
--- PHP Version: 8.1.2-1ubuntu2.18
+-- PHP Version: 8.1.2-1ubuntu2.19
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -56,6 +56,17 @@ CREATE TABLE `Bout_Score` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `Event`
+--
+
+CREATE TABLE `Event` (
+  `eventId` int(11) NOT NULL,
+  `eventName` varchar(30) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `Fighters`
 --
 
@@ -73,6 +84,7 @@ CREATE TABLE `Fighters` (
 
 CREATE TABLE `Matches` (
   `matchId` int(11) NOT NULL,
+  `eventId` int(11) NOT NULL,
   `matchRing` int(11) DEFAULT NULL,
   `fighter1Id` int(11) DEFAULT NULL,
   `fighter2Id` int(11) DEFAULT NULL,
@@ -105,6 +117,12 @@ ALTER TABLE `Bout_Score`
   ADD KEY `Bout_Score_bsf_1` (`fighterId`);
 
 --
+-- Indexes for table `Event`
+--
+ALTER TABLE `Event`
+  ADD PRIMARY KEY (`eventId`);
+
+--
 -- Indexes for table `Fighters`
 --
 ALTER TABLE `Fighters`
@@ -118,7 +136,8 @@ ALTER TABLE `Fighters`
 ALTER TABLE `Matches`
   ADD PRIMARY KEY (`matchId`),
   ADD KEY `Matches_mffk_1` (`fighter1Id`),
-  ADD KEY `Matches_mffk_2` (`fighter2Id`);
+  ADD KEY `Matches_mffk_2` (`fighter2Id`),
+  ADD KEY `fk_event_matches` (`eventId`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -170,7 +189,8 @@ ALTER TABLE `Bout_Score`
 --
 ALTER TABLE `Matches`
   ADD CONSTRAINT `Matches_mffk_1` FOREIGN KEY (`fighter1Id`) REFERENCES `Fighters` (`fighterId`),
-  ADD CONSTRAINT `Matches_mffk_2` FOREIGN KEY (`fighter2Id`) REFERENCES `Fighters` (`fighterId`);
+  ADD CONSTRAINT `Matches_mffk_2` FOREIGN KEY (`fighter2Id`) REFERENCES `Fighters` (`fighterId`),
+  ADD CONSTRAINT `fk_event_matches` FOREIGN KEY (`eventId`) REFERENCES `Event` (`eventId`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

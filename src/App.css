@@ -259,34 +259,101 @@ h2 {
   color: rgb(255, 0, 0);
 }
 
-/*buttons for selecting rings*/
-.ring-selection-buttons {
+/*buttons for selecting rings and matches*/
+.event-selection-buttons {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  background-color: #333;
-  padding: 10px 0;
-  z-index: 1000; /* Make sure it stays on top of everything else */
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px;
+  text-align: center;
+  z-index: 1000;
+  width: max-content; /* Allows the buttons to take only the space they need */
 }
 
+.ring-selection-buttons {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px;
+  text-align: center;
+  z-index: 999;
+  width: max-content;
+}
+
+.event-selection-buttons button,
 .ring-selection-buttons button {
-  background-color: gray;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  margin: 0 5px;
-  cursor: pointer;
+  margin: 5px;
+  padding: 10px;
   font-size: 16px;
 }
 
-.ring-selection-buttons button.active-ring {
-  background-color: blue; /* Active ring button */
+.active-event, .active-ring {
+  background-color: #007bff;
+  color: white;
 }
 
-.App-header {
-  padding-top: 60px; /* Ensure there's space below the sticky buttons */
+
+/*CSS for matching fighters*/
+.container {
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  margin: 0 auto;
+  gap: 15px;
+}
+
+.container label {
+  display: inline-block;
+  font-weight: bold;
+}
+
+.container select {
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: calc(100% - 160px); /* Wider dropdown */
+  box-sizing: border-box;
+  margin-left: 10px;
+}
+
+.radio-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px; /* Align the radio buttons next to the label */
+}
+
+.container input[type="radio"] {
+  width: 14px;  /* Much smaller radio buttons */
+  height: 14px;
+}
+
+.container div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+button {
+  padding: 10px 15px;
+  font-size: 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
 }
 

@@ -8,6 +8,7 @@ import TotalsCalculator from '../../utility/TotalsCalculator';
 import { useToast } from '../../utility/ToastProvider';
 import SetActiveMatchButton from "./setActiveMatch";
 import SetCompleteMatchButton from "./setMatchToComplete";
+import debounce from 'lodash/debounce';
 
 interface Score {
   scoreId: number;
@@ -44,10 +45,11 @@ interface Match {
 }
 
 interface MatchTablesProps {
-  ringNumber: number; // Accepting ringNumber as a prop
+  ringNumber: number;
+  eventId: number; // Add eventId as a prop
 }
 
-const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
+const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
   const [fighter1GrandTotals, setFighter1GrandTotals] = useState<Record<number, string>>({});
@@ -55,24 +57,30 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
   const { refreshKey, triggerRefresh } = useRefresh();
   const addToast = useToast();
 
-  // Fetch matches with the specific ringNumber
-  const fetchMatches = useCallback(async () => {
-    try {
-      const response = await fetch(`${domain_uri}/listMatches.php?matchRing=${ringNumber}`); // Pass ringNumber as a query parameter
-      const data = await response.json();
-      console.log("Fetched Matches Data:", data);
-      if (Array.isArray(data)) {
-        setMatches(data);
-      } else {
-        console.error("Data is not in expected format:", data);
-        setMatches([]);
+  // Debounced fetch function to reduce the number of server requests
+  const fetchMatches = useCallback(
+    debounce(async () => {
+      try {
+        console.log("Fetching matches for event ID:", eventId, "and ring number:", ringNumber);
+        const response = await fetch(`${domain_uri}/listMatches.php?matchRing=${ringNumber}&eventId=${eventId}`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setMatches(data);
+          console.log("Matches fetched:", data);
+        } else {
+          console.error("Data is not in expected format:", data);
+          setMatches([]);
+        }
+      } catch (error) {
+        console.error("Error fetching matches:", error);
       }
-    } catch (error) {
-      console.error("Error fetching matches:", error);
-    }
-  }, [ringNumber]); // Dependency on ringNumber
+    }, 500), // 500ms debounce to prevent frequent requests
+    [ringNumber, eventId]
+  );
 
+  // SSE connection
   const connectToSSE = useCallback(() => {
+    console.log("Opening SSE connection...");
     const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
 
     eventSource.onmessage = (event) => {
@@ -80,6 +88,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
         try {
           const data = JSON.parse(event.data);
           if (data && data.status === "Match updated") {
+            console.log("Match updated detected via SSE");
             fetchMatches();
             addToast("Score update detected");
           }
@@ -92,17 +101,22 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
     eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       eventSource.close();
-      setTimeout(() => connectToSSE(), 5000);
+      setTimeout(() => connectToSSE(), 5000); // Retry connecting after 5 seconds
     };
 
     return eventSource;
-  }, [fetchMatches]);
+  }, [fetchMatches, addToast]);
 
+  // Open SSE connection only once on mount
   useEffect(() => {
     const eventSource = connectToSSE();
-    return () => eventSource.close();
+    return () => {
+      eventSource.close();
+      console.log("SSE connection closed.");
+    };
   }, [connectToSSE]);
 
+  // Fetch matches when the refresh key changes
   useEffect(() => {
     console.log("Refresh key triggered:", refreshKey);
     const storedVisibility = localStorage.getItem("visibleMatches");
@@ -112,6 +126,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
     fetchMatches();
   }, [refreshKey, fetchMatches]);
 
+  // Store visible matches in local storage
   useEffect(() => {
     localStorage.setItem("visibleMatches", JSON.stringify(visibleMatches));
   }, [visibleMatches]);
@@ -144,22 +159,22 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
   );
 
   const handleFighterUpdate = (matchId: number, fighterNumber: "fighter1" | "fighter2", fighterId: number, fighterName: string, fighterColor: string) => {
-    setMatches((prevMatches) => 
-      prevMatches.map((match) => 
-        match.matchId === matchId 
-        ? {
-            ...match,
-            Bouts: match.Bouts.map((bout) => ({
-              ...bout,
-              [fighterNumber]: {
-                ...bout[fighterNumber],
-                fighterId,
-                fighterName,
-                fighterColor,
-              }
-            })),
-          } 
-        : match
+    setMatches((prevMatches) =>
+      prevMatches.map((match) =>
+        match.matchId === matchId
+          ? {
+              ...match,
+              Bouts: match.Bouts.map((bout) => ({
+                ...bout,
+                [fighterNumber]: {
+                  ...bout[fighterNumber],
+                  fighterId,
+                  fighterName,
+                  fighterColor,
+                },
+              })),
+            }
+          : match
       )
     );
     triggerRefresh();
@@ -228,8 +243,8 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
               <div className="table-header">
                 <h2>
                   <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, true)}>
-                  ({fighter1GrandTotal.toFixed(2)})
-                  <FighterSelector
+                    ({fighter1GrandTotal.toFixed(2)})
+                    <FighterSelector
                       currentFighterId={fighter1.fighterId}
                       currentFighterColor={fighter1.fighterColor}
                       matchId={match.matchId}
@@ -237,11 +252,11 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
                       onUpdate={(fighterId, fighterName, fighterColor) =>
                         handleFighterUpdate(match.matchId, "fighter1", fighterId, fighterName, fighterColor)
                       }
-                    /> 
+                    />
                   </span>{" "}
                   vs.{" "}
                   <span className={getHighlightClass(fighter1GrandTotal, fighter2GrandTotal, false)}>
-                  <FighterSelector
+                    <FighterSelector
                       currentFighterId={fighter2.fighterId}
                       currentFighterColor={fighter2.fighterColor}
                       matchId={match.matchId}
@@ -249,7 +264,8 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
                       onUpdate={(fighterId, fighterName, fighterColor) =>
                         handleFighterUpdate(match.matchId, "fighter2", fighterId, fighterName, fighterColor)
                       }
-                    /> ({fighter2GrandTotal.toFixed(2)})
+                    />{" "}
+                    ({fighter2GrandTotal.toFixed(2)})
                   </span>
                 </h2>
                 <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>
@@ -265,7 +281,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber }) => {
                   </div>
                   <TriggerJudgement matchId={match.matchId} refresh={false} />
                   <TriggerJudgement matchId={match.matchId} refresh={true} />
-                  <span style={{ display: 'flex', justifyContent:'center' }}>
+                  <span style={{ display: "flex", justifyContent: "center" }}>
                     <SetActiveMatchButton matchId={match.matchId} />
                     <SetCompleteMatchButton matchId={match.matchId} />
                   </span>
