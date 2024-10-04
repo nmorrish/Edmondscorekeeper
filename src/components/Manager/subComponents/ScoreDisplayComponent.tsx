@@ -65,12 +65,12 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
             return (
               <tr key={index}>
                 <td>{boutAverages.judgeCount || 0}</td>
-                <td>{boutAverages.avgContact?.toFixed(2) || '0.00'}</td>
-                <td>{boutAverages.avgTarget?.toFixed(2) || '0.00'}</td>
-                <td>{boutAverages.avgControl?.toFixed(2) || '0.00'}</td>
-                <td>{boutAverages.avgAfterBlow?.toFixed(2) || '0.00'}</td>
-                <td>{boutAverages.avgSelfCall?.toFixed(2) || '0.00'}</td>
-                <td>{boutAverages.avgDoubleHit?.toFixed(2) || '0.00'}</td>
+                <td>{boutAverages.avgContact?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgTarget?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgControl?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgAfterBlow?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgSelfCall?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgDoubleHit?.toFixed(1) || '0.00'}</td>
               </tr>
             );
           })}
@@ -79,12 +79,12 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
             <>
               <tr className="subtotal-row">
                 <td>Totals</td>
-                <td>{totals.overallTotals.contact.toFixed(2)}</td>
-                <td>{totals.overallTotals.target.toFixed(2)}</td>
-                <td>{totals.overallTotals.control.toFixed(2)}</td>
-                <td>{totals.overallTotals.afterBlow.toFixed(2)}</td>
-                <td>{totals.overallTotals.opponentSelfCall.toFixed(2)}</td>
-                <td>{totals.overallTotals.doubleHit.toFixed(2)}</td>
+                <td>{totals.overallTotals.contact.toFixed(1)}</td>
+                <td>{totals.overallTotals.target.toFixed(1)}</td>
+                <td>{totals.overallTotals.control.toFixed(1)}</td>
+                <td>{totals.overallTotals.afterBlow.toFixed(1)}</td>
+                <td>{totals.overallTotals.opponentSelfCall.toFixed(1)}</td>
+                <td>{totals.overallTotals.doubleHit.toFixed(1)}</td>
               </tr>
               <tr>
                 <td colSpan={7}>Grand Total: {totals.grandTotal}</td>

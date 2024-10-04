@@ -20,10 +20,10 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
   const { events, loading: loadingEvents, error: eventError } = useEvents(); 
 
   // Log events fetched
-  console.log("Fetched events: ", events);
+  // console.log("Fetched events: ", events);
   
   if (fighters.length < 2) {
-    console.log("Not enough fighters to match.");
+    // console.log("Not enough fighters to match.");
     return <div>Not enough fighters to match.</div>;
   }
 
@@ -88,7 +88,7 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
     };
 
     // Log the data before submitting
-    console.log("Submitting match data: ", matchData);
+    // console.log("Submitting match data: ", matchData);
 
     try {
       const response = await fetch(`${domain_uri}/addFighterToMatch.php`, {
@@ -100,8 +100,8 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
       console.log("Server response: ", response);
 
       if (response.ok) {
-        const responseData = await response.json();
-        console.log("Response data: ", responseData);
+        // const responseData = await response.json();
+        // console.log("Response data: ", responseData);
         triggerRefresh(); 
         addToast("Fighters Matched");
       } else {
@@ -109,7 +109,7 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
         addToast("Match Error");
       }
     } catch (error) {
-      console.error("Error submitting match data:", error);
+      // console.error("Error submitting match data:", error);
       addToast("Failed to submit match data.");
     }
   };

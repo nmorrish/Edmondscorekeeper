@@ -8,6 +8,7 @@ body {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
+  padding-top: 125px;
   text-align: center;
 }
 
@@ -268,7 +269,7 @@ h2 {
   padding: 10px;
   text-align: center;
   z-index: 1000;
-  width: max-content; /* Allows the buttons to take only the space they need */
+  width: 100%;
 }
 
 .ring-selection-buttons {
@@ -277,9 +278,12 @@ h2 {
   left: 50%;
   transform: translateX(-50%);
   padding: 10px;
+  padding-top: 60px;
+  margin-top: -50px;
   text-align: center;
   z-index: 999;
-  width: max-content;
+  width: 100%;
+  background-color: #272727;
 }
 
 .event-selection-buttons button,

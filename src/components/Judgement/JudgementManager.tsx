@@ -51,7 +51,7 @@ const JudgementManager: React.FC = () => {
   }, [nameInput]);
 
   const connectToSSE = useCallback((retriesLeft: number) => {
-    const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php`);
+    const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php?ringNumber=${ringNumber}`);
 
     eventSource.onmessage = (event) => {
       if (event.data) {

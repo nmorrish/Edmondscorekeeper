@@ -6,6 +6,14 @@ header('Connection: keep-alive');
 // Include the database connection script
 require_once("connect.php");
 
+// Get the ring number from the URL parameters (from the React component)
+$ringNumber = isset($_GET['ringNumber']) ? intval($_GET['ringNumber']) : null;
+
+if ($ringNumber === null) {
+    sendSSEData(['status' => 'error', 'message' => 'Ring number not provided.']);
+    exit;
+}
+
 try {
     $db = connect();
 } catch (PDOException $e) {
@@ -27,42 +35,30 @@ function sendSSEData($data) {
 // Initialize the last known lastJudgement timestamp
 $lastJudgement = null;
 
+// Prepare the main query, filtering by the ring number passed in
 try {
-    // Query the database to get the current lastJudgement timestamp and matchId
-    $stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches ORDER BY lastJudgement DESC LIMIT 1");
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($result) {
-        $lastJudgement = $result['lastJudgement'];
-        $matchId = $result['matchId'];
-    }
+    $stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches WHERE matchRing = :ringNumber ORDER BY lastJudgement DESC LIMIT 1");
+    $stmt->bindParam(':ringNumber', $ringNumber, PDO::PARAM_INT); // Bind the ring number
 } catch (PDOException $e) {
-    // Log and send error if the initial query fails
-    error_log("Initial query failed: " . $e->getMessage());
-    sendSSEData(['status' => 'error', 'message' => 'Initial query failed.']);
+    error_log("Query preparation failed: " . $e->getMessage());
+    sendSSEData(['status' => 'error', 'message' => 'Query preparation failed.']);
     exit;
-}
-
-// Send `null` on initial connection if needed
-if (isset($_SERVER['HTTP_LAST_EVENT_ID']) && intval($_SERVER['HTTP_LAST_EVENT_ID']) === 0) {
-    sendSSEData(null);
 }
 
 // Main loop to check for updates
 while (true) {
     try {
-        // Reuse the prepared statement to check for updates
-        $stmt->execute();
+        $stmt->execute(); // Execute the prepared statement
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($result) {
             $currentLastJudgement = $result['lastJudgement'];
             $matchId = $result['matchId'];
 
-            // Check if the current lastJudgement timestamp is different from the last known timestamp
-            if ($currentLastJudgement !== $lastJudgement) {
-                // Fetch detailed data for the updated match including the highest boutId
-                $sql = "
+            // Only send data if the current lastJudgement timestamp is different from the last known timestamp
+            if ($lastJudgement !== null && $currentLastJudgement !== $lastJudgement) {
+                // Fetch match details only when the timestamp changes
+                $stmtDetails = $db->prepare("
                     SELECT 
                         m.matchId, 
                         m.matchRing, 
@@ -79,9 +75,8 @@ while (true) {
                     LEFT JOIN Bouts b ON m.matchId = b.matchId
                     WHERE m.matchId = :matchId
                     AND b.boutId = (SELECT MAX(boutId) FROM Bouts WHERE matchId = :matchId)
-                ";
+                ");
 
-                $stmtDetails = $db->prepare($sql);
                 $stmtDetails->bindParam(':matchId', $matchId, PDO::PARAM_INT);
                 $stmtDetails->execute();
 
@@ -95,7 +90,8 @@ while (true) {
                         'fighter2Id' => $row['fighter2Id'],
                         'fighter2Name' => $row['fighter2Name'],
                         'fighter2Color' => $row['fighter2Color'],
-                        'boutId' => $row['boutId'] ?? null // Ensure boutId is correctly assigned even if null
+                        'boutId' => $row['boutId'] ?? null, // Ensure boutId is correctly assigned even if null
+                        'lastJudgement' => $currentLastJudgement // Include lastJudgement in the response
                     ];
 
                     // Send the JSON data for the updated match
@@ -105,13 +101,18 @@ while (true) {
                     $lastJudgement = $currentLastJudgement;
                 }
             }
+
+            // If this is the first connection, send `null` to indicate waiting
+            if ($lastJudgement === null) {
+                sendSSEData(null);
+                $lastJudgement = $currentLastJudgement; // Set the initial timestamp without sending data yet
+            }
         }
     } catch (PDOException $e) {
-        // Log and send error if a query fails in the loop
         error_log("Query failed during loop: " . $e->getMessage());
         sendSSEData(['status' => 'error', 'message' => 'Query failed during loop.']);
     }
 
-    // Sleep for a few seconds before checking again
+    // Sleep for 5 seconds before checking again
     sleep(5);
 }
