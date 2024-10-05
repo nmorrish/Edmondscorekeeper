@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 04, 2024 at 05:13 PM
+-- Generation Time: Oct 04, 2024 at 01:23 AM
 -- Server version: 10.6.18-MariaDB-0ubuntu0.22.04.1
 -- PHP Version: 8.1.2-1ubuntu2.19
 
@@ -98,20 +98,6 @@ CREATE TABLE `Matches` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Triggers `Matches`
---
-DELIMITER $$
-CREATE TRIGGER `set_match_complete` BEFORE UPDATE ON `Matches` FOR EACH ROW BEGIN
-  -- Check if the Active flag is being updated from true (1) to false (0)
-  IF OLD.Active = b'1' AND NEW.Active = b'0' THEN
-    -- Set the matchComplete flag to true (1)
-    SET NEW.matchComplete = b'1';
-  END IF;
-END
-$$
-DELIMITER ;
-
---
 -- Indexes for dumped tables
 --
 
@@ -151,8 +137,7 @@ ALTER TABLE `Matches`
   ADD PRIMARY KEY (`matchId`),
   ADD KEY `Matches_mffk_1` (`fighter1Id`),
   ADD KEY `Matches_mffk_2` (`fighter2Id`),
-  ADD KEY `fk_event_matches` (`eventId`),
-  ADD KEY `idx_matchRing_lastJudgement` (`matchRing`,`lastJudgement`);
+  ADD KEY `fk_event_matches` (`eventId`);
 
 --
 -- AUTO_INCREMENT for dumped tables
