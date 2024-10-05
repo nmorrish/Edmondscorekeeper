@@ -12,23 +12,37 @@ interface ScoreTableProps {
   scores: Record<string, boolean>;
   onCheckboxChange: (fighterId: number, criteria: string) => void;
   onSubmit: (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => void;
+  onConfirm: (message: string, action: () => void) => void;
 }
 
-const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, opponent, scores, onCheckboxChange, onSubmit }) => {
-  // Memoizing the event handler to avoid re-creating it on every render
+const ScoreTable: React.FC<ScoreTableProps> = ({
+  fighter,
+  opponent,
+  scores,
+  onCheckboxChange,
+  onSubmit,
+  onConfirm,
+}) => {
+  // Handles the checkbox change and clears the opponent's scores
   const handleCheckboxChange = useCallback(
-    (criteria: string) => onCheckboxChange(fighter.fighterId, criteria),
-    [fighter.fighterId, onCheckboxChange]
+    (criteria: string) => {
+      // First, clear the opponent's scores
+      onCheckboxChange(opponent.fighterId, 'clear');
+
+      // Then, update the fighter's scores
+      onCheckboxChange(fighter.fighterId, criteria);
+    },
+    [fighter.fighterId, opponent.fighterId, onCheckboxChange]
   );
 
   const handleAfterBlowSubmit = useCallback(
-    () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false }),
-    [fighter.fighterId, onSubmit]
+    () => onConfirm('Confirm Afterblow?', () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })),
+    [fighter.fighterId, onConfirm, onSubmit]
   );
 
   const handleSelfCallSubmit = useCallback(
-    () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false }),
-    [opponent.fighterId, onSubmit]
+    () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
+    [opponent.fighterId, onConfirm, onSubmit]
   );
 
   return (
@@ -93,5 +107,4 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ fighter, opponent, scores, onCh
   );
 };
 
-// Memoize the entire ScoreTable component to avoid unnecessary re-renders
 export default React.memo(ScoreTable);

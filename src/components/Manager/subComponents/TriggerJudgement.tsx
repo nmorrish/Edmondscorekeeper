@@ -1,38 +1,26 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { domain_uri } from '../../utility/contants';
-import { useToast } from '../../utility/ToastProvider'; // Import the useToast hook from ToastProvider
-
-// Debounce function to prevent multiple rapid clicks
-const debounce = (func: Function, delay: number) => {
-  let timeoutId: any;
-  return (...args: any[]) => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      func(...args);
-    }, delay);
-  };
-};
+import { useToast } from '../../utility/ToastProvider';
 
 interface TriggerJudgementProps {
   matchId: number;
-  refresh: boolean;
+  refresh: boolean; // Determines whether to show the timer or refresh button
 }
 
 const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh }) => {
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(60); // Timer starts at 60.0 seconds
+  const [isRunning, setIsRunning] = useState(false); // State to toggle start/stop for the timer
+  const intervalRef = useRef<number | null>(null); // Use ref to hold interval ID
   const addToast = useToast(); // Use the toast hook to trigger toast notifications
 
-  // Memoized handleButtonClick function with error handling and loading state
-  const handleButtonClick = useCallback(async () => {
+  // Memoized function to trigger the judgement when the timer is stopped
+  const triggerJudgement = useCallback(async () => {
     if (loading) return; // Prevent multiple clicks during the loading state
 
     setLoading(true);
     try {
-      const endpoint = refresh
-        ? `${domain_uri}/refreshJudgement.php`
-        : `${domain_uri}/receiveJudgementRequest.php`;
+      const endpoint = `${domain_uri}/receiveJudgementRequest.php`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -46,33 +34,100 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({ matchId, refresh })
         throw new Error('Network response was not ok');
       }
 
-      const successMessage = refresh
-        ? 'Judgement refreshed successfully.'
-        : 'Judgement triggered successfully.';
-
-      addToast(successMessage); // Trigger a success toast
-
-      console.log(successMessage);
+      addToast('Judgement triggered successfully.'); // Trigger a success toast
     } catch (error) {
-      console.error('There was a problem with the fetch operation:', error);
-      addToast('An error occurred while processing the judgement. Please try again.'); // Trigger an error toast
+      console.error('Error triggering judgement:', error);
+      addToast('An error occurred while processing the judgement. Please try again.');
+    } finally {
+      setLoading(false);
+      setIsRunning(false); // Ensure the timer is stopped after submission
+    }
+  }, [matchId, loading, addToast]);
+
+  // Function to start the timer countdown
+  const startTimer = useCallback(() => {
+    if (!isRunning) {
+      setIsRunning(true); // Set to running state only if not already running
+    }
+  }, [isRunning]);
+
+  // Function to stop the timer but keep the remaining time intact
+  const stopTimer = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current); // Clear the interval to stop the timer
+    }
+    setIsRunning(false); // Stop the timer but keep the remaining time
+    triggerJudgement(); // Trigger the judgement when "Stop" is pressed
+  }, [triggerJudgement]);
+
+  // Handle the countdown
+  useEffect(() => {
+    if (isRunning) {
+      intervalRef.current = window.setInterval(() => {
+        setTimer((prev) => prev - 0.1); // Subtract 0.1 second per interval (100ms)
+      }, 100); // Update every 100ms for one decimal place precision
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current); // Cleanup interval on unmount or stop
+      };
+    }
+  }, [isRunning]);
+
+  // Prevent the timer from resetting when the component is re-rendered or refreshed
+  useEffect(() => {
+    if (!refresh) {
+      setTimer(60); // Set the initial value to 60 only when the component first mounts
+    }
+  }, [refresh]);
+
+  // Separate function for refreshing judgement
+  const refreshJudgement = useCallback(async () => {
+    setLoading(true);
+    try {
+      const endpoint = `${domain_uri}/refreshJudgement.php`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ matchId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      addToast('Judgement refreshed successfully.'); // Trigger a success toast
+    } catch (error) {
+      console.error('Error refreshing judgement:', error);
+      addToast('Error refreshing judgement.');
     } finally {
       setLoading(false);
     }
-  }, [matchId, refresh, loading, addToast]);
+  }, [matchId, addToast]);
 
-  // Debounce the button click to avoid rapid multiple clicks
-  const debouncedHandleButtonClick = useCallback(debounce(handleButtonClick, 300), [handleButtonClick]);
+  // Function to format the timer to 1 decimal place
+  const formatTime = (time: number) => {
+    return time.toFixed(1); // Display the timer with one decimal place
+  };
 
   return (
     <div>
-      <button onClick={debouncedHandleButtonClick} disabled={loading}>
-        {refresh ? 'Refresh Judgement' : 'Begin Judgement'}
-      </button>
+      {/* Conditional Rendering based on the 'refresh' prop */}
+      {refresh ? (
+        <button onClick={refreshJudgement} disabled={loading}>
+          Refresh Judgement
+        </button>
+      ) : (
+        <button onClick={isRunning ? stopTimer : startTimer} disabled={loading} style={{fontSize:'30px'}}>
+          {isRunning ? `Stop (${formatTime(timer)}s)` : `Start (${formatTime(timer)}s)`}
+        </button>
+      )}
+
       {loading && <p>Loading...</p>} {/* Optional loading indicator */}
     </div>
   );
 };
 
-// Memoize the entire component to prevent unnecessary re-renders
 export default React.memo(TriggerJudgement);
