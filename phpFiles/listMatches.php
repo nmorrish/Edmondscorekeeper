@@ -84,28 +84,28 @@ try {
                         'fighterName' => $row['fighter2Name'],
                         'Scores' => [] // Initialize an empty Scores array for fighter2
                     ]
-                ];
+                    ];
             }
 
             // Add score data to the appropriate fighter in the bout
             if ((int)$row['scoreFighterId'] === (int)$row['fighter1Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter1']['Scores'][] = [
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'contact' => ord(($row['contact'])),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
                     'judgeName' => $row['judgeName']
                 ];
             } elseif ((int)$row['scoreFighterId'] === (int)$row['fighter2Id']) {
                 $matches[$matchId]['Bouts'][$boutId]['fighter2']['Scores'][] = [
-                    'contact' => $row['contact'],
-                    'target' => $row['target'],
-                    'control' => $row['control'],
-                    'afterBlow' => $row['afterBlow'],
-                    'doubleHit' => $row['doubleHit'],
-                    'opponentSelfCall' => $row['opponentSelfCall'],
+                    'contact' => ord($row['contact']),
+                    'target' => ord($row['target']),
+                    'control' => ord($row['control']),
+                    'afterBlow' => ord($row['afterBlow']),
+                    'doubleHit' => ord($row['doubleHit']),
+                    'opponentSelfCall' => ord($row['opponentSelfCall']),
                     'judgeName' => $row['judgeName']
                 ];
             }
