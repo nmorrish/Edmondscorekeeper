@@ -1,4 +1,30 @@
 <?php
+/**
+ * updateJudgementSSE.php
+ * 
+ * An SSE stream that monitors the Bouts table for changes 
+ * to the lastJudgement timestamp. When a change is detected, it fetches the 
+ * associated matchId and sends it to the client in real time.
+ * 
+ * This helps avoid scorekeepers from manually refreshing every time.
+ * 
+ * Expects a persistent SSE connection (no request body or parameters).
+ * 
+ * On initial connection:
+ *   Sends a `null` data event to acknowledge the connection.
+ * 
+ * On update:
+ * {
+ *   "status": "Match updated",
+ *   "matchId": 42
+ * }
+ * 
+ * On error:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');

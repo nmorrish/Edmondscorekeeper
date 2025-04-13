@@ -1,3 +1,16 @@
+/**
+ * src/components/Manager/subComponents/incrementFighterStrikes.tsx
+ * 
+ * == Strike Button ==
+ * This component handles all aspects of assigning strikes to fighters. 
+ * 
+ * It renders a button that will, given a fighter id, provide a 
+ * confirmation window and will assign a strike on confirmation
+ * 
+ * Assigns via POST api to backend.
+ * 
+ * Button appears as a large red 'X'
+ */
 import React, { useState } from 'react';
 import { domain_uri } from "../../utility/contants";
 import { useToast } from '../../utility/ToastProvider';

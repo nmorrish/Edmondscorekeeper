@@ -1,3 +1,16 @@
+/**
+ * src/components/Manager/subComponents/MatchFighters.tsx
+ * 
+ * == Assign Fighters to Match ==
+ * This provides the menu for assigning 2 fighters to fight each other.
+ * Allows custom color assignment
+ * Will provide options for assignment to event and ring
+ * 
+ * Submits via POST to backend api endpoint
+ * 
+ * 
+ */
+
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useRefresh } from "../../utility/RefreshContext"; 
 import { domain_uri } from "../../utility/contants";
@@ -10,18 +23,23 @@ interface Fighter {
   strikes: number;
 }
 
+//A list of fighterId and fighterName is required
 interface MatchFightersProps {
   fighters: Fighter[];
 }
 
+// Function for matching fighters.
 const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
-  const { triggerRefresh } = useRefresh(); 
+  //refresh allows list to auto update
+  const { triggerRefresh } = useRefresh();
+  //toast gives helpful message 
   const addToast = useToast(); 
   const { events, loading: loadingEvents, error: eventError } = useEvents(); 
 
   // Log events fetched
   // console.log("Fetched events: ", events);
   
+  //Return a soft error message if there are less than 2 fighters in the list of fighters.
   if (fighters.length < 2) {
     // console.log("Not enough fighters to match.");
     return <div>Not enough fighters to match.</div>;
@@ -72,12 +90,14 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
     [fighters, selectedFighter1]
   );
 
+  //submit fighter match if all is in order.
   const handleSubmit = async () => {
     if (!selectedEvent) {
       addToast("Please select an event.");
       return;
     }
 
+    //structure of match data submission
     const matchData = {
       fighter1: selectedFighter1,
       fighter2: selectedFighter2,
@@ -114,6 +134,7 @@ const MatchFighters: React.FC<MatchFightersProps> = ({ fighters }) => {
     }
   };
 
+  //Render HTML for match assignment pane
   return (
     <div className="container">
       <h2>Match Fighters</h2>

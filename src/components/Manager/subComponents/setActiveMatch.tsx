@@ -1,3 +1,14 @@
+/**
+ * src/components/Manager/subComponents/setActiveMatch.tsx
+ * 
+ * == Set Active Match Button ==
+ * Component for a button that sets a match to "Active"
+ * 
+ * Sets to db via POST API.
+ * 
+ * Requires MatchId.
+ * 
+ */
 import React, { useState } from 'react';
 import { domain_uri } from "../../utility/contants";
 import { useToast } from '../../utility/ToastProvider';
@@ -9,7 +20,7 @@ interface SetActiveMatchButtonProps {
 
 const SetActiveMatchButton: React.FC<SetActiveMatchButtonProps> = ({ matchId }) => {
   const [loading, setLoading] = useState(false);
-  const addToast = useToast(); // Initialize the toast
+  const addToast = useToast(); // Initialize toast
   const { triggerRefresh } = useRefresh(); // Get triggerRefresh from the context
 
   const handleSetActiveMatch = async () => {

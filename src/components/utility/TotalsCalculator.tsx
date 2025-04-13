@@ -1,6 +1,23 @@
+/**
+ * src/components/utility/TotalsCalculator.tsx
+ * 
+ * == Totals Calculator ==
+ * This will calculate and return for a single fighter:
+ *   -The total for each scoring criteria earned by the fighter for a single exchange/bout.
+ *   -The number of judges that submitted a score for that fighter.
+ *   -The grand total of that fighter for the match.
+ * 
+ * Totals returned as arrays. 
+ * The `useMemo` feature is used to avoid recalculating existing values. 
+ * The `useEffect` feature is used to notify parent components when totals change
+ * The `areTotalsEqual` utility function is used to avoid unnecessary updates
+ * 
+ */
+
 import React, { useEffect, useMemo } from 'react';
 
-// Define the Score interface
+
+/** Individual score structure */
 interface Score {
   scoreId: number;
   target: number;
@@ -11,27 +28,56 @@ interface Score {
   doubleHit: boolean;
 }
 
-// Define the Fighter interface
+
+/** Fighter structure */
 interface Fighter {
   fighterColor: string;
   fighterName: string;
   Bouts: Score[][]; // Bouts contain arrays of scores
 }
 
-// Define the props interface for TotalsCalculator component
+
+/** Defines the props expected by the TotalsCalculator component */
 interface TotalsCalculatorProps {
   fighter: Fighter;
   onTotalsCalculated: (totals: any) => void;
 }
 
-// Utility function for deep comparison of totals to prevent unnecessary updates
+
+/**
+ * Utility function for deep comparison of totals to prevent unnecessary updates.
+ * Since the JSON containing totals is organized by bout, comparing the entire JSON ensures 
+ * that only bouts that are new will be included in the recalculation of overall score. 
+ * 
+ * @param {any} prevTotals - Previous totals object
+ * @param {any} newTotals - New totals object
+ * @returns {boolean} True if the totals are the same, otherwise false
+ */
 const areTotalsEqual = (prevTotals: any, newTotals: any) => {
   return JSON.stringify(prevTotals) === JSON.stringify(newTotals);
 };
 
+
+/**
+ * TotalsCalculator component.
+ *
+ * This component computes the average scores for a single fighter's bouts and provides
+ * the calculated totals to a parent component via `onTotalsCalculated`.
+ *
+ * @param {TotalsCalculatorProps} props - The component props
+ * @returns {null} This component does not render any UI
+ */
 const TotalsCalculator: React.FC<TotalsCalculatorProps> = ({ fighter, onTotalsCalculated }) => {
-  // Calculate the averages only when `fighter.Bouts` changes
+
+  /** Calculate the averages only when `fighter.Bouts` changes*/
   const totals = useMemo(() => {
+
+    /**
+     * Calculates the average values for a given set of scores.
+     *
+     * @param {Score[]} scores - The scores to process
+     * @returns {object} The computed averages
+     */
     const calculateAverages = (scores: Score[]) => {
       if (scores.length === 0) {
         return {
@@ -45,7 +91,7 @@ const TotalsCalculator: React.FC<TotalsCalculatorProps> = ({ fighter, onTotalsCa
         };
       }
 
-      // Sum up all the scores
+      // Sum up all the scores, return as array
       const totals = scores.reduce(
         (acc, score) => {
           acc.contact += score.contact;
@@ -89,6 +135,7 @@ const TotalsCalculator: React.FC<TotalsCalculatorProps> = ({ fighter, onTotalsCa
       { contact: 0, target: 0, control: 0, afterBlow: 0, opponentSelfCall: 0, doubleHit: 0 }
     );
 
+    // Compute grand total score as a string with two decimal places
     const grandTotal = (
       overallTotals.contact +
       overallTotals.target +
@@ -103,8 +150,8 @@ const TotalsCalculator: React.FC<TotalsCalculatorProps> = ({ fighter, onTotalsCa
   // Store the previous totals to compare against the new totals
   let previousTotals = React.useRef<any>(null);
 
+  /** Triggers the `onTotalsCalculated` callback only if totals have changed. */
   useEffect(() => {
-    // Only call the callback if totals have changed
     if (!areTotalsEqual(previousTotals.current, totals)) {
       previousTotals.current = totals; // Update the previous totals
       onTotalsCalculated(totals);      // Call the callback with new totals

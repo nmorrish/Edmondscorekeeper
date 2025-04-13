@@ -1,4 +1,36 @@
 <?php
+/**
+ * listFighters.php
+ * 
+ * Retrieves and returns all fighters from the database, including their ID, name, and current strike count.
+ * 
+ * Accessed via a GET request. No input parameters are required.
+ * 
+ * On success returns a JSON array:
+ * [
+ *   {
+ *     "fighterId": 1,
+ *     "fighterName": "Fighter1",
+ *     "strikes": 0
+ *   },
+ *   {
+ *     "fighterId": 2,
+ *     "fighterName": "Fighter2",
+ *     "strikes": 0
+ *   },
+ *   {
+ *     "fighterId": 3,
+ *     "fighterName": "Etc",
+ *     "strikes": 2
+ *   }
+ * ]
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "Descriptive error message"
+ * }
+ */
 
 require_once("connect.php");
 

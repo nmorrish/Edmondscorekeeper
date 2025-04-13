@@ -1,4 +1,35 @@
 <?php
+/**
+ * addFighters.php
+ * 
+ * Accepts a list of fighters and inserts them into the Fighters table in the database.
+ * Each fighter is initialized with 0 strikes.
+ * 
+ * Expects a POST request with a JSON array in the following format:
+ * [
+ *   { "name": "Fighter1" },
+ *   { "name": "Fighter2" },
+ *   ...
+ *   { "name": "FighterN" }
+ * ]
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "received": [
+ *     { "name": "Fighter1" },
+ *     { "name": "Fighter2" },
+ *     ...
+ *     { "name": "FighterN" }
+ *   ]
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "Descriptive error message"
+ * }
+ */
 
 require_once("connect.php");
 $db = connect();

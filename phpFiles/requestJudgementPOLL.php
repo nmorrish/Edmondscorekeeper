@@ -1,4 +1,12 @@
 <?php
+/**
+ * requestJudgementPOLL.php
+ * 
+ * A fallback in case SSE fails for a judge is to poll the server with this script.
+ * 
+ * Not fully functional last time I checked as the intended method worked well.
+ * Might want to work on this
+ */
 header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 

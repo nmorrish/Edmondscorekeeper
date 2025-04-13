@@ -1,3 +1,23 @@
+/**
+ * src/components/Manager/subComponents/TriggerJudgement.tsx
+ * 
+ * == Judgement Trigger Buttons ==
+ * This allows the scorekeeper table to send the signal for judges to pass Judgement.
+ * If judges are not getting a score table to use, this is the place to start looking.
+ * 
+ * Integrates a 60 second timer with the Judgement signal in a single button.
+ * Clicking the button starts the timer. Clicking again stops timer and sends signal.
+ * Signal is sent to server via POST api.
+ * Worth noting is that every time a signal is sent after stopping the timer, a new
+ * exchange is created in the DB.
+ * 
+ * To avoid redundant exchange entries in DB, a "Refresh" button is also included if
+ * a judge does not receive their score entry card. This will only be for the current 
+ * exchange and will not create a new one.
+ * 
+ * Timer will continue into the negatives when it reaches zero.
+ * 
+ */
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { domain_uri } from '../../utility/contants';
 import { useToast } from '../../utility/ToastProvider';

@@ -1,4 +1,31 @@
 <?php
+/**
+ * strikeFighterIncrement.php
+ * 
+ * Increments the strikes count for a specific fighter in the Fighters table.
+ * Returns updated strike count and name, to inform scorekeepers they were very naughty.
+ * 
+ * Expects a POST with a JSON body as follows:
+ * {
+ *   "fighterId": 11
+ * }
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "message": "Fighter strikes incremented successfully",
+ *   "fighterName": "Fighter1",
+ *   "strikes": 2
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ * 
+ */
+
 header('Content-Type: application/json');
 
 // Get the input JSON data

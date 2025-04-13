@@ -1,4 +1,34 @@
 <?php
+/**
+ * receiveJudgementRequest.php
+ * 
+ * Enters Judgement received by judges to the DB for a given match id.
+ * Also will activate the match if it is not already active.
+ * Will deactivate all other active matches in the same ring
+ * Updates lastJudgement timestamp, which is used for SSE signalling.
+ * Creates a new bout to place scores to.
+ * 
+ * Expects a POST with a JSON as follows:
+ * {
+ *   "matchId": 42
+ * }
+ * 
+ * Outputs the following on success:
+ * {
+ *   "status": "success",
+ *   "message": "Match set as active, last judgement timestamp updated, and new bout created successfully",
+ *   "receivedData": {
+ *     "matchId": 42
+ *   }
+ * }
+ * 
+ * Outputs the following on error:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ * 
+ */
 header('Content-Type: application/json');
 
 $jsonData = file_get_contents('php://input');

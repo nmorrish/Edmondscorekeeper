@@ -1,3 +1,14 @@
+/**
+ * src/components/Manager/subComponents/setMatchToComplete.tsx
+ * 
+ * == Set Active Match Button ==
+ * Component for a button that sets a match to "Complete"
+ * 
+ * Sets to db via POST API.
+ * 
+ * Requires MatchId.
+ * 
+ */
 import React, { useState } from 'react';
 import { domain_uri } from "../../utility/contants";
 import { useToast } from '../../utility/ToastProvider';

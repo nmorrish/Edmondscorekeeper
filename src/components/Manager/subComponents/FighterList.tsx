@@ -1,3 +1,11 @@
+/**
+ * src/components/Manager/subComponents/FighterList.tsx
+ * 
+ * == Fighter List ==
+ * 
+ * Lists each fighter in the tournament and their strikes.
+ * Does not show which rings fighters are in.
+ */
 import React, { memo } from "react";
 
 interface Fighter {
@@ -21,7 +29,6 @@ const FighterList: React.FC<FighterListProps> = ({ fighters }) => {
       <table>
         <thead>
           <tr>
-            <th>ID</th>
             <th>Name</th>
             <th>Strikes</th>
           </tr>
@@ -29,7 +36,6 @@ const FighterList: React.FC<FighterListProps> = ({ fighters }) => {
         <tbody>
           {fighters.map((fighter) => (
             <tr key={fighter.fighterId}>
-              <td>{fighter.fighterId}</td>
               <td>{fighter.fighterName}</td>
               <td>{fighter.strikes}</td>
             </tr>

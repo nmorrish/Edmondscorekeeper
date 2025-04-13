@@ -1,4 +1,31 @@
 <?php
+/**
+ * refreshJudgement.php
+ * 
+ * Searches for and triggers a refresh for the most recent bout 
+ * by updating the lastJudgement timestamp.
+ * 
+ * Expects a POST with a JSON as follows:
+ * {
+ *   "matchId": 42
+ * }
+ * 
+ * On Success returns
+ * {
+ *   "status": "success",
+ *   "message": "Last judgement timestamp updated successfully",
+ *   "highestBoutId": 83,
+ *   "receivedData": {
+ *     "matchId": 42
+ *    }
+ * }
+ * 
+ * Outputs the following on error:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * } 
+ */
 header('Content-Type: application/json');
 
 $jsonData = file_get_contents('php://input');

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import TotalsCalculator from '../../utility/TotalsCalculator';
-import IncrementFighterStrikeButton from './incrementFighterStrikes'; // Assuming you use this button for strikes
+import IncrementFighterStrikeButton from './incrementFighterStrikes';
 
 // Define the Score interface
 interface Score {

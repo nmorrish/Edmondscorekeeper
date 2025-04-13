@@ -1,5 +1,70 @@
 <?php
-// judgementSubmit.php
+/**
+ * judgementSubmit.php 
+ * 
+ * Records scoring data submitted by judges for a specific bout.
+ * Each fighter's score is stored independently, and the script ensures that
+ * a judge cannot submit more than two scores per bout (one for each fighter).
+ * The score data received include data for both fighters in one JSON.
+ * 
+ * Expects a POST request with JSON structured as follows:
+ * {
+ *   "boutId": 15,
+ *   "scores": {
+ *     "13": {
+ *       "contact": true|false,
+ *       "target": true|false,
+ *       "control": true|false,
+ *       "afterBlow": true|false,
+ *       "doubleHit": true|false,
+ *       "opponentSelfCall": true|false,
+ *       "judgeName": "Dredd"
+ *     },
+ *     "12": {
+ *       "contact": true|false,
+ *       "target": true|false,
+ *       "control": true|false,
+ *       "afterBlow": true|false,
+ *       "doubleHit": true|false,
+ *       "opponentSelfCall": true|false,
+ *       "judgeName": "Dredd"
+ *     }
+ *   }
+ * }
+ * 
+ * Outputs data in the following JSON format
+ * {
+ *   "status": "success",
+ *   "message": "Scores recorded successfully",
+ *   "boutId": 15,
+ *   "scores": {
+ *     "13": {
+ *       "contact": true|false,
+ *       "target": true|false,
+ *       "control": true|false,
+ *       "afterBlow": true|false,
+ *       "doubleHit": true|false,
+ *       "opponentSelfCall": true|false,
+ *       "judgeName": "Dredd"
+ *     },
+ *     "12": {
+ *       "contact": true|false,
+ *       "target": true|false,
+ *       "control": true|false,
+ *       "afterBlow": true|false,
+ *       "doubleHit": true|false,
+ *       "opponentSelfCall": true|false,
+ *       "judgeName": "Dredd"
+ *     }
+ *   }
+ * }
+ * 
+ * Or, on failure:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 require_once("connect.php");
 
 // Set the content type to application/json

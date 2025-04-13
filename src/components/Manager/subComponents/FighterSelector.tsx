@@ -1,3 +1,11 @@
+/**
+ * src/components/Manager/subComponents/FighterSelector.tsx
+ * 
+ * Allows scorekeeper to swap fighters inside a match.
+ * 
+ * Displays a dropdown showing each fighter. 
+ * Requires fighterId, color, matchId, and fighterNumber
+ */
 import React, { useState } from 'react';
 import useFighterData from './useFighterData';
 import { domain_uri } from "../../utility/contants";

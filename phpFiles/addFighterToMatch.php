@@ -1,4 +1,40 @@
 <?php
+/**
+ * addFightersToMatch.php
+ * 
+ * Adds a new match to the Matches table using two fighters, their colors, 
+ * the associated ring, and event ID. Automatically sets the lastJudgement
+ * timestamp to the current time.
+ * 
+ * Expects a POST request with a JSON body in the following format:
+ * {
+ *   "fighter1": 11,
+ *   "colorFighter1": "Red",
+ *   "fighter2": 12,
+ *   "colorFighter2": "Blue",
+ *   "ring": 1,
+ *   "eventId": 5
+ * }
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "receivedData": {
+ *     "fighter1": 11,
+ *     "colorFighter1": "Red",
+ *     "fighter2": 12,
+ *     "colorFighter2": "Blue",
+ *     "ring": 1,
+ *     "eventId": 5
+ *   }
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: application/json');
 
 $jsonData = file_get_contents('php://input');

@@ -1,20 +1,52 @@
+/**
+ *  src/components/Judgement/JudgementManager.tsx
+ * 
+ * == Judgement Manager ==
+ * This is the parent component used by judges to judge an exchange on their phone. 
+ * 
+ * 'Judgement' is used to describe the process of a judge submitting scores for a bout
+ * after receiving the signal to do so. 'Judgement' sounds amusingly dramatic.
+ * 
+ * Judges input their names before submitting Judgement. 
+ * This is used on the backend to ensure that duplicate scoring submissions are not recorded.
+ * If a judge needs another signal, all judges must submit scores again even if they have done so 
+ * already as this ensures their screen will be ready again. Duplicates will be ignored. 
+ *                                                                                                                                                                                                                      
+ * Uses SSE to listen for the signal from the server that Judgement is at hand, which presents judges with a score
+ * card for the fighters of a specific ring. Fighter names and colors are shown. Judgement is sent to the server.
+ * 
+ * Memoization and callbacks are used to optimize performance.
+ */
+
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { domain_uri } from '../utility/contants';
 import ScoreTable from './ScoreTable';
 
-// Utility functions to manage cookies and session storage
+/**
+ * Retrieve Judge name stored in cookie. 
+ *
+ * @param {string} name - The name of the cookie.
+ * @returns {string | undefined} The cookie value, or undefined if not found.
+ */
 const getCookie = (name: string) => {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(';').shift();
 };
 
+/**
+ * Set Judge name and store as a cookie. 
+ *
+ * @param {string} name - The name of the cookie.
+ * @returns {string | undefined} The cookie value, or undefined if not found.
+ */
 const setCookie = (name: string, value: string, days: number) => {
   const expires = new Date(Date.now() + days * 86400000).toUTCString();
   document.cookie = `${name}=${value}; expires=${expires}; path=/`;
 };
 
+/** Structure of Judgement data received from SSE */
 interface JudgementData {
   matchId: number;
   matchRing: number;
@@ -27,7 +59,14 @@ interface JudgementData {
   fighter2Color: string;
 }
 
+/**
+ * The JudgementManager component handles Judgement by Judges.
+ *
+ * @returns {JSX.Element} The rendered component.
+ */
 const JudgementManager: React.FC = () => {
+
+  //Initialize state and contexts
   const { ringNumber } = useParams<{ ringNumber: string }>();
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
@@ -36,11 +75,13 @@ const JudgementManager: React.FC = () => {
   const maxRetries = 3;
   const retryDelay = 3000;
 
+  /** Retrieve stored judge name from cookies or session storage on mount */
   useEffect(() => {
     const storedJudgeName = getCookie('judgeName') || sessionStorage.getItem('judgeName');
     if (storedJudgeName) setJudgeName(storedJudgeName);
   }, []);
 
+  /** Handles when a judge submits their name. Uses callback to memoise Judge name to state and store as session cookie.*/
   const handleNameSubmit = useCallback(() => {
     if (nameInput.trim()) {
       const trimmedName = nameInput.trim();
@@ -50,13 +91,25 @@ const JudgementManager: React.FC = () => {
     }
   }, [nameInput]);
 
+  /**
+   * Listens for the signal from the server that indicates when a score needs to be submitted.
+   * Uses callback to memoize data and avoid re-renders of existing data.
+   * 
+   * Will be called again up to retriesLeft to retry connection to SSE if it fails.
+   */
   const connectToSSE = useCallback((retriesLeft: number) => {
+
+    //SSE endpoint listening for signal to start Judgement. Obtains ring number from url in react router.
     const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php?ringNumber=${ringNumber}`);
 
+    //Handle incoming data. Looks for valid event.data
     eventSource.onmessage = (event) => {
       if (event.data) {
         try {
           const data: JudgementData | null = JSON.parse(event.data);
+
+
+          //if data is valid, parse to JSON setting all score fields to unchecked (i.e. false) 
           if (data) {
             setJudgementData(data);
             setScores({
@@ -70,6 +123,7 @@ const JudgementManager: React.FC = () => {
       }
     };
 
+    //if connection to SSE fails, try reconnecting, then decrement retriedLeft.
     eventSource.onerror = () => {
       eventSource.close();
       if (retriesLeft > 0) {
@@ -80,11 +134,15 @@ const JudgementManager: React.FC = () => {
     return eventSource;
   }, []);
 
+
+  // Effect hook called on component mount to handle connection to SSE
   useEffect(() => {
     const eventSource = connectToSSE(maxRetries);
     return () => eventSource.close();
   }, [connectToSSE]);
 
+
+  //Allows judge to clear scores, otherwise update scores for fighter
   const handleCheckboxChange = useCallback((fighterId: number, criteria: string) => {
     if (criteria === 'clear') {
       // Reset all scores for the given fighter
@@ -110,13 +168,14 @@ const JudgementManager: React.FC = () => {
     }
   }, []);
   
-
+  //Simple confirmation widow for when judgement is submitted.
   const handleConfirmation = (message: string, action: () => void) => {
     if (window.confirm(message)) {
       action();
     }
   };
 
+  //Returns true if any score field is checked. Used to determine if there was no exchange.
   const hasCheckedValues = useCallback(() => {
     return (
       Object.values(scores[judgementData?.fighter1Id || 0] || {}).some(Boolean) ||
@@ -124,6 +183,11 @@ const JudgementManager: React.FC = () => {
     );
   }, [scores, judgementData]);
 
+  /**
+   * This is called when a Judge submits Judgement. 
+   * Builds the score payload for fighter1 and fighter2 then submits to endpoint on backend.
+   * Has a separate button for declaring doubles.
+  */
   const handleSubmit = useCallback(
     async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
       if (judgementData && judgeName) {
@@ -138,6 +202,7 @@ const JudgementManager: React.FC = () => {
           judgeName: judgeName,
         };
 
+        //same payload construction for fighter 2
         const fighter2Scores = {
           contact: action.doubleHit === undefined ? scores[judgementData.fighter2Id]?.contact || false : false,
           target: action.doubleHit === undefined ? scores[judgementData.fighter2Id]?.target || false : false,
@@ -148,6 +213,7 @@ const JudgementManager: React.FC = () => {
           judgeName: judgeName,
         };
 
+        //final payload to send to server.
         const data = {
           matchId: judgementData.matchId,
           boutId: judgementData.boutId,
@@ -157,6 +223,7 @@ const JudgementManager: React.FC = () => {
           },
         };
 
+        //submit payload to server asyncronously.
         try {
           console.log('Submitting data:', data);
 
@@ -180,18 +247,21 @@ const JudgementManager: React.FC = () => {
     [judgementData, scores, judgeName]
   );
 
+  //Memoize fighter1 data for use in score display.
   const fighter1 = useMemo(() => judgementData ? {
     fighterId: judgementData.fighter1Id,
     fighterName: judgementData.fighter1Name,
     fighterColor: judgementData.fighter1Color,
   } : null, [judgementData]);
 
+  ///Memoize fighter2 data for use in score display.
   const fighter2 = useMemo(() => judgementData ? {
     fighterId: judgementData.fighter2Id,
     fighterName: judgementData.fighter2Name,
     fighterColor: judgementData.fighter2Color,
   } : null, [judgementData]);
 
+  //HTML that will render if a judge has not entered a name. Asks judge to enter their name.
   if (!judgeName) {
     return (
       <div>
@@ -209,6 +279,7 @@ const JudgementManager: React.FC = () => {
     );
   }
 
+  //HTML that will render when waiting for Judgement to commence. Will commence when Judgement data is received.
   if (!judgementData) {
     return (
       <div>
@@ -218,6 +289,9 @@ const JudgementManager: React.FC = () => {
     );
   }
 
+  //HTML that will render for Judgement. 
+  //Uses 2 ScoreTable components: one for each fighter.
+  //Should only display when judge name and Judgement data are present.
   return (
     <div>
       <h1>Judgement Now Make!</h1>

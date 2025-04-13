@@ -1,3 +1,8 @@
+/* 
+ * src/App.css
+ * == Global styling for project ==
+*/
+
 /* Enforce dark mode styles globally */
 body {
   background-color: #121212;
@@ -327,7 +332,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-left: 10px; /* Align the radio buttons next to the label */
+  margin-left: 10px;
 }
 
 .container input[type="radio"] {

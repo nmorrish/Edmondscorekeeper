@@ -1,4 +1,38 @@
 <?php
+/**
+ * updateFighters.php
+ * 
+ * Updates the fighter IDs and colors for a specific match in the Matches table.
+ * If a value is not provided in the request, the existing value in the database is retained.
+ * Very handy if someone needs to swap out.
+ * 
+ * Expects a POST with a JSON body as follows:
+ * {
+ *   "matchId": 42,
+ *   "fighter1": { "id": 11, "color": "Red" },
+ *   "fighter2": { "id": 12, "color": "Blue" }
+ * }
+ * 
+ * Partial updates are allowed — any missing fields will retain their current database values.
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "updatedMatch": {
+ *     "matchId": 42,
+ *     "fighter1Id": 11,
+ *     "fighter1Color": "Red",
+ *     "fighter2Id": 12,
+ *     "fighter2Color": "Blue"
+ *   }
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: application/json');
 
 // Get the input JSON data

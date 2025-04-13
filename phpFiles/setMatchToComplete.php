@@ -1,4 +1,27 @@
 <?php
+/**
+ * setMatchToComplete.php
+ * 
+ * Marks a match as complete by setting the matchComplete flag to 1 
+ * in the `Matches` table.
+ * 
+ * Expects a POST with a JSON body as follows:
+ * {
+ *   "matchId": 42
+ * }
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "message": "Match marked as complete successfully"
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: application/json');
 
 // Get the input JSON data

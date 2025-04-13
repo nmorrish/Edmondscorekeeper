@@ -1,3 +1,13 @@
+/**
+ * src/components/Manager/subComponents/useEvents.ts
+ * 
+ * == List Events Hook ==
+ * A custom hook for listing events. Pulled directly from server via api.
+ * 
+ * Currently used for matching fighters and displaying events at the top of the page.
+ * 
+ * Returns event name and eventId
+ */
 import { useState, useEffect } from 'react';
 import { domain_uri } from "../../utility/contants";
 

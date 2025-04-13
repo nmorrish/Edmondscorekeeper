@@ -1,3 +1,15 @@
+/**
+ * src/components/Manager/subComponents/MatchTables.tsx
+ * 
+ * == Match Tables Parent Component ==
+ * Displays all scores recorded across every match in a given event ring. 
+ * 
+ * Requires ringNumber and eventId
+ * 
+ * Connects to an SSE for real time score updates.
+ * 
+ * Optimized using callbacks for memoization
+ */
 import React, { useState, useEffect, useCallback } from "react";
 import TriggerJudgement from "./TriggerJudgement";
 import { useRefresh } from "../../utility/RefreshContext";
@@ -10,6 +22,7 @@ import SetActiveMatchButton from "./setActiveMatch";
 import SetCompleteMatchButton from "./setMatchToComplete";
 import debounce from 'lodash/debounce';
 
+//Structure of the score data
 interface Score {
   scoreId: number;
   target: number;
@@ -20,6 +33,7 @@ interface Score {
   doubleHit: boolean;
 }
 
+// Structure of the bout data
 interface Bout {
   boutId: number;
   fighter1: {
@@ -36,6 +50,7 @@ interface Bout {
   };
 }
 
+//Structure of the match data
 interface Match {
   matchId: number;
   matchRing: number;
@@ -44,9 +59,10 @@ interface Match {
   matchComplete: boolean;
 }
 
+//Data for ring and event
 interface MatchTablesProps {
   ringNumber: number;
-  eventId: number; // Add eventId as a prop
+  eventId: number;
 }
 
 const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
@@ -78,7 +94,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     [ringNumber, eventId]
   );
 
-  // SSE connection
+  // SSE connection listening for updates to scores
   const connectToSSE = useCallback(() => {
     console.log("Opening SSE connection...");
     const eventSource = new EventSource(`${domain_uri}/updateJudgementSSE.php`);
@@ -98,10 +114,11 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
       }
     };
 
+    //if the SSE cannot connect, retry connection after 5 seconds
     eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       eventSource.close();
-      setTimeout(() => connectToSSE(), 5000); // Retry connecting after 5 seconds
+      setTimeout(() => connectToSSE(), 5000);
     };
 
     return eventSource;
@@ -138,6 +155,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     }));
   };
 
+  //callback for storing score data for fighter 1
   const handleTotalsCalculatedForFighter1 = useCallback(
     (matchId: number, totals: { grandTotal: string }) => {
       setFighter1GrandTotals((prev) => ({
@@ -148,6 +166,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     []
   );
 
+  //callback for storing score data for fighter 2
   const handleTotalsCalculatedForFighter2 = useCallback(
     (matchId: number, totals: { grandTotal: string }) => {
       setFighter2GrandTotals((prev) => ({
@@ -158,6 +177,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     []
   );
 
+  //Updates match score for all bouts within a given match.
   const handleFighterUpdate = (matchId: number, fighterNumber: "fighter1" | "fighter2", fighterId: number, fighterName: string, fighterColor: string) => {
     setMatches((prevMatches) =>
       prevMatches.map((match) =>
@@ -180,6 +200,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     triggerRefresh();
   };
 
+  //For the fighter that is winning, change the color of their name with CSS class 'highlight' 
   const getHighlightClass = (fighter1Total: number, fighter2Total: number, isFighter1: boolean) => {
     if (fighter1Total > fighter2Total && fighter1Total > 0 && isFighter1) {
       return "highlight";
@@ -189,6 +210,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     return "";
   };
 
+  //Change the border color around a match to indicate complete/pending/active according to the CSS classes below.
   const getMatchTableClass = (active: boolean, matchComplete: boolean) => {
     if (active) {
       return "match-table active-match";
@@ -199,15 +221,19 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
     }
   };
 
+  //Rendering for tables.
   return (
     <div>
+      {/* Only display matches if there are matches to display */}
       {matches.length > 0 ? (
         matches.map((match) => {
           if (!match.Bouts || match.Bouts.length === 0) return null;
 
+          //Variables for storing scores for each bout for each fighter in the match
           const fighter1Bouts = match.Bouts.map((bout) => bout.fighter1.Scores);
           const fighter2Bouts = match.Bouts.map((bout) => bout.fighter2.Scores);
 
+          //Variable, with data structure, for each fighter in the match
           const fighter1 = {
             fighterColor: match.Bouts[0].fighter1.fighterColor,
             fighterName: match.Bouts[0].fighter1.fighterName,
@@ -215,7 +241,6 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
             matchId: match.matchId,
             Bouts: fighter1Bouts,
           };
-
           const fighter2 = {
             fighterColor: match.Bouts[0].fighter2.fighterColor,
             fighterName: match.Bouts[0].fighter2.fighterName,
@@ -224,9 +249,11 @@ const MatchTables: React.FC<MatchTablesProps> = ({ ringNumber, eventId }) => {
             Bouts: fighter2Bouts,
           };
 
+          //Variables used for grand total of each fighter
           const fighter1GrandTotal = parseFloat(fighter1GrandTotals[match.matchId] || "0.00");
           const fighter2GrandTotal = parseFloat(fighter2GrandTotals[match.matchId] || "0.00");
 
+          
           return (
             <div key={match.matchId} className={getMatchTableClass(match.Active, match.matchComplete)}>
               <input type="hidden" value={match.matchId} />

@@ -1,3 +1,15 @@
+/**
+ * src/components/Judgement/ScoreTable.tsx
+ * 
+ * This display the table judges use to Pass Judgement on a bout.
+ *
+ * Table displays fighter's name and color. 
+ * Has checkboxes for Contact, Target, Control.
+ * Has buttons for AfterBlows and Self-calls.
+ * 
+ * For ease of formatting, duplicate code reduction, and conformance to database structure, 
+ * one table will be rendered for each fighter (2 tables rendered per exchange).`
+ */
 import React, { useCallback } from 'react';
 
 interface Fighter {
@@ -6,6 +18,7 @@ interface Fighter {
   fighterColor: string;
 }
 
+//Properties passed to table component.
 interface ScoreTableProps {
   fighter: Fighter;
   opponent: Fighter;
@@ -15,6 +28,7 @@ interface ScoreTableProps {
   onConfirm: (message: string, action: () => void) => void;
 }
 
+//Handlers internal to the ScoreTable component
 const ScoreTable: React.FC<ScoreTableProps> = ({
   fighter,
   opponent,
@@ -35,16 +49,20 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
     [fighter.fighterId, opponent.fighterId, onCheckboxChange]
   );
 
+  //Submit for AfterBlow button.
   const handleAfterBlowSubmit = useCallback(
     () => onConfirm('Confirm Afterblow?', () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })),
     [fighter.fighterId, onConfirm, onSubmit]
   );
 
+  //Submit for SelfCall button.
   const handleSelfCallSubmit = useCallback(
     () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
     [opponent.fighterId, onConfirm, onSubmit]
   );
 
+
+  //Render the scoring table for one fighter.
   return (
     <div className={`${fighter.fighterColor}`}>
       <table className="match">

@@ -1,3 +1,17 @@
+
+/**
+ * src/components/Manager/subComponents/FighterEntryForm.tsx
+ * 
+ * == Fighter Entry Form ==
+ * Allows entry of fighter names. 
+ * 
+ * Saves names to the db on the backend.
+ * 
+ * Also has a function for adding multiple input fields. 
+ * Input fields are purely for entry.  
+ * 
+ * implements useCallback to memoize fighters in list.
+ */
 import React, { useState, useCallback } from "react";
 import FormInputComponent from "./FormInputComponent";
 import { domain_uri } from "../../utility/contants";
@@ -34,6 +48,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) 
     setFighters((prevFighters) => [...prevFighters, { name: "" }]);
   }, []);
 
+  //Post api call to server.
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -68,7 +83,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({ onFightersAdded }) 
         {fighters.map((fighter, index) => (
           <FormInputComponent
             key={index}
-            label={`Fighter ${index + 1}`}
+            label={`Enter ${index + 1}`}
             name={`fighter-${index}`}
             value={fighter.name}
             onChange={handleChange(index)}

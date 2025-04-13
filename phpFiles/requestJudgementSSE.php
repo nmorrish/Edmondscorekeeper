@@ -1,4 +1,37 @@
 <?php
+/**
+ * requestJudgementSSE.php
+ * 
+ * Opens an SSE stream that monitors the `Matches` table and looks
+ * for changes to the `lastJudgement` timestamp for the most recent match in a ring. 
+ * Returns the latest match and bout details when an update is detected.
+ * 
+ * Expects a GET request with a query parameter:
+ *   https://yoururl/requestJudgementSSE.php?ringNumber=1
+ * 
+ * On initial connection:
+ *   Sends a null event to signal connection established
+ * 
+ * On update:
+ * {
+ *   "matchId": 42,
+ *   "matchRing": 1,
+ *   "fighter1Id": 11,
+ *   "fighter1Name": "Fighter1",
+ *   "fighter1Color": "Red",
+ *   "fighter2Id": 12,
+ *   "fighter2Name": "Bob",
+ *   "fighter2Color": "Blue",
+ *   "boutId": 83,
+ *   "lastJudgement": "2025-04-13 12:34:56"
+ * }
+ * 
+ * On error:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');

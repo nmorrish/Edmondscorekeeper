@@ -1,4 +1,27 @@
 <?php
+/**
+ * setActiveMatch.php
+ * 
+ * Sets a match as active by updating the Active field in the Matches table.
+ * Deactivates any other active matches within the same matchRing.
+ * 
+ * Expects a POST with a JSON body as follows:
+ * {
+ *   "matchId": 42
+ * }
+ * 
+ * On success returns:
+ * {
+ *   "status": "success",
+ *   "message": "Active match set successfully"
+ * }
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "error message"
+ * }
+ */
 header('Content-Type: application/json');
 
 // Get the input JSON data

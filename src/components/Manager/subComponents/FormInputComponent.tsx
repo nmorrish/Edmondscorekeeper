@@ -1,3 +1,9 @@
+/**
+ * src/components/Manager/subComponents/FormInputComponent.tsx
+ * 
+ * Form component for inputting fighters.
+ * Can be rendered multiple times for simultaneous entry. 
+ */
 import React from 'react';
 
 interface FormInput {

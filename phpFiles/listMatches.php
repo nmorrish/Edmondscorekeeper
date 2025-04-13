@@ -1,5 +1,82 @@
 <?php
-// listMatches.php
+/**
+ * listMatches.php
+ * 
+ * Retrieves match and scoring data for a given ring and event, including fighter details,
+ * bout history, and scores submitted by judges.
+ * 
+ * Accessed via GET request with the following query string parameters:
+ *   ?matchRing=1&eventId=5
+ * 
+ * On success returns a JSON array of matches with the following structure:
+ * [
+ *   {
+ *     "matchId": 10,
+ *     "matchRing": 1,
+ *     "eventId": 5,
+ *     "fighter1Id": 11,
+ *     "fighter1Name": "Fighter1",
+ *     "fighter1Color": "Red",
+ *     "fighter1Adjustment": 0.0,
+ *     "fighter2Id": 12,
+ *     "fighter2Name": "Fighter2",
+ *     "fighter2Color": "Blue",
+ *     "fighter2Adjustment": 0.0,
+ *     "lastJudgement": "2024-01-01 12:34:56",
+ *     "Active": true,
+ *     "matchComplete": false,
+ *     "Bouts": [
+ *       {
+ *         "boutId": 2,
+ *         "fighter1": {
+ *           "fighterColor": "Red",
+ *           "fighterId": 11,
+ *           "fighterName": "Fighter1",
+ *           "Scores": [
+ *             {
+ *               "judgeName": "Dredd",
+ *               "contact": true,
+ *               "target": true,
+ *               "control": false,
+ *               "afterBlow": false,
+ *               "doubleHit": false,
+ *               "opponentSelfCall": false
+ *             }
+ *           ]
+ *         },
+ *         "fighter2": {
+ *           "fighterColor": "Blue",
+ *           "fighterId": 12,
+ *           "fighterName": "Fighter2",
+ *           "Scores": [
+ *             {
+ *               "judgeName": "Dredd",
+ *               "contact": false,
+ *               "target": true,
+ *               "control": true,
+ *               "afterBlow": false,
+ *               "doubleHit": true,
+ *               "opponentSelfCall": false
+ *             }
+ *           ]
+ *         }
+ *       }
+ *     ]
+ *   }
+ * ]
+ * 
+ * Notes:
+ * - If no bouts exist for a match, a placeholder bout is included with `boutId: null` and empty score arrays.
+ * - If no matches are found for the given ring/event, an empty array is returned.
+ * 
+ * On error returns:
+ * {
+ *   "status": "error",
+ *   "message": "Descriptive error message"
+ * }
+ */
+
+
 require_once("connect.php");
 
 try {

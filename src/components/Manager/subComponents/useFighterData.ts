@@ -1,3 +1,13 @@
+/**
+ * src/components/Manager/subComponents/useFighterData.ts
+ * 
+ * == List Fighters Hook ==
+ * A custom hook for listing fighters. Pulled directly from server via api.
+ * 
+ * Used for the fighter list and dropdowns for selecting and swapping fighters.
+ * 
+ * Returns fighterId, fighterName, strikes
+ */
 import { useState, useEffect, useCallback } from "react";
 import { domain_uri } from "../../utility/contants";
 import { useRefresh } from "../../utility/RefreshContext"; // Import useRefresh to watch refreshKey

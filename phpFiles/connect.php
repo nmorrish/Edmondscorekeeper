@@ -1,11 +1,13 @@
 <?php
 // Database configuration
+// Upload to server and change the login credentials
+// If it works, don't re-upload this file
 
 function connect(){
     $host = 'localhost';   // Database host
     $dbname = 'Edmondscores';       // Database name
     $user = 'admin';       // Database username
-    $password = 'V8MLH8Zef3pxWmo';   // Database password
+    $password = 'V8MLH8Zef3pxWmo';   // Database password. Change to the one used on your network.
 
     // Set Data Source Name (DSN)
     $dsn = 'mysql:host=' . $host . ';dbname=' . $dbname . ';charset=utf8mb4'; // Added charset for security and compatibility

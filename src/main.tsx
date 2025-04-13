@@ -1,3 +1,10 @@
+/**
+ * src/main.css
+ * 
+ * Entry point for entire project.
+ * 
+ * The toast provider is implemented here.
+ */
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
