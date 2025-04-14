@@ -18,12 +18,12 @@ Each exchange will have scores averaged across all judges.
 
 ## Notes on data structure and terminology
 
--A Match between 2 fighters covers the whole 60 second fight from start to end.
--Each exchange within a match is scored after calling halt. There is no exchange limit. 
--Exchanges are referred to as bouts in the code and DB (might change this later)
--An Event encompasses all fights within a weapon category (longsword, rapier, mixed, etc) 
--Each event is split into rings.
--Matches are grouped by ring. 
+ - A Match between 2 fighters covers the whole 60 second fight from start to end.
+ - Each exchange within a match is scored after calling halt. There is no exchange limit. 
+ - Exchanges are referred to as bouts in the code and DB (might change this later)
+ - An Event encompasses all fights within a weapon category (longsword, rapier, mixed, etc) 
+ - Each event is split into rings.
+ - Matches are grouped by ring.
 
 ## Implemented Features
 
