@@ -1,6 +1,6 @@
 # Eric Edmonds Scoring System
 
-A scoring system for HEMA Tournaments with the goal of having fighters focus fully on fighting.
+A web-based scoring system for HEMA Tournaments with the goal of having fighters focus fully on fighting.
 
 Score and timekeeping is handled silently by judges around each ring and supervised by a score keeper. 
 Scores are submitted online via the judge's phones and displayed on a central management interface.
