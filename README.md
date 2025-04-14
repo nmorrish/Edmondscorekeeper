@@ -99,7 +99,7 @@ npm install
 # Start development server
 npm run dev
 ```
-# Be sure to set up Apache or Nginx to serve PHP files. Install XAMPP if you are using Windows.
+# Be sure to set up Apache or Nginx to serve PHP files. (this means installing XAMPP if you are using Windows)
 # Ensure MySQL, MariaDB, etc service is active and configured, with correct credentials on connect.php
 
 
