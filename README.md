@@ -48,6 +48,7 @@ Each exchange will have scores averaged across all judges.
 
 ## Planned Features
 
+- [ ] Add config files so values do not need to be hard coded.
 - [ ] Bracketing function that is compatible with multiple systems and auto-matches fighters.
 - [ ] Create at least pools and single-elimination brackets.
 - [ ] Optimizations for seamless addition and removal of fighters from pools.
