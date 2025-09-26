@@ -1,151 +1,134 @@
 <?php
 /**
- * requestJudgementSSE.php
- * 
- * Opens an SSE stream that monitors the `Matches` table and looks
- * for changes to the `lastJudgement` timestamp for the most recent match in a ring. 
- * Returns the latest match and bout details when an update is detected.
- * 
- * Expects a GET request with a query parameter:
- *   https://yoururl/requestJudgementSSE.php?ringNumber=1
- * 
- * On initial connection:
- *   Sends a null event to signal connection established
- * 
+ * phpFiles/requestJudgementSSE.php
+ *
+ * SSE endpoint that watches for updates to `Matches.lastMatchJudgement`
+ * for matches in a specific ring. When updated, sends:
+ *   - matchId
+ *   - ring number
+ *   - fighters (id, name, color)
+ *   - latestExchangeId
+ *   - lastJudgement timestamp
+ *
+ * GET parameter:
+ *   ?ringNumber=1
+ *
+ * Initial connection:
+ *   Sends `null` (signals ready but no update yet).
+ *
  * On update:
  * {
  *   "matchId": 42,
  *   "matchRing": 1,
- *   "fighter1Id": 11,
- *   "fighter1Name": "Fighter1",
- *   "fighter1Color": "Red",
- *   "fighter2Id": 12,
- *   "fighter2Name": "Bob",
- *   "fighter2Color": "Blue",
- *   "boutId": 83,
+ *   "fighters": [
+ *     { "fighterId": 11, "fighterName": "Alice", "fighterColor": "Red" },
+ *     { "fighterId": 12, "fighterName": "Bob",   "fighterColor": "Blue" }
+ *   ],
+ *   "latestExchangeId": 123,
  *   "lastJudgement": "2025-04-13 12:34:56"
  * }
- * 
+ *
  * On error:
  * {
  *   "status": "error",
- *   "message": "error message"
+ *   "message": "..."
  * }
  */
+
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');
 
-// Include the database connection script
 require_once("connect.php");
 
-// Get the ring number from the URL parameters (from the React component)
-$ringNumber = isset($_GET['ringNumber']) ? intval($_GET['ringNumber']) : null;
+// --- util: send SSE packet ---
+function sendSSEData($data) {
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    echo "id: " . time() . "\n";
+    echo "data: " . $json . "\n\n";
+    ob_flush();
+    flush();
+}
 
-if ($ringNumber === null) {
-    sendSSEData(['status' => 'error', 'message' => 'Ring number not provided.']);
+// --- validate input ---
+$ringNumber = isset($_GET['ringNumber']) ? intval($_GET['ringNumber']) : null;
+if ($ringNumber === null || $ringNumber <= 0) {
+    sendSSEData(['status' => 'error', 'message' => 'Ring number not provided']);
     exit;
 }
 
 try {
     $db = connect();
 } catch (PDOException $e) {
-    // Log and send error if the connection fails
-    error_log("Database connection failed: " . $e->getMessage());
-    sendSSEData(['status' => 'error', 'message' => 'Database connection failed.']);
+    error_log("DB connect failed: " . $e->getMessage());
+    sendSSEData(['status' => 'error', 'message' => 'Database connection failed']);
     exit;
 }
 
-// Function to send SSE data
-function sendSSEData($data) {
-    $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    echo "id: " . time() . "\n";
-    echo "data: " . $jsonData . "\n\n";
-    ob_flush();
-    flush();
-}
-
-// Initialize the last known lastJudgement timestamp
 $lastJudgement = null;
 
-// Prepare the main query, filtering by the ring number passed in
-try {
-    $stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches WHERE matchRing = :ringNumber ORDER BY lastJudgement DESC LIMIT 1");
-    $stmt->bindParam(':ringNumber', $ringNumber, PDO::PARAM_INT); // Bind the ring number
-} catch (PDOException $e) {
-    error_log("Query preparation failed: " . $e->getMessage());
-    sendSSEData(['status' => 'error', 'message' => 'Query preparation failed.']);
-    exit;
-}
+// --- prepared query: get most recent judgement in this ring ---
+$stmtLatest = $db->prepare("
+    SELECT m.MatchId, m.lastMatchJudgement
+    FROM Matches m
+    WHERE m.MatchRingNo = :ring
+    ORDER BY m.lastMatchJudgement DESC
+    LIMIT 1
+");
+$stmtLatest->bindParam(':ring', $ringNumber, PDO::PARAM_INT);
 
-// Main loop to check for updates
 while (true) {
     try {
-        $stmt->execute(); // Execute the prepared statement
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmtLatest->execute();
+        $result = $stmtLatest->fetch(PDO::FETCH_ASSOC);
 
         if ($result) {
-            $currentLastJudgement = $result['lastJudgement'];
-            $matchId = $result['matchId'];
+            $matchId = (int)$result['MatchId'];
+            $currentJudgement = $result['lastMatchJudgement'];
 
-            // Only send data if the current lastJudgement timestamp is different from the last known timestamp
-            if ($lastJudgement !== null && $currentLastJudgement !== $lastJudgement) {
-                // Fetch match details only when the timestamp changes
+            if ($lastJudgement !== null && $currentJudgement !== $lastJudgement) {
+                // --- fetch fighters for this match ---
                 $stmtDetails = $db->prepare("
-                    SELECT 
-                        m.matchId, 
-                        m.matchRing, 
-                        m.fighter1Id,
-                        m.fighter2Id,
-                        m.fighter1Color,
-                        m.fighter2Color,
-                        f1.fighterName AS fighter1Name,
-                        f2.fighterName AS fighter2Name,
-                        b.boutId
-                    FROM Matches m
-                    LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
-                    LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
-                    LEFT JOIN Bouts b ON m.matchId = b.matchId
-                    WHERE m.matchId = :matchId
-                    AND b.boutId = (SELECT MAX(boutId) FROM Bouts WHERE matchId = :matchId)
+                    SELECT mf.FighterId, f.FighterName, mf.FighterColor
+                    FROM MatchFighters mf
+                    JOIN Fighters f ON mf.FighterId = f.FighterId
+                    WHERE mf.MatchId = :mid
                 ");
+                $stmtDetails->execute([':mid' => $matchId]);
+                $fighters = $stmtDetails->fetchAll(PDO::FETCH_ASSOC);
 
-                $stmtDetails->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-                $stmtDetails->execute();
+                // --- fetch latest exchange tied to this match ---
+                $stmtExchange = $db->prepare("
+                    SELECT MAX(e.ExchangeId) AS latestExchangeId
+                    FROM Exchanges e
+                    INNER JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
+                    WHERE mf.MatchId = :mid
+                ");
+                $stmtExchange->execute([':mid' => $matchId]);
+                $latestExchangeId = $stmtExchange->fetchColumn();
 
-                if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
-                    $matchData = [
-                        'matchId' => $row['matchId'],
-                        'matchRing' => $row['matchRing'],
-                        'fighter1Id' => $row['fighter1Id'],
-                        'fighter1Name' => $row['fighter1Name'],
-                        'fighter1Color' => $row['fighter1Color'],
-                        'fighter2Id' => $row['fighter2Id'],
-                        'fighter2Name' => $row['fighter2Name'],
-                        'fighter2Color' => $row['fighter2Color'],
-                        'boutId' => $row['boutId'] ?? null, // Ensure boutId is correctly assigned even if null
-                        'lastJudgement' => $currentLastJudgement // Include lastJudgement in the response
-                    ];
-
-                    // Send the JSON data for the updated match
-                    sendSSEData($matchData);
-
-                    // Update the last known lastJudgement timestamp
-                    $lastJudgement = $currentLastJudgement;
-                }
+                $payload = [
+                    'matchId' => $matchId,
+                    'matchRing' => $ringNumber,
+                    'fighters' => $fighters,
+                    'latestExchangeId' => $latestExchangeId ? (int)$latestExchangeId : null,
+                    'lastJudgement' => $currentJudgement
+                ];
+                sendSSEData($payload);
+                $lastJudgement = $currentJudgement;
             }
 
-            // If this is the first connection, send `null` to indicate waiting
             if ($lastJudgement === null) {
+                // first connect: send null so frontend knows stream is live
                 sendSSEData(null);
-                $lastJudgement = $currentLastJudgement; // Set the initial timestamp without sending data yet
+                $lastJudgement = $currentJudgement;
             }
         }
+
     } catch (PDOException $e) {
-        error_log("Query failed during loop: " . $e->getMessage());
-        sendSSEData(['status' => 'error', 'message' => 'Query failed during loop.']);
+        error_log("Loop query failed: " . $e->getMessage());
+        sendSSEData(['status' => 'error', 'message' => 'Query failed in loop']);
     }
 
-    // Sleep for 5 seconds before checking again
-    sleep(5);
+    sleep(5); // poll interval
 }

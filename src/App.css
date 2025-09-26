@@ -3,17 +3,39 @@
  * == Global styling for project ==
 */
 
+input[type="text"],
+input[type="number"],
+input[type="email"],
+textarea {
+  margin-top: 5px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 14px;
+  transition: border 0.2s, background-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+textarea:focus {
+  border: 1px solid #6cfff0;
+  outline: none;
+  background-color: #333;
+}
+
 /* Enforce dark mode styles globally */
 body {
-  background-color: #121212;
-  color: #ffffff;
+  background-color: #121212 !important;
+  color: #00e1ff  !important;
 }
 
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  padding-top: 125px;
   text-align: center;
 }
 
@@ -68,10 +90,23 @@ body {
   border-color: green; /* Green border for active matches */
 }
 
-.completed-match {
-  border-color: blue; /* Blue border for completed matches */
+.completed-match, .match-card.completed-match {
+  border: 2px solid #00bfff;   /* Blue border for completed matches */
+  background-color: #00213b;   /* subtle background tint */
+  position: relative;
 }
 
+.completed-match::after {
+  content: "✓";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #00e1ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 
 .match {
   width: 100%;
@@ -93,17 +128,13 @@ body {
 }
 
 .Red {
-  background-color: #7f4f4f;
-  color: #ff9a9a;
+  background-color: #690000;
+  color: #ffdfdf;
 }
 
 .Blue {
-  background-color: #4f7f7f;
-  color: #9abaff;
-}
-
-div.Blue {
-  margin-top: 20px;
+  background-color: #050069;
+  color: #d9e5ff;
 }
 
 h2 {
@@ -173,7 +204,16 @@ h2 {
 }
 
 .fighter-table {
-  display: flex;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  margin: 0;
+}
+
+.score-sidebar {
+  flex: 0 0 250px;
+  margin-right: 1rem;
+  text-align: left;
 }
 
 /* Add this to your CSS file */
@@ -308,7 +348,6 @@ h2 {
 .container {
   display: flex;
   flex-direction: column;
-  max-width: 600px;
   margin: 0 auto;
   gap: 15px;
 }
@@ -323,7 +362,6 @@ h2 {
   font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 5px;
-  width: calc(100% - 160px); /* Wider dropdown */
   box-sizing: border-box;
   margin-left: 10px;
 }
@@ -340,7 +378,7 @@ h2 {
   height: 14px;
 }
 
-.container div {
+.container div.match-form {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -366,3 +404,451 @@ h2 {
   margin-bottom: 20px;
 }
 
+.tournament-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tournament-button {
+  display: inline-block;   
+  width: auto;            
+  align-self: flex-start; 
+  border: 1px solid #00f2ff;
+  margin: 0 auto;
+}
+
+.tournament-button.add-button{
+  border-color: transparent;
+}
+
+.tournament-form {
+  background-color: #1e1e1e;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 1200px;
+  width: 100%; 
+  margin: 0 auto;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  text-align: left;
+}
+
+.tournament-form h3 {
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 20px;
+  color: #ffffff;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+}
+
+.tournament-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tournament-form label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: #ddd;
+  font-size: 14px;
+}
+
+.tournament-form input,
+.tournament-form textarea {
+  margin-top: 5px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 14px;
+  transition: border 0.2s, background-color 0.2s;
+}
+
+.tournament-form input:focus,
+.tournament-form textarea:focus {
+  border: 1px solid #6cfff0;
+  outline: none;
+  background-color: #333;
+}
+
+.tournament-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-actions button {
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.form-actions button[type="submit"] {
+  background-color: #007bff;
+  color: white;
+}
+
+.form-actions button[type="submit"]:hover {
+  background-color: #0056b3;
+}
+
+.form-actions button[type="button"] {
+  background-color: #444;
+  color: #ddd;
+}
+
+.form-actions button[type="button"]:hover {
+  background-color: #666;
+}
+
+.tournament-form input,
+.tournament-form textarea,
+.tournament-form button {
+  font-family: inherit;
+  font-size: 1rem;     
+  line-height: 1.4;
+}
+
+.tournament-management {
+  width: 100%;
+}
+
+.tournament-form {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;   /* keeps it centered */
+}
+
+.delete-button {
+  background-color: #8b0000 !important;
+  color: #fff;
+}
+
+.delete-button:hover {
+  background-color: #a40000 !important;
+}
+
+
+
+/* Global dropdown styling */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background-color: #2a2a2a; /* matches input/textarea background */
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border 0.2s, background-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+
+  /* custom arrow */
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%23cccccc' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+select:hover {
+  border-color: #666;
+  background-color: #333;
+}
+
+select:focus {
+  border-color: #6cfff0; /* same aqua accent as inputs */
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 255, 240, 0.2);
+  background-color: #333;
+}
+
+/* Options inside dropdown */
+select option {
+  background-color: #1e1e1e; /* dark background for options */
+  color: #fff;
+}
+
+/* Label consistency inside forms */
+.tournament-form label {
+  color: #ddd;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+
+.tournament-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1e1e1e;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid #333;
+}
+
+.tournament-label {
+  flex: 1;
+  color: #e4e4e4;
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.tournament-label strong{
+  color: #fff;
+}
+
+.tournament-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tournament-actions .tournament-button {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+}
+
+.tournament-actions .tournament-button:hover {
+  opacity: 0.9;
+}
+
+.tournament-actions .run-button {
+  background-color: #007bff;
+  color: white;
+}
+
+/* === Club Entry Row Styling === */
+.club-entry-row input[type="text"] {
+  width: 90%;
+  margin: 0 auto;        /* centers inside the cell */
+  padding: 6px 8px;
+  text-align: center;    /* center the text inside */
+  border: 1px solid #444;
+  border-radius: 6px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 14px;
+  transition: border 0.2s, background-color 0.2s;
+  display: block;        /* ensures margin:auto works */
+}
+
+.club-entry-row input[type="text"]:focus {
+  border-color: #6cfff0;
+  outline: none;
+  background-color: #333;
+}
+
+.club-entry-row span {
+  display: block;
+  text-align: center;
+}
+
+
+
+
+
+.match-card {
+  border: 2px solid #444;
+  border-radius: 6px;
+  margin: 0.5rem;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  width: 240px; /* adjust width as needed */
+  overflow: hidden;
+}
+
+.fighters {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 100%;
+}
+
+.fighter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;         /* force full width */
+  box-sizing: border-box;
+}
+
+.fighter-row.Red {
+  background-color: #5a0101;
+}
+.fighter-row.Blue {
+  background-color: #010059;
+}
+
+.fighter-dropdown {                               
+  background: transparent;
+  border: none !important;
+  outline: none;
+  color: inherit;
+  font-size: inherit;
+  padding: 6px 20px 6px 8px;     /* leave room for arrow */
+  margin: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: calc(100% + 80px);
+
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%23999999' height='18' viewBox='0 0 24 24' width='18' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 18px; 
+}
+
+.table-header .fighter-dropdown{
+  width: 300px;
+}
+
+.ring-dropdown {
+  width: auto;        
+  min-width: 75px;            
+  background: transparent;
+  border: none !important;
+  color: inherit;
+  margin-left: -2px !important;
+
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%23999999' height='18' viewBox='0 0 24 24' width='18' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 18px; 
+}
+
+
+.score {
+  font-weight: bold;
+  padding: 0 6px;
+}
+.score.winner {
+  color: lime;
+}
+
+.match-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid #666;
+  border-radius: 4px;
+  padding: 3px 5px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  background: #333;
+}
+
+.match-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.color-label {
+  margin-left: 8px;
+  font-weight: bold;
+}
+
+.radio-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 4px;
+}
+
+.matches-grid {
+  display: flex;
+  flex-wrap: wrap;             /* allow wrapping */
+  justify-content: flex-start; /* align cards from left to right */
+  align-items: flex-start;     /* align cards to the top */
+  gap: 1rem;                   /* space between cards */
+  width: 100%;                 /* fill parent width */
+  box-sizing: border-box;
+}
+
+
+.score-layout {
+  display: flex;
+  justify-content: space-between;
+}
+
+.score-sidebar {
+  flex: 0 0 250px; /* fixed width sidebar */
+  margin-right: 1rem;
+}
+
+.score-main {
+  min-width:950px;
+}
+
+.score-placeholder {
+  margin: 0 auto;
+}
+
+button.toggle-button{
+  margin-top:0;
+  margin-bottom:10px;
+}
+
+.table-header div{
+  margin-top:5px;
+}
+
+button.strike-button{
+  border: none;
+}
+
+
+/* Active */
+.match-table.active-match {
+  border-color: #3cba54;
+  background-color: rgba(60, 186, 84, 0.02); /* faint green */
+}
+
+/* Done */
+.match-table.completed-match {
+  border-color: #4285f4;
+  background-color: rgba(66, 133, 244, 0.1);
+}

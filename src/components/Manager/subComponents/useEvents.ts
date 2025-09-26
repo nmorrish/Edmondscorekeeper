@@ -2,45 +2,54 @@
  * src/components/Manager/subComponents/useEvents.ts
  * 
  * == List Events Hook ==
- * A custom hook for listing events. Pulled directly from server via api.
- * 
- * Currently used for matching fighters and displaying events at the top of the page.
- * 
- * Returns event name and eventId
+ * Fetch events from backend API.
+ * Supports optional tournamentId filtering.
+ * Returns DB-shaped fields (EventId, EventName, etc.)
  */
-import { useState, useEffect } from 'react';
-import { domain_uri } from "../../utility/contants";
 
-interface Event {
-  eventId: number;
-  eventName: string;
+import { useState, useEffect } from "react";
+import { backend_uri, event_api } from "../../utility/endpoints";
+
+export interface Event {
+  EventId: number;
+  EventName: string;
+  EventRules: string;
+  WeaponId: number;
+  TournamentId: number;
+  WeaponName?: string;
+  TournamentName?: string;
+  MaxRings: number;
 }
 
-const useEvents = () => {
+const useEvents = (refreshKey: number = 0, tournamentId?: number) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch event data from the PHP API
     const fetchEvents = async () => {
       try {
-        const response = await fetch(`${domain_uri}/listEvents.php`);
+        setLoading(true);
+        const qs = tournamentId ? `?tournamentId=${tournamentId}` : "";
+        const response = await fetch(`${backend_uri}/${event_api}${qs}`);
         const data = await response.json();
-        if (data.status === 'success') {
+
+        if (response.ok && data.status === "success") {
           setEvents(data.events);
+          setError(null);
         } else {
-          setError(data.message);
+          setError(data.message || "Failed to fetch events.");
         }
-      } catch (error) {
-        setError('Failed to fetch events.');
+      } catch (err) {
+        console.error("Error fetching events:", err);
+        setError("Failed to fetch events.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchEvents();
-  }, []);
+  }, [refreshKey, tournamentId]);
 
   return { events, loading, error };
 };

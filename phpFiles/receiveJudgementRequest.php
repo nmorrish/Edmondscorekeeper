@@ -1,106 +1,105 @@
 <?php
 /**
  * receiveJudgementRequest.php
- * 
- * Enters Judgement received by judges to the DB for a given match id.
- * Also will activate the match if it is not already active.
- * Will deactivate all other active matches in the same ring
- * Updates lastJudgement timestamp, which is used for SSE signalling.
- * Creates a new bout to place scores to.
- * 
- * Expects a POST with a JSON as follows:
- * {
- *   "matchId": 42
- * }
- * 
- * Outputs the following on success:
+ *
+ * Responsibilities:
+ *  - Activate the given match (set PendingActiveDone = 'A') if not already active.
+ *    DB trigger ensures exclusivity (other matches in same ring auto-deactivated).
+ *  - Update lastJudgement timestamp on MatchFighters (SSE signaling).
+ *  - Insert SYSTEM placeholder Exchange rows for each fighter in the match.
+ *
+ * Input (POST JSON):
+ * { "matchId": 42 }
+ *
+ * Success:
  * {
  *   "status": "success",
- *   "message": "Match set as active, last judgement timestamp updated, and new bout created successfully",
- *   "receivedData": {
- *     "matchId": 42
- *   }
+ *   "message": "Match activated, timestamps updated, and placeholder exchanges created",
+ *   "receivedData": { "matchId": 42 }
  * }
- * 
- * Outputs the following on error:
- * {
- *   "status": "error",
- *   "message": "error message"
- * }
- * 
+ *
+ * Error:
+ * { "status": "error", "message": "error message" }
  */
+
 header('Content-Type: application/json');
+require_once("connect.php");
 
 $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
-// Check if JSON data was received
-if ($data && isset($data['matchId'])) {
-    require_once("connect.php");
+// --- Input validation ---
+if (!$data || !isset($data['matchId']) || !is_numeric($data['matchId'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
+    exit;
+}
 
-    try {
-        $db = connect();
+$matchId = (int)$data['matchId'];
 
-        // Extract the matchId from the received data
-        $matchId = $data['matchId'];
+try {
+    $db = connect();
+    $db->beginTransaction();
 
-        // Begin a transaction to ensure all queries are executed together
-        $db->beginTransaction();
+    // --- Verify match exists ---
+    $stmt = $db->prepare("SELECT MatchId, PendingActiveDone FROM Matches WHERE MatchId = :matchId");
+    $stmt->execute([':matchId' => $matchId]);
+    $match = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Get the matchRing of the match to be activated
-        $stmt = $db->prepare("SELECT matchRing, Active FROM Matches WHERE matchId = :matchId");
-        $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$result) {
-            throw new Exception('Match not found');
-        }
-
-        $matchRing = $result['matchRing']; // Get the ring of the match
-        $isActive = $result['Active']; // Check if the match is already active
-
-        // If the match is not already active, proceed with activating it
-        if ($isActive == 0) {
-            // Deactivate all other active matches within the same matchRing
-            $stmt = $db->prepare("UPDATE Matches SET Active = 0 WHERE Active = 1 AND matchRing = :matchRing");
-            $stmt->bindParam(':matchRing', $matchRing, PDO::PARAM_INT);
-            $stmt->execute();
-
-            // Set the current match as active
-            $stmt = $db->prepare("UPDATE Matches SET Active = 1 WHERE matchId = :matchId");
-            $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-            $stmt->execute();
-        }
-
-        // Update the lastJudgement timestamp for the given matchId
-        $stmt = $db->prepare("UPDATE Matches SET lastJudgement = CURRENT_TIMESTAMP WHERE matchId = :matchId");
-        $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-        $stmt->execute();
-
-        // Insert a new bout with the matchId
-        $stmt = $db->prepare("INSERT INTO Bouts (matchId) VALUES (:matchId)");
-        $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-        $stmt->execute();
-
-        // Commit the transaction
-        $db->commit();
-
-        echo json_encode(['status' => 'success', 'message' => 'Match set as active, last judgement timestamp updated, and new bout created successfully', 'receivedData' => $data]);
-
-    } catch (PDOException $e) {
-        // Roll back the transaction if something failed
-        $db->rollBack();
-        echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
-
-    } catch (Exception $e) {
-        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-
-    } finally {
-        // Ensure the database connection is closed
-        $db = null;
+    if (!$match) {
+        throw new Exception("Match not found (id={$matchId})");
     }
 
-} else {
-    echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
+    // --- Activate if not already active ---
+    if ($match['PendingActiveDone'] !== 'A') {
+        $stmt = $db->prepare("
+            UPDATE Matches
+            SET PendingActiveDone = 'A'
+            WHERE MatchId = :matchId
+        ");
+        $stmt->execute([':matchId' => $matchId]);
+        // Trigger handles exclusivity
+    }
+
+    // --- Get all fighters in the match ---
+    $stmt = $db->prepare("SELECT MatchFighterId FROM MatchFighters WHERE MatchId = :matchId");
+    $stmt->execute([':matchId' => $matchId]);
+    $fighters = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($fighters)) {
+        throw new Exception("No fighters assigned to match {$matchId}");
+    }
+
+    // --- Insert SYSTEM placeholder exchange for each fighter ---
+    $stmt = $db->prepare("
+        INSERT INTO Exchanges (MatchFighterId, JudgeName)
+        VALUES (:matchFighterId, 'SYSTEM')
+    ");
+    foreach ($fighters as $mfId) {
+        $stmt->execute([':matchFighterId' => $mfId]);
+    }
+
+    // --- Update lastJudgement timestamp for all fighters in the match ---
+    $stmt = $db->prepare("
+        UPDATE MatchFighters
+        SET lastJudgement = CURRENT_TIMESTAMP
+        WHERE MatchId = :matchId
+    ");
+    $stmt->execute([':matchId' => $matchId]);
+
+    $db->commit();
+
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Match activated, timestamps updated, and placeholder exchanges created',
+        'receivedData' => $data
+    ]);
+
+} catch (Exception $e) {
+    if ($db && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+} finally {
+    $db = null;
 }

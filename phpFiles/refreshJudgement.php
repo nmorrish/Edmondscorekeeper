@@ -1,83 +1,84 @@
 <?php
 /**
  * refreshJudgement.php
- * 
- * Searches for and triggers a refresh for the most recent bout 
- * by updating the lastJudgement timestamp.
- * 
- * Expects a POST with a JSON as follows:
- * {
- *   "matchId": 42
- * }
- * 
- * On Success returns
+ *
+ * Refreshes the lastJudgement timestamp for all fighters in a match.
+ * Finds the most recent ExchangeId linked to that match (acts like highestBoutId).
+ *
+ * Input (POST JSON):
+ * { "matchId": 42 }
+ *
+ * Success:
  * {
  *   "status": "success",
  *   "message": "Last judgement timestamp updated successfully",
- *   "highestBoutId": 83,
- *   "receivedData": {
- *     "matchId": 42
- *    }
+ *   "highestExchangeId": 123,
+ *   "receivedData": { "matchId": 42 }
  * }
- * 
- * Outputs the following on error:
- * {
- *   "status": "error",
- *   "message": "error message"
- * } 
+ *
+ * Error:
+ * { "status": "error", "message": "error message" }
  */
+
 header('Content-Type: application/json');
+require_once("connect.php");
 
 $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
-// Check if JSON data was received and contains matchId
-if ($data && isset($data['matchId'])) {
-    require_once("connect.php");
+if (!$data || !isset($data['matchId']) || !is_numeric($data['matchId'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
+    exit;
+}
 
-    try {
-        $db = connect();
+$matchId = (int)$data['matchId'];
 
-        // Extract the matchId from the received data
-        $matchId = $data['matchId'];
+try {
+    $db = connect();
 
-        // Check if any bouts exist for the given matchId
-        $checkStmt = $db->prepare("SELECT COUNT(*) FROM Bouts WHERE matchId = :matchId");
-        $checkStmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-        $checkStmt->execute();
-        $boutCount = $checkStmt->fetchColumn();
-
-        if ($boutCount > 0) {
-            // Fetch the highest boutId for the given matchId
-            $stmt = $db->prepare("SELECT MAX(boutId) AS highestBoutId FROM Bouts WHERE matchId = :matchId");
-            $stmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-            $stmt->execute();
-            $highestBoutId = $stmt->fetchColumn();
-
-            // Update the lastJudgement timestamp for the given matchId
-            $updateStmt = $db->prepare("UPDATE Matches SET lastJudgement = CURRENT_TIMESTAMP WHERE matchId = :matchId");
-            $updateStmt->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-            $updateStmt->execute();
-
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Last judgement timestamp updated successfully',
-                'highestBoutId' => $highestBoutId,
-                'receivedData' => $data
-            ]);
-        } else {
-            // No bouts found, do nothing
-            echo json_encode(['status' => 'error', 'message' => 'No bouts found for the given matchId, no action taken']);
-        }
-
-    } catch (PDOException $e) {
-        echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
-
-    } finally {
-        // Ensure the database connection is closed
-        $db = null;
+    // --- Check if match exists ---
+    $chk = $db->prepare("SELECT MatchId FROM Matches WHERE MatchId = :mid");
+    $chk->execute([':mid' => $matchId]);
+    if (!$chk->fetch()) {
+        throw new Exception("Match not found (id={$matchId})");
     }
 
-} else {
-    echo json_encode(['status' => 'error', 'message' => 'Invalid JSON or missing matchId']);
+    // --- Get the highest ExchangeId tied to fighters in this match ---
+    $stmt = $db->prepare("
+        SELECT MAX(e.ExchangeId) AS highestExchangeId
+        FROM Exchanges e
+        INNER JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
+        WHERE mf.MatchId = :mid
+    ");
+    $stmt->execute([':mid' => $matchId]);
+    $highestExchangeId = $stmt->fetchColumn();
+
+    if (!$highestExchangeId) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'No exchanges found for the given matchId, no action taken'
+        ]);
+        exit;
+    }
+
+    // --- Update lastJudgement for all fighters in this match ---
+    $update = $db->prepare("
+        UPDATE MatchFighters
+        SET lastJudgement = CURRENT_TIMESTAMP
+        WHERE MatchId = :mid
+    ");
+    $update->execute([':mid' => $matchId]);
+
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Last judgement timestamp updated successfully',
+        'highestExchangeId' => (int)$highestExchangeId,
+        'receivedData' => $data
+    ]);
+
+} catch (Exception $e) {
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+} finally {
+    $db = null;
 }

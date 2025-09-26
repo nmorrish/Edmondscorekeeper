@@ -20,7 +20,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { domain_uri } from '../utility/contants';
+import { backend_uri } from '../utility/endpoints';
 import ScoreTable from './ScoreTable';
 
 /**
@@ -100,7 +100,7 @@ const JudgementManager: React.FC = () => {
   const connectToSSE = useCallback((retriesLeft: number) => {
 
     //SSE endpoint listening for signal to start Judgement. Obtains ring number from url in react router.
-    const eventSource = new EventSource(`${domain_uri}/requestJudgementSSE.php?ringNumber=${ringNumber}`);
+    const eventSource = new EventSource(`${backend_uri}/requestJudgementSSE.php?ringNumber=${ringNumber}`);
 
     //Handle incoming data. Looks for valid event.data
     eventSource.onmessage = (event) => {
@@ -227,7 +227,7 @@ const JudgementManager: React.FC = () => {
         try {
           console.log('Submitting data:', data);
 
-          const response = await fetch(`${domain_uri}/judgementScoreSubmit.php`, {
+          const response = await fetch(`${backend_uri}/judgementScoreSubmit.php`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

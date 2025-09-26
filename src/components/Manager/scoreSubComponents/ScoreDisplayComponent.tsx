@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import TotalsCalculator from '../../utility/TotalsCalculator';
-import IncrementFighterStrikeButton from './incrementFighterStrikes';
+/**
+ * src/components/Manager/subComponents/ScoreDisplayComponent.tsx
+ *
+ * === Score Display Component ===
+ * Shows per-bout averages and totals for a fighter, plus strike increment button.
+ */
 
-// Define the Score interface
+import React, { useState } from "react";
+import TotalsCalculator from "../../utility/TotalsCalculator";
+import IncrementFighterStrikeButton from "../fighterSubComponents/incrementFighterStrikes";
+
 interface Score {
   scoreId: number;
   target: number;
@@ -13,30 +19,42 @@ interface Score {
   doubleHit: boolean;
 }
 
-// Define the Fighter interface
 interface Fighter {
   fighterColor: string;
   fighterName: string;
   fighterId: number;
   Bouts: Score[][];
+  strikes: number; // local field for score display
 }
 
-// Define the props interface for ScoreDisplayComponent
 interface ScoreDisplayComponentProps {
   fighter: Fighter;
+  tournamentId: number;
+  onStrikeUpdate: (fighterId: number, newStrikes: number) => void;
 }
 
-const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }) => {
-  const [totals, setTotals] = useState<{ boutTotals: any[]; overallTotals: any; grandTotal: string } | null>(null);
+const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
+  fighter,
+  tournamentId,
+  onStrikeUpdate,
+}) => {
+  const [totals, setTotals] = useState<{
+    boutTotals: any[];
+    overallTotals: any;
+    grandTotal: string;
+  } | null>(null);
 
-  const handleTotalsCalculated = (totals: { boutTotals: any[]; overallTotals: any; grandTotal: string }) => {
-    // console.log("Received totals for fighter:", fighter.fighterName, totals); // Log the totals
-    setTotals(totals); // Update the state with the calculated totals
+  const handleTotalsCalculated = (totals: {
+    boutTotals: any[];
+    overallTotals: any;
+    grandTotal: string;
+  }) => {
+    setTotals(totals);
   };
 
   return (
     <div>
-      {/* Use the TotalsCalculator component to calculate the totals */}
+      {/* Calculate totals */}
       <TotalsCalculator fighter={fighter} onTotalsCalculated={handleTotalsCalculated} />
 
       <table className="match">
@@ -44,8 +62,12 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           <tr>
             <th colSpan={7} className={fighter.fighterColor}>
               {fighter.fighterName} ({fighter.fighterColor})
-              {/* Add the IncrementFighterStrikeButton */}
-              <IncrementFighterStrikeButton fighterId={fighter.fighterId} />
+              <IncrementFighterStrikeButton
+                fighterId={fighter.fighterId}
+                tournamentId={tournamentId}
+                initialStrikes={fighter.strikes ?? 0}
+                onStrikeUpdate={onStrikeUpdate}
+              />
             </th>
           </tr>
           <tr>
@@ -59,22 +81,20 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({ fighter }
           </tr>
         </thead>
         <tbody>
-          {/* Display bout-specific averages */}
           {fighter.Bouts.map((_, index) => {
-            const boutAverages = totals?.boutTotals?.[index] || {}; // Fetch bout-specific averages
+            const boutAverages = totals?.boutTotals?.[index] || {};
             return (
               <tr key={index}>
                 <td>{boutAverages.judgeCount || 0}</td>
-                <td>{boutAverages.avgContact?.toFixed(1) || '0.00'}</td>
-                <td>{boutAverages.avgTarget?.toFixed(1) || '0.00'}</td>
-                <td>{boutAverages.avgControl?.toFixed(1) || '0.00'}</td>
-                <td>{boutAverages.avgAfterBlow?.toFixed(1) || '0.00'}</td>
-                <td>{boutAverages.avgSelfCall?.toFixed(1) || '0.00'}</td>
-                <td>{boutAverages.avgDoubleHit?.toFixed(1) || '0.00'}</td>
+                <td>{boutAverages.avgContact?.toFixed(1) || "0.00"}</td>
+                <td>{boutAverages.avgTarget?.toFixed(1) || "0.00"}</td>
+                <td>{boutAverages.avgControl?.toFixed(1) || "0.00"}</td>
+                <td>{boutAverages.avgAfterBlow?.toFixed(1) || "0.00"}</td>
+                <td>{boutAverages.avgSelfCall?.toFixed(1) || "0.00"}</td>
+                <td>{boutAverages.avgDoubleHit?.toFixed(1) || "0.00"}</td>
               </tr>
             );
           })}
-          {/* Display overall totals if available */}
           {totals && (
             <>
               <tr className="subtotal-row">

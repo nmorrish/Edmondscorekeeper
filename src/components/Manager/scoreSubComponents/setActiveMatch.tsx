@@ -10,7 +10,7 @@
  * 
  */
 import React, { useState } from 'react';
-import { domain_uri } from "../../utility/contants";
+import { backend_uri } from "../../utility/endpoints";
 import { useToast } from '../../utility/ToastProvider';
 import { useRefresh } from '../../utility/RefreshContext'; // Import useRefresh to trigger the refresh
 
@@ -27,7 +27,7 @@ const SetActiveMatchButton: React.FC<SetActiveMatchButtonProps> = ({ matchId }) 
     setLoading(true);
 
     try {
-      const response = await fetch(`${domain_uri}/setActiveMatch.php`, {
+      const response = await fetch(`${backend_uri}/setActiveMatch.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
