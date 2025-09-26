@@ -20,7 +20,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { backend_uri } from '../utility/endpoints';
+import { backend_uri, sse_send_to_to_judge_api } from '../utility/endpoints';
 import ScoreTable from './ScoreTable';
 
 /**
@@ -100,7 +100,7 @@ const JudgementManager: React.FC = () => {
   const connectToSSE = useCallback((retriesLeft: number) => {
 
     //SSE endpoint listening for signal to start Judgement. Obtains ring number from url in react router.
-    const eventSource = new EventSource(`${backend_uri}/requestJudgementSSE.php?ringNumber=${ringNumber}`);
+    const eventSource = new EventSource(`${backend_uri}/${sse_send_to_to_judge_api}?ringNumber=${ringNumber}`);
 
     //Handle incoming data. Looks for valid event.data
     eventSource.onmessage = (event) => {
@@ -227,18 +227,18 @@ const JudgementManager: React.FC = () => {
         try {
           console.log('Submitting data:', data);
 
-          const response = await fetch(`${backend_uri}/judgementScoreSubmit.php`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-          });
+          // const response = await fetch(`${backend_uri}/judgementScoreSubmit.php`, {
+          //   method: 'POST',
+          //   headers: {
+          //     'Content-Type': 'application/json',
+          //   },
+          //   body: JSON.stringify(data),
+          // });
 
-          const result = await response.json();
-          console.log('Judgement submitted:', result);
-          setJudgementData(null);
-          setScores({}); // Reset scores after submission
+          // const result = await response.json();
+          // console.log('Judgement submitted:', result);
+          // setJudgementData(null);
+          // setScores({}); // Reset scores after submission
         } catch (error) {
           console.error('Error submitting judgement:', error);
         }

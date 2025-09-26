@@ -1,53 +1,43 @@
 <?php
 /**
- * phpFiles/requestJudgementSSE.php
+ * requestJudgementSSE.php
  *
- * SSE endpoint that watches for updates to `Matches.lastMatchJudgement`
- * for matches in a specific ring. When updated, sends:
- *   - matchId
- *   - ring number
- *   - fighters (id, name, color)
- *   - latestExchangeId
- *   - lastJudgement timestamp
+ * SSE endpoint that watches for updates to `Matches.lastJudgement`
+ * for matches in a specific ring.
  *
- * GET parameter:
- *   ?ringNumber=1
- *
- * Initial connection:
- *   Sends `null` (signals ready but no update yet).
- *
- * On update:
- * {
- *   "matchId": 42,
- *   "matchRing": 1,
- *   "fighters": [
- *     { "fighterId": 11, "fighterName": "Alice", "fighterColor": "Red" },
- *     { "fighterId": 12, "fighterName": "Bob",   "fighterColor": "Blue" }
- *   ],
- *   "latestExchangeId": 123,
- *   "lastJudgement": "2025-04-13 12:34:56"
- * }
- *
- * On error:
- * {
- *   "status": "error",
- *   "message": "..."
- * }
+ * Features:
+ * - Heartbeat every 15s to keep the connection alive.
+ * - Detects when the browser disconnects and terminates the loop.
  */
 
+header("Access-Control-Allow-Origin: http://localhost:5173");
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');
+
+// Make sure buffering doesn’t block SSE output
+@ini_set('output_buffering', 'off');
+@ini_set('zlib.output_compression', 0);
+@ini_set('implicit_flush', 1);
+while (ob_get_level() > 0) ob_end_flush();
+ob_implicit_flush(1);
 
 require_once("connect.php");
 
 // --- util: send SSE packet ---
 function sendSSEData($data) {
-    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo "id: " . time() . "\n";
-    echo "data: " . $json . "\n\n";
-    ob_flush();
-    flush();
+    echo "data: " . $jsonData . "\n\n";
+    @ob_flush();
+    @flush();
+}
+
+// --- util: send heartbeat (ignored by client) ---
+function sendHeartbeat() {
+    echo ": heartbeat " . date('H:i:s') . "\n\n";
+    @ob_flush();
+    @flush();
 }
 
 // --- validate input ---
@@ -66,61 +56,76 @@ try {
 }
 
 $lastJudgement = null;
+$lastHeartbeat = time();
 
 // --- prepared query: get most recent judgement in this ring ---
 $stmtLatest = $db->prepare("
-    SELECT m.MatchId, m.lastMatchJudgement
+    SELECT m.matchId, m.lastJudgement
     FROM Matches m
-    WHERE m.MatchRingNo = :ring
-    ORDER BY m.lastMatchJudgement DESC
+    WHERE m.matchRing = :ring
+    ORDER BY m.lastJudgement DESC
     LIMIT 1
 ");
 $stmtLatest->bindParam(':ring', $ringNumber, PDO::PARAM_INT);
 
+// --- main loop ---
 while (true) {
+    // --- detect disconnect ---
+    if (connection_aborted() || connection_status() != CONNECTION_NORMAL) {
+        error_log("SSE connection aborted for ring $ringNumber");
+        exit;
+    }
+
     try {
         $stmtLatest->execute();
         $result = $stmtLatest->fetch(PDO::FETCH_ASSOC);
 
         if ($result) {
-            $matchId = (int)$result['MatchId'];
-            $currentJudgement = $result['lastMatchJudgement'];
+            $matchId = (int)$result['matchId'];
+            $currentJudgement = $result['lastJudgement'];
 
             if ($lastJudgement !== null && $currentJudgement !== $lastJudgement) {
-                // --- fetch fighters for this match ---
+                // --- fetch match + fighter details ---
                 $stmtDetails = $db->prepare("
-                    SELECT mf.FighterId, f.FighterName, mf.FighterColor
-                    FROM MatchFighters mf
-                    JOIN Fighters f ON mf.FighterId = f.FighterId
-                    WHERE mf.MatchId = :mid
+                    SELECT 
+                        m.matchId, 
+                        m.matchRing, 
+                        m.fighter1Id,
+                        m.fighter2Id,
+                        m.fighter1Color,
+                        m.fighter2Color,
+                        f1.fighterName AS fighter1Name,
+                        f2.fighterName AS fighter2Name,
+                        b.boutId
+                    FROM Matches m
+                    LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
+                    LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
+                    LEFT JOIN Bouts b ON m.matchId = b.matchId
+                    WHERE m.matchId = :mid
+                    AND b.boutId = (SELECT MAX(boutId) FROM Bouts WHERE matchId = :mid)
                 ");
                 $stmtDetails->execute([':mid' => $matchId]);
-                $fighters = $stmtDetails->fetchAll(PDO::FETCH_ASSOC);
 
-                // --- fetch latest exchange tied to this match ---
-                $stmtExchange = $db->prepare("
-                    SELECT MAX(e.ExchangeId) AS latestExchangeId
-                    FROM Exchanges e
-                    INNER JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
-                    WHERE mf.MatchId = :mid
-                ");
-                $stmtExchange->execute([':mid' => $matchId]);
-                $latestExchangeId = $stmtExchange->fetchColumn();
-
-                $payload = [
-                    'matchId' => $matchId,
-                    'matchRing' => $ringNumber,
-                    'fighters' => $fighters,
-                    'latestExchangeId' => $latestExchangeId ? (int)$latestExchangeId : null,
-                    'lastJudgement' => $currentJudgement
-                ];
-                sendSSEData($payload);
-                $lastJudgement = $currentJudgement;
+                if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
+                    $payload = [
+                        'matchId' => $row['matchId'],
+                        'matchRing' => $row['matchRing'],
+                        'fighter1Id' => $row['fighter1Id'],
+                        'fighter1Name' => $row['fighter1Name'],
+                        'fighter1Color' => $row['fighter1Color'],
+                        'fighter2Id' => $row['fighter2Id'],
+                        'fighter2Name' => $row['fighter2Name'],
+                        'fighter2Color' => $row['fighter2Color'],
+                        'boutId' => $row['boutId'] ?? null,
+                        'lastJudgement' => $currentJudgement
+                    ];
+                    sendSSEData($payload);
+                    $lastJudgement = $currentJudgement;
+                }
             }
 
             if ($lastJudgement === null) {
-                // first connect: send null so frontend knows stream is live
-                sendSSEData(null);
+                sendSSEData(null); // signal connection is live
                 $lastJudgement = $currentJudgement;
             }
         }
@@ -128,6 +133,12 @@ while (true) {
     } catch (PDOException $e) {
         error_log("Loop query failed: " . $e->getMessage());
         sendSSEData(['status' => 'error', 'message' => 'Query failed in loop']);
+    }
+
+    // --- send heartbeat every 15s ---
+    if (time() - $lastHeartbeat >= 15) {
+        sendHeartbeat();
+        $lastHeartbeat = time();
     }
 
     sleep(5); // poll interval
