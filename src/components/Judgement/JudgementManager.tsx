@@ -7,10 +7,11 @@
  * - Heartbeat tracking / reconnect if stale
  * - Explicit event listeners
  * - Manual reconnect button
+ * - Change Ring button (fetches max rings from backend)
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { backend_uri, sse_send_to_to_judge_api, judge_score_submit_api } from '../utility/endpoints';
 import ScoreTable from './ScoreTable';
 
@@ -41,6 +42,8 @@ interface JudgementData {
 
 const JudgementManager: React.FC = () => {
   const { ringNumber } = useParams<{ ringNumber: string }>();
+  const navigate = useNavigate();
+
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
   const [judgeName, setJudgeName] = useState<string | null>(null);
@@ -48,6 +51,10 @@ const JudgementManager: React.FC = () => {
   const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
   const [esInstance, setEsInstance] = useState<EventSource | null>(null);
   const [lastSeenJudgement, setLastSeenJudgement] = useState<string | null>(null);
+
+  // New: rings state
+  const [availableRings, setAvailableRings] = useState<number[]>([]);
+  const [showRingSelect, setShowRingSelect] = useState(false);
 
   // retrieve judge name
   useEffect(() => {
@@ -64,6 +71,25 @@ const JudgementManager: React.FC = () => {
     }
   }, [nameInput]);
 
+  // Fetch max rings from backend
+  useEffect(() => {
+    async function fetchRings() {
+      try {
+        const resp = await fetch(`${backend_uri}/eventApi.php?ringsOnly=1`);
+        const data = await resp.json();
+        if (data.status === "success" && data.maxRings > 0) {
+          setAvailableRings(Array.from({ length: data.maxRings }, (_, i) => i + 1));
+        } else {
+          setAvailableRings([1]);
+        }
+      } catch (err) {
+        console.error("Error fetching rings:", err);
+        setAvailableRings([1]);
+      }
+    }
+    fetchRings();
+  }, []);
+
   /**
    * SSE connection with exponential backoff
    */
@@ -73,13 +99,11 @@ const JudgementManager: React.FC = () => {
     const url = `${backend_uri}/${sse_send_to_to_judge_api}?ringNumber=${ringNumber}`;
     const es = new EventSource(url);
 
-    // main messages (judgement or initial null)
     es.onmessage = (event) => {
       if (!event.data) return;
       try {
         const data: any = JSON.parse(event.data);
         if (data && data.lastJudgement) {
-          // only update if lastJudgement differs from last one we saw
           if (data.lastJudgement !== lastSeenJudgement) {
             setJudgementData(data);
             setScores({
@@ -96,8 +120,6 @@ const JudgementManager: React.FC = () => {
       }
     };
 
-
-    // heartbeat lines (comments from server)
     es.addEventListener("heartbeat", () => {
       setLastHeartbeat(Date.now());
     });
@@ -112,22 +134,18 @@ const JudgementManager: React.FC = () => {
       console.warn("SSE error, closing.");
       es.close();
       setEsInstance(null);
-
-      // exponential backoff w/ jitter
       const delay = Math.min(30000, 1000 * Math.pow(2, retry)) + Math.random() * 500;
       setTimeout(() => connectToSSE(retry + 1), delay);
     };
 
     return es;
-  }, [ringNumber]);
+  }, [ringNumber, lastSeenJudgement]);
 
-  // mount/unmount
   useEffect(() => {
     const es = connectToSSE(0);
     return () => es && es.close();
   }, [connectToSSE]);
 
-  // watchdog: reconnect if no heartbeat for >30s
   useEffect(() => {
     const interval = setInterval(() => {
       if (Date.now() - lastHeartbeat > 30000) {
@@ -200,16 +218,11 @@ const JudgementManager: React.FC = () => {
         };
         const response = await fetch(`${backend_uri}/${judge_score_submit_api}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
-
         const result = await response.json();
         console.log('Judgement submitted:', result);
-
-        // Clear state after successful submission
         setJudgementData(null);
         setScores({});
       }
@@ -246,6 +259,28 @@ const JudgementManager: React.FC = () => {
     );
   }
 
+  if (showRingSelect) {
+    return (
+      <div>
+        <h1>Select Ring</h1>
+        {availableRings.map((r) => (
+          <button
+            key={r}
+            onClick={() => {
+              if (window.confirm(`Receive updates from Ring ${r}?`)) {
+                navigate(`/judgement/${r}`);
+                setShowRingSelect(false);
+              }
+            }}
+          >
+            Ring {r}
+          </button>
+        ))}
+        <button onClick={() => setShowRingSelect(false)}>Cancel</button>
+      </div>
+    );
+  }
+
   if (!judgementData) {
     return (
       <div>
@@ -261,6 +296,7 @@ const JudgementManager: React.FC = () => {
         >
           Refresh Connection
         </button>
+        <button onClick={() => setShowRingSelect(true)}>Change Ring</button>
       </div>
     );
   }

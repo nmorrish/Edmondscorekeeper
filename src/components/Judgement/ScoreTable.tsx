@@ -1,14 +1,14 @@
 /**
  * src/components/Judgement/ScoreTable.tsx
  * 
- * This display the table judges use to Pass Judgement on a bout.
+ * This displays the table judges use to Pass Judgement on a bout.
  *
  * Table displays fighter's name and color. 
  * Has checkboxes for Contact, Target, Control.
  * Has buttons for AfterBlows and Self-calls.
  * 
  * For ease of formatting, duplicate code reduction, and conformance to database structure, 
- * one table will be rendered for each fighter (2 tables rendered per exchange).`
+ * one table will be rendered for each fighter (2 tables rendered per exchange).
  */
 import React, { useCallback } from 'react';
 
@@ -18,7 +18,6 @@ interface Fighter {
   fighterColor: string;
 }
 
-//Properties passed to table component.
 interface ScoreTableProps {
   fighter: Fighter;
   opponent: Fighter;
@@ -28,7 +27,6 @@ interface ScoreTableProps {
   onConfirm: (message: string, action: () => void) => void;
 }
 
-//Handlers internal to the ScoreTable component
 const ScoreTable: React.FC<ScoreTableProps> = ({
   fighter,
   opponent,
@@ -37,32 +35,46 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
   onSubmit,
   onConfirm,
 }) => {
-  // Handles the checkbox change and clears the opponent's scores
   const handleCheckboxChange = useCallback(
     (criteria: string) => {
-      // First, clear the opponent's scores
+      // always clear opponent when scoring this fighter
       onCheckboxChange(opponent.fighterId, 'clear');
 
-      // Then, update the fighter's scores
-      onCheckboxChange(fighter.fighterId, criteria);
+      if (criteria === 'target' || criteria === 'control') {
+        // if target/control is checked, force contact true
+        if (!scores.contact) {
+          onCheckboxChange(fighter.fighterId, 'contact');
+        }
+        onCheckboxChange(fighter.fighterId, criteria);
+      } else if (criteria === 'contact') {
+        // toggling contact: if unchecking it, also clear target/control
+        if (scores.contact) {
+          // currently true → going false, so clear dependent boxes
+          onCheckboxChange(fighter.fighterId, 'contact'); // uncheck contact
+          if (scores.target) onCheckboxChange(fighter.fighterId, 'target');
+          if (scores.control) onCheckboxChange(fighter.fighterId, 'control');
+        } else {
+          // just check contact normally
+          onCheckboxChange(fighter.fighterId, 'contact');
+        }
+      } else {
+        // normal behavior for afterBlow/opponentSelfCall etc.
+        onCheckboxChange(fighter.fighterId, criteria);
+      }
     },
-    [fighter.fighterId, opponent.fighterId, onCheckboxChange]
+    [fighter.fighterId, opponent.fighterId, onCheckboxChange, scores]
   );
 
-  //Submit for AfterBlow button.
   const handleAfterBlowSubmit = useCallback(
     () => onConfirm('Confirm Afterblow?', () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })),
     [fighter.fighterId, onConfirm, onSubmit]
   );
 
-  //Submit for SelfCall button.
   const handleSelfCallSubmit = useCallback(
     () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
     [opponent.fighterId, onConfirm, onSubmit]
   );
 
-
-  //Render the scoring table for one fighter.
   return (
     <div className={`${fighter.fighterColor}`}>
       <table className="match">

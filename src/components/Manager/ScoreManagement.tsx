@@ -19,10 +19,8 @@ const ScoreManagement: React.FC = () => {
   const { fighters: fetchedFighters, fetchFighterData } = useFighters();
   const { events, loading, error } = useEvents();
 
-  // Local fighter state so we can live-update strikes
   const [fighters, setFighters] = useState<Fighter[]>([]);
 
-  // Sync local fighters whenever hook returns new ones
   useEffect(() => {
     setFighters(fetchedFighters);
   }, [fetchedFighters]);
@@ -38,7 +36,6 @@ const ScoreManagement: React.FC = () => {
     setSelectedRing(ringNumber);
   };
 
-  // Strike updater, passed down through MatchTables -> ScoreDisplayComponent
   const handleStrikeUpdate = (fighterId: number, newStrikes: number) => {
     setFighters((prev) =>
       prev.map((f) =>
@@ -49,6 +46,10 @@ const ScoreManagement: React.FC = () => {
 
   if (loading) return <div>Loading events...</div>;
   if (error) return <div>Error: {error}</div>;
+
+  // find the selected event object
+  const selectedEventObj = events.find((e) => e.EventId === selectedEvent);
+  const maxRings = selectedEventObj?.MaxRings ?? 0;
 
   return (
     <div className="App">
@@ -65,10 +66,10 @@ const ScoreManagement: React.FC = () => {
         ))}
       </div>
 
-      {/* Ring selection bar */}
-      {selectedEvent && (
+      {/* Dynamic ring selection based on MaxRings */}
+      {selectedEvent && maxRings > 0 && (
         <div className="ring-selection-buttons">
-          {[1, 2].map((ring) => (
+          {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
             <button
               key={ring}
               onClick={() => handleRingSelection(ring)}

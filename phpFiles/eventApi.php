@@ -35,7 +35,16 @@ if ($method === 'OPTIONS') {
 try {
     switch ($method) {
         case 'GET':
-            if ($id) {
+
+            if (isset($_GET['ringsOnly'])) {
+                // Return the max rings across all events
+                $stmt = $db->query("SELECT MAX(MaxRings) AS maxRings FROM Events");
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                $maxRings = $row ? (int)$row['maxRings'] : 1;
+                echo json_encode(['status' => 'success', 'maxRings' => $maxRings]);
+                break;
+                
+            } elseif ($id) {
                 // Single event (include joined names for convenience)
                 $stmt = $db->prepare("
                     SELECT 

@@ -119,6 +119,21 @@ try {
                 }
 
                 echo json_encode(['status' => 'success', 'matches' => $withFighters]);
+
+            } elseif (isset($_GET['eventId']) && isset($_GET['rings'])) {
+                $eventId = (int)$_GET['eventId'];
+                $stmt = $db->prepare("
+                    SELECT DISTINCT MatchRingNo
+                    FROM Matches
+                    WHERE EventId = ?
+                    ORDER BY MatchRingNo ASC
+                ");
+                $stmt->execute([$eventId]);
+                $rings = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                echo json_encode(['status' => 'success', 'rings' => array_map('intval', $rings)]);
+                break;
+
             } else {
                 $stmt = $db->query("
                     SELECT m.*, e.EventName
