@@ -73,6 +73,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
 }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
+  const [openJudgeDrilldown, setOpenJudgeDrilldown] = useState<Record<number, boolean>>({});
   const [fighterTotals, setFighterTotals] = useState<Record<number, Record<number, string>>>({});
   const { refreshKey, triggerRefresh } = useRefresh();
   const addToast = useToast();
@@ -99,7 +100,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
               fighterId: f.fighterId,
               fighterName: f.fighterName,
               fighterColor: f.fighterColor,
-              strikes: f.strikes ?? 0, // comes from TournamentFighters
+              strikes: f.strikes ?? 0,
               finalScore: f.finalScore != null ? Number(f.finalScore) : 0,
               winLossDraw: f.winLossDraw ?? null,
               exchanges: f.exchanges || [],
@@ -203,6 +204,9 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   const toggleVisibility = (matchId: number) =>
     setVisibleMatches((prev) => ({ ...prev, [matchId]: !prev[matchId] }));
 
+  const toggleJudgeDrilldown = (matchId: number) =>
+    setOpenJudgeDrilldown((prev) => ({ ...prev, [matchId]: !prev[matchId] }));
+
   const getHighlightClass = (f1: number, f2: number, isF1: boolean) => {
     if (f1 > f2 && f1 > 0 && isF1) return "winner";
     if (f2 > f1 && f2 > 0 && !isF1) return "winner";
@@ -295,12 +299,15 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                     ({f2Total.toFixed(2)})
                   </span>
                 </div>
-                <button
-                  className="toggle-button"
-                  onClick={() => toggleVisibility(match.matchId)}
-                >
-                  {visibleMatches[match.matchId] ? "Close" : "Open"}
-                </button>
+
+                <div>
+                  <button
+                    className="toggle-button"
+                    onClick={() => toggleVisibility(match.matchId)}
+                  >
+                    {visibleMatches[match.matchId] ? "Close" : "Open"}
+                  </button>
+                </div>
               </div>
 
               {visibleMatches[match.matchId] && (
@@ -315,6 +322,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                         handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                       }
                       isWinner={f1Total > f2Total && f1Total > 0}
+                      showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
                     />
 
                     <ScoreDisplayComponent
@@ -326,6 +334,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                         handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                       }
                       isWinner={f2Total > f1Total && f2Total > 0}
+                      showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
                     />
                   </div>
 
@@ -343,6 +352,15 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                     onActivate={() => performAction(match.matchId, "activate")}
                     isActive={match.pendingActiveDone === "A"}
                   />
+
+                  {visibleMatches[match.matchId] && (
+                    <button
+                      className="toggle-drilldown"
+                      onClick={() => toggleJudgeDrilldown(match.matchId)}
+                    >
+                      {openJudgeDrilldown[match.matchId] ? "Close Judge Details" : "Open Judge Details"}
+                    </button>
+                  )}
 
                   <div style={{ textAlign: "center", marginTop: "10px" }}>
                     <MatchActions

@@ -288,7 +288,7 @@ const JudgementManager: React.FC = () => {
         <p>You are judging ring {ringNumber} as {judgeName}</p>
         <button
           onClick={() => {
-            if (window.confirm("Pounding refresh like a jackhammer will cause you to miss updates. Click 'OK' if you promise to be patient and refresh sparingly.")) {
+            if (window.confirm("Pounding refresh like a jackhammer will cause you to miss updates. Click 'OK' if you promise to be patient and refresh sparingly after waiting 10 seconds.")) {
               esInstance?.close();
               connectToSSE(0);
             }

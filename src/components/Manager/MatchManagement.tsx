@@ -12,6 +12,7 @@ import MatchFightersManual from "./matchSubComponents/MatchFightersManual";
 import useTournamentFighters from "./subComponents/useTournamentFighters";
 import useEvents from "./subComponents/useEvents";
 import useTournaments from "./subComponents/useTournaments";
+import FloatingNav from "../utility/FloatingNav"
 import { RefreshProvider, useRefresh } from "../utility/RefreshContext";
 
 type MatchType = "manual" | "roundRobinPools" | "singleElim" | "doubleElim";
@@ -115,7 +116,7 @@ const MatchManagement: React.FC = () => {
           <>
             <header className="App-header">
               <h1>
-                {tournamentName} - {selectedEvent.EventName}
+                {tournamentName} - {selectedEvent.EventName} matches
               </h1>
             </header>
 
@@ -153,6 +154,16 @@ const MatchManagement: React.FC = () => {
           </>
         )}
       </div>
+      {numericTournamentId !== undefined && (
+        <FloatingNav
+          tournamentId={numericTournamentId} 
+          backUrl="/manager/tournament"
+          links={[
+            { text: "Scorekeeping", to: `/manager/tournament/${numericTournamentId}` },
+            { text: "Edit Fighters", to: `/manager/fighters/${numericTournamentId}` }
+          ]}
+        />
+      )}
     </div>
   );
 };

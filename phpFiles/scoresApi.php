@@ -27,7 +27,17 @@
  *               exchangeId,
  *               exchangeTimeStamp,
  *               scores: [
- *                 { scoreId, judgeName, contact, target, control, afterBlow, doubleHit, opponentSelfCall, scoreTimeStamp }
+ *                 {
+ *                   scoreId,
+ *                   judgeName,
+ *                   contact,
+ *                   target,
+ *                   control,
+ *                   afterBlow,
+ *                   doubleHit,
+ *                   opponentSelfCall,
+ *                   scoreTimeStamp
+ *                 }
  *               ]
  *             }
  *           ]
@@ -54,12 +64,13 @@ if ($method === 'OPTIONS') {
 
 // ---- helper: build full match structure ----
 function buildMatch($db, $matchId) {
+    // fetch match metadata
     $stmt = $db->prepare("SELECT MatchId, MatchRingNo, PendingActiveDone FROM Matches WHERE MatchId=?");
     $stmt->execute([$matchId]);
     $match = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$match) return null;
 
-    // fighters
+    // fighters in this match
     $stmt = $db->prepare("
         SELECT 
             mf.MatchFighterId,
@@ -85,12 +96,18 @@ function buildMatch($db, $matchId) {
     $fighters = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($fighters as &$f) {
-        // exchanges
-        $stmtEx = $db->prepare("SELECT ExchangeId, ExchangeTimeStamp FROM Exchanges WHERE MatchFighterId=? ORDER BY ExchangeId ASC");
+        // exchanges for this fighter
+        $stmtEx = $db->prepare("
+            SELECT ExchangeId, ExchangeTimeStamp
+            FROM Exchanges 
+            WHERE MatchFighterId=? 
+            ORDER BY ExchangeId ASC
+        ");
         $stmtEx->execute([$f['MatchFighterId']]);
         $exchanges = $stmtEx->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($exchanges as &$ex) {
+            // scores for each exchange
             $stmtScores = $db->prepare("
                 SELECT ExchangeScoresId, JudgeName, Contact, Target, Control,
                        AfterBlow, DoubleHit, OpponentSelfCall, ScoreTimeStamp
@@ -114,6 +131,7 @@ function buildMatch($db, $matchId) {
             ], $scores);
         }
 
+        // normalize fighter output
         $f = [
             'fighterId'   => (int)$f['FighterId'],
             'fighterName' => $f['FighterName'],

@@ -15,9 +15,11 @@ import { backend_uri, club_api, tournament_api } from "../utility/endpoints";
 import TournamentFighterForm from "./fighterSubComponents/TournamentFighterForm";
 import ClubEntryForm, { Club } from "./fighterSubComponents/ClubEntryForm";
 import FighterEntryForm from "./fighterSubComponents/FighterEntryForm";
+import FloatingNav from "../utility/FloatingNav"
 
 const FighterManagement: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
+  const numericTournamentId = tournamentId ? parseInt(tournamentId, 10) : undefined;
   const { refreshKey } = useRefresh();
 
   const [tournamentName, setTournamentName] = useState<string>("");
@@ -159,6 +161,18 @@ const FighterManagement: React.FC = () => {
           )}
         </div>
       )}
+
+      {numericTournamentId !== undefined && (
+        <FloatingNav
+          tournamentId={numericTournamentId}
+          backUrl="/manager/tournament"
+          links={[
+            { text: "Scorekeeping", to: `/manager/tournament/${numericTournamentId}` },
+            { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` }
+          ]}
+        />
+      )}
+
     </div>
   );
 };
