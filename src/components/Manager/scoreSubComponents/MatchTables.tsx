@@ -3,7 +3,7 @@
  *
  * === Match Tables ===
  * Displays matches for the selected Event + Ring.
- * Uses matchesApi.php for metadata and scoresApi.php for fighters + scores.
+ * Uses scoresApi.php (not matchesApi.php) for metadata and scores.
  * Always pulls scores to ensure judges are synced after crashes/reconnects.
  */
 
@@ -18,7 +18,7 @@ import { useToast } from "../../utility/ToastProvider";
 import debounce from "lodash/debounce";
 import { Fighter } from "../subComponents/useFighters";
 
-// --- Types from scoresApi.php ---
+// --- Types ---
 export interface Score {
   scoreId: number;
   judgeName: string;
@@ -41,7 +41,9 @@ export interface FighterWithExchanges {
   fighterId: number;
   fighterName: string;
   fighterColor: string;
-  strikes: number;
+  strikes: number; // now ONLY disciplinary strikes
+  finalScore: number; // judge-calculated totals
+  winLossDraw?: string | null;
   exchanges: Exchange[];
 }
 
@@ -51,7 +53,7 @@ export interface Match {
   fighters: FighterWithExchanges[];
   Active: boolean;
   matchComplete: boolean;
-  PendingActiveDone?: "P" | "A" | "D";
+  pendingActiveDone?: "P" | "A" | "D";
 }
 
 interface MatchTablesProps {
@@ -82,34 +84,28 @@ const MatchTables: React.FC<MatchTablesProps> = ({
 
       try {
         const resp = await fetch(
-          `${backend_uri}/${match_api}?tournamentId=${tournamentId}&eventId=${eventId}&matchRing=${ringNumber}`
+          `${backend_uri}/${score_api}?eventId=${eventId}&ringNo=${ringNumber}`
         );
         const baseData = await resp.json();
 
         if (baseData?.status === "success" && Array.isArray(baseData.matches)) {
-          const scoredMatches: Match[] = [];
-          for (const m of baseData.matches) {
-            const scoreResp = await fetch(`${backend_uri}/${score_api}?matchId=${m.MatchId}`);
-            const scoreData = await scoreResp.json();
+          const scoredMatches: Match[] = baseData.matches.map((sm: any) => ({
+            matchId: sm.matchId,
+            matchRing: sm.matchRing,
+            Active: sm.pendingActiveDone === "A",
+            matchComplete: sm.pendingActiveDone === "D",
+            pendingActiveDone: sm.pendingActiveDone,
+            fighters: (sm.fighters || []).map((f: any) => ({
+              fighterId: f.fighterId,
+              fighterName: f.fighterName,
+              fighterColor: f.fighterColor,
+              strikes: f.strikes ?? 0, // comes from TournamentFighters
+              finalScore: f.finalScore != null ? Number(f.finalScore) : 0,
+              winLossDraw: f.winLossDraw ?? null,
+              exchanges: f.exchanges || [],
+            })),
+          }));
 
-            if (scoreData?.status === "success" && Array.isArray(scoreData.matches)) {
-              const matchWithScores = scoreData.matches[0];
-              scoredMatches.push({
-                matchId: matchWithScores.matchId,
-                matchRing: matchWithScores.matchRing,
-                Active: matchWithScores.pendingActiveDone === "A",
-                matchComplete: matchWithScores.pendingActiveDone === "D",
-                PendingActiveDone: matchWithScores.pendingActiveDone,
-                fighters: (matchWithScores.fighters || []).map((f: any) => ({
-                  fighterId: f.fighterId,
-                  fighterName: f.fighterName,
-                  fighterColor: f.fighterColor,
-                  strikes: f.strikes ?? 0,
-                  exchanges: f.exchanges || [],
-                })),
-              });
-            }
-          }
           setMatches(scoredMatches);
         } else {
           setMatches([]);
@@ -122,7 +118,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     [ringNumber, eventId, tournamentId]
   );
 
-  // --- SSE for live updates ---
+  // --- SSE ---
   const connectToSSE = useCallback(() => {
     const eventSource = new EventSource(`${backend_uri}/updateJudgementSSE.php`);
 
@@ -180,7 +176,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     }
   };
 
-  // --- Local Strike Updater ---
+  // --- Strike Update ---
   const handleStrikeUpdate = (fighterId: number, newStrikes: number) => {
     setMatches((prev) =>
       prev.map((m) => ({
@@ -193,11 +189,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     onStrikeUpdate(fighterId, newStrikes);
   };
 
-  const handleGrandTotalChange = (
-    matchId: number,
-    fighterId: number,
-    grandTotal: string
-  ) => {
+  const handleGrandTotalChange = (matchId: number, fighterId: number, grandTotal: string) => {
     setFighterTotals((prev) => ({
       ...prev,
       [matchId]: {
@@ -231,12 +223,18 @@ const MatchTables: React.FC<MatchTablesProps> = ({
           if (!match.fighters?.length) return null;
           const [f1, f2] = match.fighters;
 
-          const f1Total = parseFloat(fighterTotals[match.matchId]?.[f1.fighterId] || "0.00");
-          const f2Total = parseFloat(fighterTotals[match.matchId]?.[f2.fighterId] || "0.00");
-
+          const f1Total = parseFloat(
+            fighterTotals[match.matchId]?.[f1.fighterId] ?? f1.finalScore.toString()
+          );
+          const f2Total = parseFloat(
+            fighterTotals[match.matchId]?.[f2.fighterId] ?? f2.finalScore.toString()
+          );
 
           return (
-            <div key={`match-${match.matchId}`} className={getMatchTableClass(match.PendingActiveDone)}>
+            <div
+              key={`match-${match.matchId}`}
+              className={getMatchTableClass(match.pendingActiveDone)}
+            >
               <div className="table-header">
                 <div>
                   <span className={getHighlightClass(f1Total, f2Total, true)}>
@@ -297,7 +295,10 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                     ({f2Total.toFixed(2)})
                   </span>
                 </div>
-                <button className="toggle-button" onClick={() => toggleVisibility(match.matchId)}>
+                <button
+                  className="toggle-button"
+                  onClick={() => toggleVisibility(match.matchId)}
+                >
                   {visibleMatches[match.matchId] ? "Close" : "Open"}
                 </button>
               </div>
@@ -333,20 +334,20 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                     matchId={match.matchId}
                     refresh={false}
                     onActivate={() => performAction(match.matchId, "activate")}
-                    isActive={match.PendingActiveDone === "A"}
+                    isActive={match.pendingActiveDone === "A"}
                   />
                   <TriggerJudgement
                     key={`trigger2-${match.matchId}`}
                     matchId={match.matchId}
                     refresh={true}
                     onActivate={() => performAction(match.matchId, "activate")}
-                    isActive={match.PendingActiveDone === "A"}
+                    isActive={match.pendingActiveDone === "A"}
                   />
 
                   <div style={{ textAlign: "center", marginTop: "10px" }}>
                     <MatchActions
                       key={`actions-${match.matchId}`}
-                      localStatus={match.PendingActiveDone || "P"}
+                      localStatus={match.pendingActiveDone || "P"}
                       onSwap={() => performAction(match.matchId, "swap")}
                       onComplete={() => performAction(match.matchId, "complete")}
                       onPending={() => performAction(match.matchId, "pending")}

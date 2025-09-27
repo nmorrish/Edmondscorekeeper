@@ -3,7 +3,9 @@
  * phpFiles/scoresApi.php
  *
  * === Match Scores API ===
- * Returns all Exchanges + ExchangeScores for a given matchId, grouped by fighter.
+ * Returns all matches for a given eventId + ringNo (or a single matchId),
+ * with fighters, exchanges, and scores embedded.
+ *
  * Structure:
  * {
  *   status: "success",
@@ -17,7 +19,9 @@
  *           fighterId,
  *           fighterName,
  *           fighterColor,
- *           strikes,
+ *           finalScore,
+ *           winLossDraw,
+ *           strikes,       <-- pulled from TournamentFighters, separate from score
  *           exchanges: [
  *             {
  *               exchangeId,
@@ -38,122 +42,120 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/connect.php';
 $db = connect();
 
-$method = $_SERVER['REQUEST_METHOD'];
-$matchId = isset($_GET['matchId']) ? (int)$_GET['matchId'] : null;
+$method   = $_SERVER['REQUEST_METHOD'];
+$matchId  = isset($_GET['matchId']) ? (int)$_GET['matchId'] : null;
+$eventId  = isset($_GET['eventId']) ? (int)$_GET['eventId'] : null;
+$ringNo   = isset($_GET['ringNo']) ? (int)$_GET['ringNo'] : null;
 
 if ($method === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-try {
-    if ($method !== 'GET' || !$matchId) {
-        throw new Exception("GET with matchId required");
-    }
-
-    // --- Get match metadata ---
-    $stmt = $db->prepare("
-        SELECT MatchId, MatchRingNo, PendingActiveDone
-        FROM Matches
-        WHERE MatchId = ?
-    ");
+// ---- helper: build full match structure ----
+function buildMatch($db, $matchId) {
+    $stmt = $db->prepare("SELECT MatchId, MatchRingNo, PendingActiveDone FROM Matches WHERE MatchId=?");
     $stmt->execute([$matchId]);
     $match = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$match) return null;
 
-    if (!$match) {
-        throw new Exception("Match not found");
-    }
-
-    // --- Get fighters in this match ---
+    // fighters
     $stmt = $db->prepare("
         SELECT 
             mf.MatchFighterId,
             mf.FighterId,
             f.FighterName,
             mf.FighterColor,
-            mf.FinalScore AS Strikes
+            mf.FinalScore,
+            mf.WinLossDraw,
+            tf.Strikes
         FROM MatchFighters mf
         JOIN Fighters f ON mf.FighterId = f.FighterId
+        LEFT JOIN TournamentFighters tf 
+            ON tf.FighterId = f.FighterId AND tf.TournamentId = (
+                SELECT e.TournamentId 
+                FROM Matches m 
+                JOIN Events e ON m.EventId = e.EventId 
+                WHERE m.MatchId = mf.MatchId
+            )
         WHERE mf.MatchId = ?
         ORDER BY mf.MatchFighterId ASC
     ");
     $stmt->execute([$matchId]);
     $fighters = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // --- For each fighter, attach exchanges + scores ---
-    foreach ($fighters as &$fighter) {
-        $stmtEx = $db->prepare("
-            SELECT 
-                e.ExchangeId,
-                e.ExchangeTimeStamp
-            FROM Exchanges e
-            WHERE e.MatchFighterId = ?
-            ORDER BY e.ExchangeId ASC
-        ");
-        $stmtEx->execute([$fighter['MatchFighterId']]);
+    foreach ($fighters as &$f) {
+        // exchanges
+        $stmtEx = $db->prepare("SELECT ExchangeId, ExchangeTimeStamp FROM Exchanges WHERE MatchFighterId=? ORDER BY ExchangeId ASC");
+        $stmtEx->execute([$f['MatchFighterId']]);
         $exchanges = $stmtEx->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($exchanges as &$exchange) {
+        foreach ($exchanges as &$ex) {
             $stmtScores = $db->prepare("
-                SELECT 
-                    es.ExchangeScoresId,
-                    es.JudgeName,
-                    es.Contact,
-                    es.Target,
-                    es.Control,
-                    es.AfterBlow,
-                    es.DoubleHit,
-                    es.OpponentSelfCall,
-                    es.ScoreTimeStamp
-                FROM ExchangeScores es
-                WHERE es.ExchangeId = ?
-                ORDER BY es.ExchangeScoresId ASC
+                SELECT ExchangeScoresId, JudgeName, Contact, Target, Control,
+                       AfterBlow, DoubleHit, OpponentSelfCall, ScoreTimeStamp
+                FROM ExchangeScores
+                WHERE ExchangeId=?
+                ORDER BY ExchangeScoresId ASC
             ");
-            $stmtScores->execute([$exchange['ExchangeId']]);
+            $stmtScores->execute([$ex['ExchangeId']]);
             $scores = $stmtScores->fetchAll(PDO::FETCH_ASSOC);
 
-            // Normalize scores
-            $exchange['scores'] = array_map(function($s) {
-                return [
-                    'scoreId' => (int)$s['ExchangeScoresId'],
-                    'judgeName' => $s['JudgeName'],
-                    'contact' => (int)$s['Contact'],
-                    'target' => (int)$s['Target'],
-                    'control' => (int)$s['Control'],
-                    'afterBlow' => (int)$s['AfterBlow'],
-                    'doubleHit' => (int)$s['DoubleHit'],
-                    'opponentSelfCall' => (int)$s['OpponentSelfCall'],
-                    'scoreTimeStamp' => $s['ScoreTimeStamp'],
-                ];
-            }, $scores);
-
-            unset($exchange['Scores']); // remove old casing if present
+            $ex['scores'] = array_map(fn($s) => [
+                'scoreId'          => (int)$s['ExchangeScoresId'],
+                'judgeName'        => $s['JudgeName'],
+                'contact'          => (int)$s['Contact'],
+                'target'           => (int)$s['Target'],
+                'control'          => (int)$s['Control'],
+                'afterBlow'        => (int)$s['AfterBlow'],
+                'doubleHit'        => (int)$s['DoubleHit'],
+                'opponentSelfCall' => (int)$s['OpponentSelfCall'],
+                'scoreTimeStamp'   => $s['ScoreTimeStamp'],
+            ], $scores);
         }
 
-        $fighter = [
-            'fighterId' => (int)$fighter['FighterId'],
-            'fighterName' => $fighter['FighterName'],
-            'fighterColor' => $fighter['FighterColor'],
-            'strikes' => (int)$fighter['Strikes'],
-            'exchanges' => array_map(function($ex) {
-                return [
-                    'exchangeId' => (int)$ex['ExchangeId'],
-                    'exchangeTimeStamp' => $ex['ExchangeTimeStamp'],
-                    'scores' => $ex['scores']
-                ];
-            }, $exchanges)
+        $f = [
+            'fighterId'   => (int)$f['FighterId'],
+            'fighterName' => $f['FighterName'],
+            'fighterColor'=> $f['FighterColor'],
+            'finalScore'  => $f['FinalScore'] !== null ? (float)$f['FinalScore'] : 0,
+            'winLossDraw' => $f['WinLossDraw'],
+            'strikes'     => $f['Strikes'] !== null ? (int)$f['Strikes'] : 0,
+            'exchanges'   => $exchanges
         ];
     }
 
-    echo json_encode([
-        'status' => 'success',
-        'matches' => [[
-            'matchId' => (int)$match['MatchId'],
-            'matchRing' => (int)$match['MatchRingNo'],
-            'pendingActiveDone' => $match['PendingActiveDone'],
-            'fighters' => $fighters
-        ]]
-    ]);
+    return [
+        'matchId'          => (int)$match['MatchId'],
+        'matchRing'        => (int)$match['MatchRingNo'],
+        'pendingActiveDone'=> $match['PendingActiveDone'],
+        'fighters'         => $fighters
+    ];
+}
+
+try {
+    if ($method !== 'GET') {
+        throw new Exception("GET required");
+    }
+
+    $matches = [];
+
+    if ($matchId) {
+        $m = buildMatch($db, $matchId);
+        if ($m) $matches[] = $m;
+    } elseif ($eventId && $ringNo) {
+        $stmt = $db->prepare("SELECT MatchId FROM Matches WHERE EventId=? AND MatchRingNo=? ORDER BY MatchId DESC");
+        $stmt->execute([$eventId, $ringNo]);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($ids as $id) {
+            $m = buildMatch($db, $id);
+            if ($m) $matches[] = $m;
+        }
+    } else {
+        throw new Exception("matchId OR (eventId+ringNo) required");
+    }
+
+    echo json_encode(['status'=>'success','matches'=>$matches]);
 
 } catch (Exception $e) {
     http_response_code(400);

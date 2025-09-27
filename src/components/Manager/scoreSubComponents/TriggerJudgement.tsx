@@ -3,7 +3,7 @@
  *
  * == Judgement Trigger Buttons ==
  * Integrates a 60 second timer with the Judgement signal.
- * - Start → if not active, set match to Active ('A') via API, then start timer
+ * - Start → if not active, set match to Active ('A') via matchesApi.php
  * - Stop → updates Matches.lastMatchJudgement + creates new Exchanges
  * - Refresh → updates Matches.lastMatchJudgement only
  */
@@ -15,8 +15,8 @@ import { useToast } from "../../utility/ToastProvider";
 interface TriggerJudgementProps {
   matchId: number;
   refresh: boolean; // Determines whether to show the timer or refresh button
-  isActive?: boolean; // 🔑 pass current active status
-  onActivate?: () => void; // callback to notify parent state
+  isActive?: boolean;
+  onActivate?: () => void;
 }
 
 const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
@@ -31,41 +31,42 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
   const intervalRef = useRef<number | null>(null);
   const addToast = useToast();
 
-  // === Activate match API ===
+  // === Perform action on matchesApi.php ===
+  const performAction = useCallback(
+    async (action: string) => {
+      try {
+        const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+
+        if (!response.ok) throw new Error(`Failed ${action}`);
+
+        const data = await response.json();
+        if (data.status === "success") {
+          addToast(`Match ${action} successful.`);
+          if (action === "activate" && onActivate) onActivate();
+        } else {
+          addToast(`Error: ${data.message || "Unknown error"}`);
+        }
+      } catch (err) {
+        console.error(`Error performing ${action}:`, err);
+        addToast(`Error performing ${action}.`);
+      }
+    },
+    [matchId, onActivate, addToast]
+  );
+
+  // === Activate match ===
   const activateMatch = useCallback(async () => {
     if (isActive) {
       console.log(`Match ${matchId} already active, skipping activation call.`);
-      return; // 🚫 skip redundant activation
+      return;
     }
+    await performAction("activate");
+  }, [isActive, matchId, performAction]);
 
-    try {
-      const endpoint = `${backend_uri}/${match_api}?id=${matchId}`;
-      const response = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "activate" }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status === "success") {
-          addToast("Match activated.");
-          if (onActivate) onActivate();
-        } else if (data.status === "noop") {
-          console.log("Server: Match already active (noop).");
-        } else {
-          addToast("Failed to activate match.");
-        }
-      } else {
-        addToast("Network error activating match.");
-      }
-    } catch (err) {
-      console.error("Error activating match:", err);
-      addToast("Failed to activate match.");
-    }
-  }, [matchId, isActive, onActivate, addToast]);
-
-  // Function to start the timer countdown
   const startTimer = useCallback(() => {
     if (!isRunning) {
       activateMatch();
@@ -73,86 +74,33 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
     }
   }, [isRunning, activateMatch]);
 
-  // Function to stop the timer and trigger judgement
   const stopTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    if (intervalRef.current) clearInterval(intervalRef.current);
     setIsRunning(false);
-    triggerJudgement();
-  }, []);
+    performAction("judgement");
+  }, [performAction]);
 
-  // Handle the countdown
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = window.setInterval(() => {
         setTimer((prev) => prev - 0.1);
       }, 100);
-
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
       };
     }
   }, [isRunning]);
 
-  // Prevent reset on rerender
   useEffect(() => {
-    if (refresh) return;
-    setTimer(60);
+    if (!refresh) setTimer(60);
   }, [refresh]);
-
-  // Stop button → judgement action
-  const triggerJudgement = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-
-    try {
-      const endpoint = `${backend_uri}/${match_api}?id=${matchId}`;
-      const response = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "judgement" }),
-      });
-
-      if (!response.ok) throw new Error("Network response was not ok");
-
-      addToast("Judgement triggered successfully.");
-    } catch (error) {
-      console.error("Error triggering judgement:", error);
-      addToast("An error occurred while processing the judgement. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId, loading, addToast]);
-
-  // Refresh button → refreshJudgement action
-  const refreshJudgement = useCallback(async () => {
-    setLoading(true);
-    try {
-      const endpoint = `${backend_uri}/${match_api}?id=${matchId}`;
-      const response = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "refreshJudgement" }),
-      });
-
-      if (!response.ok) throw new Error("Network response was not ok");
-
-      addToast("Judgement refreshed successfully.");
-    } catch (error) {
-      console.error("Error refreshing judgement:", error);
-      addToast("Error refreshing judgement.");
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId, addToast]);
 
   const formatTime = (time: number) => time.toFixed(1);
 
   return (
     <div>
       {refresh ? (
-        <button onClick={refreshJudgement} disabled={loading}>
+        <button onClick={() => performAction("refreshJudgement")} disabled={loading}>
           Refresh Judgement
         </button>
       ) : (
