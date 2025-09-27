@@ -10,6 +10,7 @@ interface FighterDropdownProps {
   localFighters: MatchFighterRow[];
   onUpdate: (fighterColor: string, fighterId: number) => void;
   interactive: boolean;
+  isWinner?: boolean; // new prop
 }
 
 const FighterDropdown: React.FC<FighterDropdownProps> = ({
@@ -18,10 +19,13 @@ const FighterDropdown: React.FC<FighterDropdownProps> = ({
   localFighters,
   onUpdate,
   interactive,
+  isWinner = false,
 }) => {
+  const winnerClass = isWinner ? "winner" : "";
+
   if (!interactive) {
     return (
-      <span>
+      <span className={winnerClass}>
         {fighter.FighterName}{" "}
         {fighter.ClubAcronym ? `(${fighter.ClubAcronym})` : ""}
       </span>
@@ -30,7 +34,7 @@ const FighterDropdown: React.FC<FighterDropdownProps> = ({
 
   return (
     <select
-      className="fighter-dropdown"
+      className={`fighter-dropdown ${winnerClass}`}
       value={fighter.FighterId}
       onChange={(e) => onUpdate(fighter.FighterColor, parseInt(e.target.value))}
     >

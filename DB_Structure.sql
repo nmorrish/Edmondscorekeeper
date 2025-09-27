@@ -277,3 +277,77 @@ CREATE INDEX idx_bm_nextloss ON BracketMatches(NextMatchLoss);
 --
 -- Triggers
 -- 
+-- --------------------------------------------------------
+-- Trigger: trg_finalize_match
+-- When a match is marked Done ('D'), compute FinalScore and W/L/D
+-- Rules:
+--   - Criteria that yield points: Contact, Target, Control, AfterBlow, OpponentSelfCall
+--   - Doubles are ignored
+--   - For each exchange, each criterion = AVG over judges (1 for true, 0 for false)
+--   - FinalScore = SUM over exchanges of (avgContact + avgTarget + avgControl + avgAfterBlow + avgSelfCall)
+--   - Then add ScoreModifier (if any) and ROUND(2)
+-- --------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_finalize_match;
+DELIMITER $$
+
+CREATE TRIGGER trg_finalize_match
+AFTER UPDATE ON Matches
+FOR EACH ROW
+BEGIN
+  -- Only act on transition to 'D'
+  IF NEW.PendingActiveDone = 'D' AND (OLD.PendingActiveDone IS NULL OR OLD.PendingActiveDone <> 'D') THEN
+
+    /* 1) Compute FinalScore for each fighter in this match
+          - LEFT JOIN ExchangeScores so exchanges with no scores contribute 0s
+          - IFNULL around AVG() to turn NULL (no rows) into 0
+    */
+    UPDATE MatchFighters mf
+    LEFT JOIN (
+      SELECT
+        px.MatchFighterId,
+        SUM(
+          IFNULL(px.avgContact,0)
+        + IFNULL(px.avgTarget,0)
+        + IFNULL(px.avgControl,0)
+        + IFNULL(px.avgAfterBlow,0)
+        + IFNULL(px.avgSelfCall,0)
+        ) AS GrandTotal
+      FROM (
+        SELECT
+          e.MatchFighterId,
+          e.ExchangeId,
+          IFNULL(AVG(CASE WHEN s.Contact            = 1 THEN 1 ELSE 0 END), 0) AS avgContact,
+          IFNULL(AVG(CASE WHEN s.Target             = 1 THEN 1 ELSE 0 END), 0) AS avgTarget,
+          IFNULL(AVG(CASE WHEN s.Control            = 1 THEN 1 ELSE 0 END), 0) AS avgControl,
+          IFNULL(AVG(CASE WHEN s.AfterBlow          = 1 THEN 1 ELSE 0 END), 0) AS avgAfterBlow,
+          IFNULL(AVG(CASE WHEN s.OpponentSelfCall   = 1 THEN 1 ELSE 0 END), 0) AS avgSelfCall
+          -- NOTE: DoubleHit intentionally ignored per spec
+        FROM Exchanges e
+        LEFT JOIN ExchangeScores s ON s.ExchangeId = e.ExchangeId
+        WHERE e.MatchFighterId IN (
+          SELECT mf2.MatchFighterId FROM MatchFighters mf2 WHERE mf2.MatchId = NEW.MatchId
+        )
+        GROUP BY e.MatchFighterId, e.ExchangeId
+      ) px
+      GROUP BY px.MatchFighterId
+    ) calc ON calc.MatchFighterId = mf.MatchFighterId
+    SET mf.FinalScore = ROUND(IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0), 2)
+    WHERE mf.MatchId = NEW.MatchId;
+
+    /* 2) Set Win/Loss/Draw via self-join comparison within the same match */
+    UPDATE MatchFighters mf
+    JOIN MatchFighters other
+      ON other.MatchId = mf.MatchId
+     AND other.MatchFighterId <> mf.MatchFighterId
+    SET mf.WinLossDraw = CASE
+      WHEN COALESCE(mf.FinalScore,0) > COALESCE(other.FinalScore,0) THEN 'W'
+      WHEN COALESCE(mf.FinalScore,0) < COALESCE(other.FinalScore,0) THEN 'L'
+      ELSE 'D'
+    END
+    WHERE mf.MatchId = NEW.MatchId;
+
+  END IF;
+END$$
+
+DELIMITER ;
+

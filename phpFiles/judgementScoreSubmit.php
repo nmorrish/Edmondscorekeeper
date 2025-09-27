@@ -1,19 +1,12 @@
 <?php
 /**
- * judgementSubmit.php 
+ * phpFiles/judgementScoreSubmit.php
  *
  * Records scoring data submitted by judges for a specific match.
- * Each fighter's exchange is stored independently, linked through MatchExchanges.
- * Ensures a judge cannot submit more than two scores per match (one per fighter).
- *
- * Expected POST body:
- * {
- *   "matchId": 15,
- *   "scores": {
- *     "13": { "contact": true, "target": true, "control": false, ... , "judgeName": "Dredd" },
- *     "12": { "contact": false, "target": true, "control": true, ... , "judgeName": "Dredd" }
- *   }
- * }
+ * - Reuses the current Exchange row per fighter (creates one if none exists)
+ * - Adds one ExchangeScores row per judge
+ * - Prevents duplicate judge submissions per Exchange
+ * - Does NOT bump Matches.lastMatchJudgement
  */
 
 require_once("connect.php");
@@ -22,61 +15,92 @@ header('Content-Type: application/json');
 $data = json_decode(file_get_contents('php://input'), true);
 $response = [];
 
+if (!$data || !isset($data['matchId'], $data['scores'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid payload.']);
+    exit;
+}
+
 try {
     $db = connect();
     $db->beginTransaction();
 
-    foreach ($data['scores'] as $fighterId => $scoreData) {
-        // Check judge submissions for this match
-        $checkStmt = $db->prepare("
-            SELECT COUNT(*) 
-            FROM Exchanges e
-            JOIN MatchExchanges me ON me.ExchangeId = e.ExchangeId
-            WHERE me.MatchId = :matchId AND e.JudgeName = :judgeName
-        ");
-        $checkStmt->execute([
-            ':matchId'   => $data['matchId'],
-            ':judgeName' => $scoreData['judgeName']
-        ]);
-        $alreadySubmitted = $checkStmt->fetchColumn();
+    $matchId = (int)$data['matchId'];
 
-        if ($alreadySubmitted >= 2) {
+    foreach ($data['scores'] as $fighterId => $scoreData) {
+        $judgeName = $scoreData['judgeName'];
+
+        // 1. Find MatchFighterId
+        $mfStmt = $db->prepare("
+            SELECT MatchFighterId
+            FROM MatchFighters
+            WHERE MatchId = :mid AND FighterId = :fid
+        ");
+        $mfStmt->execute([':mid' => $matchId, ':fid' => $fighterId]);
+        $matchFighterId = $mfStmt->fetchColumn();
+
+        if (!$matchFighterId) {
             $response[] = [
                 'status' => 'error',
-                'message' => "Judge {$scoreData['judgeName']} has already submitted two scores for match {$data['matchId']}."
+                'message' => "No MatchFighter found for fighter $fighterId in match $matchId"
             ];
             continue;
         }
 
-        // Insert into Exchanges
-        $stmt = $db->prepare("
-            INSERT INTO Exchanges 
-            (FighterId, JudgeName, Contact, Target, Control, DoubleHit, AfterBlow, OpponentSelfCall) 
-            VALUES (:fighterId, :judgeName, :contact, :target, :control, :doubleHit, :afterBlow, :opponentSelfCall)
+        // 2. Find the latest Exchange for this fighter
+        $exStmt = $db->prepare("
+            SELECT ExchangeId 
+            FROM Exchanges
+            WHERE MatchFighterId = :mfid
+            ORDER BY ExchangeTimeStamp DESC
+            LIMIT 1
         ");
-        $stmt->execute([
-            ':fighterId'        => $fighterId,
-            ':judgeName'        => $scoreData['judgeName'],
-            ':contact'          => (bool)$scoreData['contact'],
-            ':target'           => (bool)$scoreData['target'],
-            ':control'          => (bool)$scoreData['control'],
-            ':doubleHit'        => (bool)$scoreData['doubleHit'],
-            ':afterBlow'        => (bool)$scoreData['afterBlow'],
-            ':opponentSelfCall' => (bool)$scoreData['opponentSelfCall']
-        ]);
-        $exchangeId = $db->lastInsertId();
+        $exStmt->execute([':mfid' => $matchFighterId]);
+        $exchangeId = $exStmt->fetchColumn();
 
-        // Link exchange to match
-        $stmt2 = $db->prepare("INSERT INTO MatchExchanges (MatchId, ExchangeId) VALUES (:mid, :eid)");
-        $stmt2->execute([
-            ':mid' => $data['matchId'],
-            ':eid' => $exchangeId
+        // If no exchange yet, create one
+        if (!$exchangeId) {
+            $stmt = $db->prepare("
+                INSERT INTO Exchanges (MatchFighterId, ExchangeTimeStamp)
+                VALUES (:mfid, CURRENT_TIMESTAMP)
+            ");
+            $stmt->execute([':mfid' => $matchFighterId]);
+            $exchangeId = $db->lastInsertId();
+        }
+
+        // 3. Check if this judge already submitted a score for this Exchange
+        $checkStmt = $db->prepare("
+            SELECT COUNT(*) 
+            FROM ExchangeScores
+            WHERE ExchangeId = :eid AND JudgeName = :jname
+        ");
+        $checkStmt->execute([':eid' => $exchangeId, ':jname' => $judgeName]);
+        $alreadySubmitted = (int)$checkStmt->fetchColumn();
+
+        if ($alreadySubmitted > 0) {
+            $response[] = [
+                'status' => 'error',
+                'message' => "Judge {$judgeName} has already submitted a score for this exchange."
+            ];
+            continue;
+        }
+
+        // 4. Insert this judge’s score
+        $ins = $db->prepare("
+            INSERT INTO ExchangeScores 
+            (ExchangeId, JudgeName, Contact, Target, Control, DoubleHit, AfterBlow, OpponentSelfCall)
+            VALUES (:eid, :jname, :contact, :target, :control, :doubleHit, :afterBlow, :opponentSelfCall)
+        ");
+        $ins->execute([
+            ':eid'              => $exchangeId,
+            ':jname'            => $judgeName,
+            ':contact'          => (int)!empty($scoreData['contact']),
+            ':target'           => (int)!empty($scoreData['target']),
+            ':control'          => (int)!empty($scoreData['control']),
+            ':doubleHit'        => (int)!empty($scoreData['doubleHit']),
+            ':afterBlow'        => (int)!empty($scoreData['afterBlow']),
+            ':opponentSelfCall' => (int)!empty($scoreData['opponentSelfCall'])
         ]);
     }
-
-    // Update match timestamp
-    $upd = $db->prepare("UPDATE Matches SET lastMatchJudgement = CURRENT_TIMESTAMP WHERE MatchId = :mid");
-    $upd->execute([':mid' => $data['matchId']]);
 
     $db->commit();
 
@@ -84,7 +108,7 @@ try {
         $response = [
             'status'  => 'success',
             'message' => 'Scores recorded successfully',
-            'data'    => $data
+            'matchId' => $matchId
         ];
     }
 } catch (PDOException $e) {

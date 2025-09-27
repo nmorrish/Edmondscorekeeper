@@ -2,51 +2,31 @@
  *  src/components/Judgement/JudgementManager.tsx
  * 
  * == Judgement Manager ==
- * This is the parent component used by judges to judge an exchange on their phone. 
- * 
- * 'Judgement' is used to describe the process of a judge submitting scores for a bout
- * after receiving the signal to do so. 'Judgement' sounds amusingly dramatic.
- * 
- * Judges input their names before submitting Judgement. 
- * This is used on the backend to ensure that duplicate scoring submissions are not recorded.
- * If a judge needs another signal, all judges must submit scores again even if they have done so 
- * already as this ensures their screen will be ready again. Duplicates will be ignored. 
- *                                                                                                                                                                                                                      
- * Uses SSE to listen for the signal from the server that Judgement is at hand, which presents judges with a score
- * card for the fighters of a specific ring. Fighter names and colors are shown. Judgement is sent to the server.
- * 
- * Memoization and callbacks are used to optimize performance.
+ * SSE client for judges. Hardened with:
+ * - Exponential backoff retries
+ * - Heartbeat tracking / reconnect if stale
+ * - Explicit event listeners
+ * - Manual reconnect button
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { backend_uri, sse_send_to_to_judge_api } from '../utility/endpoints';
+import { backend_uri, sse_send_to_to_judge_api, judge_score_submit_api } from '../utility/endpoints';
 import ScoreTable from './ScoreTable';
 
-/**
- * Retrieve Judge name stored in cookie. 
- *
- * @param {string} name - The name of the cookie.
- * @returns {string | undefined} The cookie value, or undefined if not found.
- */
+// Cookie utils
 const getCookie = (name: string) => {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(';').shift();
 };
 
-/**
- * Set Judge name and store as a cookie. 
- *
- * @param {string} name - The name of the cookie.
- * @returns {string | undefined} The cookie value, or undefined if not found.
- */
 const setCookie = (name: string, value: string, days: number) => {
   const expires = new Date(Date.now() + days * 86400000).toUTCString();
   document.cookie = `${name}=${value}; expires=${expires}; path=/`;
 };
 
-/** Structure of Judgement data received from SSE */
+// Judgement payload
 interface JudgementData {
   matchId: number;
   matchRing: number;
@@ -59,29 +39,22 @@ interface JudgementData {
   fighter2Color: string;
 }
 
-/**
- * The JudgementManager component handles Judgement by Judges.
- *
- * @returns {JSX.Element} The rendered component.
- */
 const JudgementManager: React.FC = () => {
-
-  //Initialize state and contexts
   const { ringNumber } = useParams<{ ringNumber: string }>();
   const [judgementData, setJudgementData] = useState<JudgementData | null>(null);
   const [scores, setScores] = useState<Record<number, Record<string, boolean>>>({});
   const [judgeName, setJudgeName] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
-  const maxRetries = 3;
-  const retryDelay = 3000;
+  const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
+  const [esInstance, setEsInstance] = useState<EventSource | null>(null);
+  const [lastSeenJudgement, setLastSeenJudgement] = useState<string | null>(null);
 
-  /** Retrieve stored judge name from cookies or session storage on mount */
+  // retrieve judge name
   useEffect(() => {
     const storedJudgeName = getCookie('judgeName') || sessionStorage.getItem('judgeName');
     if (storedJudgeName) setJudgeName(storedJudgeName);
   }, []);
 
-  /** Handles when a judge submits their name. Uses callback to memoise Judge name to state and store as session cookie.*/
   const handleNameSubmit = useCallback(() => {
     if (nameInput.trim()) {
       const trimmedName = nameInput.trim();
@@ -92,90 +65,103 @@ const JudgementManager: React.FC = () => {
   }, [nameInput]);
 
   /**
-   * Listens for the signal from the server that indicates when a score needs to be submitted.
-   * Uses callback to memoize data and avoid re-renders of existing data.
-   * 
-   * Will be called again up to retriesLeft to retry connection to SSE if it fails.
+   * SSE connection with exponential backoff
    */
-  const connectToSSE = useCallback((retriesLeft: number) => {
+  const connectToSSE = useCallback((retry = 0) => {
+    if (!ringNumber) return;
 
-    //SSE endpoint listening for signal to start Judgement. Obtains ring number from url in react router.
-    const eventSource = new EventSource(`${backend_uri}/${sse_send_to_to_judge_api}?ringNumber=${ringNumber}`);
+    const url = `${backend_uri}/${sse_send_to_to_judge_api}?ringNumber=${ringNumber}`;
+    const es = new EventSource(url);
 
-    //Handle incoming data. Looks for valid event.data
-    eventSource.onmessage = (event) => {
-      if (event.data) {
-        try {
-          const data: JudgementData | null = JSON.parse(event.data);
-
-
-          //if data is valid, parse to JSON setting all score fields to unchecked (i.e. false) 
-          if (data) {
+    // main messages (judgement or initial null)
+    es.onmessage = (event) => {
+      if (!event.data) return;
+      try {
+        const data: any = JSON.parse(event.data);
+        if (data && data.lastJudgement) {
+          // only update if lastJudgement differs from last one we saw
+          if (data.lastJudgement !== lastSeenJudgement) {
             setJudgementData(data);
             setScores({
               [data.fighter1Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
               [data.fighter2Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false }
             });
+            setLastSeenJudgement(data.lastJudgement);
+          } else {
+            console.log("Duplicate lastJudgement ignored:", data.lastJudgement);
           }
-        } catch (error) {
-          console.error('Error parsing SSE data:', error);
         }
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
       }
     };
 
-    //if connection to SSE fails, try reconnecting, then decrement retriedLeft.
-    eventSource.onerror = () => {
-      eventSource.close();
-      if (retriesLeft > 0) {
-        setTimeout(() => connectToSSE(retriesLeft - 1), retryDelay);
-      }
+
+    // heartbeat lines (comments from server)
+    es.addEventListener("heartbeat", () => {
+      setLastHeartbeat(Date.now());
+    });
+
+    es.onopen = () => {
+      console.log("SSE connected.");
+      setLastHeartbeat(Date.now());
+      setEsInstance(es);
     };
 
-    return eventSource;
-  }, []);
+    es.onerror = () => {
+      console.warn("SSE error, closing.");
+      es.close();
+      setEsInstance(null);
 
+      // exponential backoff w/ jitter
+      const delay = Math.min(30000, 1000 * Math.pow(2, retry)) + Math.random() * 500;
+      setTimeout(() => connectToSSE(retry + 1), delay);
+    };
 
-  // Effect hook called on component mount to handle connection to SSE
+    return es;
+  }, [ringNumber]);
+
+  // mount/unmount
   useEffect(() => {
-    const eventSource = connectToSSE(maxRetries);
-    return () => eventSource.close();
+    const es = connectToSSE(0);
+    return () => es && es.close();
   }, [connectToSSE]);
 
+  // watchdog: reconnect if no heartbeat for >30s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (Date.now() - lastHeartbeat > 30000) {
+        console.warn("Heartbeat stale, reconnecting SSE...");
+        esInstance?.close();
+        setEsInstance(null);
+        connectToSSE(0);
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [lastHeartbeat, esInstance, connectToSSE]);
 
-  //Allows judge to clear scores, otherwise update scores for fighter
+  // scoring
   const handleCheckboxChange = useCallback((fighterId: number, criteria: string) => {
     if (criteria === 'clear') {
-      // Reset all scores for the given fighter
-      setScores((prevScores) => ({
-        ...prevScores,
-        [fighterId]: {
-          contact: false,
-          target: false,
-          control: false,
-          afterBlow: false,
-          opponentSelfCall: false,
-        },
+      setScores((prev) => ({
+        ...prev,
+        [fighterId]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
       }));
     } else {
-      // Update the specific score criteria for the given fighter
-      setScores((prevScores) => ({
-        ...prevScores,
+      setScores((prev) => ({
+        ...prev,
         [fighterId]: {
-          ...prevScores[fighterId],
-          [criteria]: !prevScores[fighterId]?.[criteria],
+          ...prev[fighterId],
+          [criteria]: !prev[fighterId]?.[criteria],
         },
       }));
     }
   }, []);
-  
-  //Simple confirmation widow for when judgement is submitted.
+
   const handleConfirmation = (message: string, action: () => void) => {
-    if (window.confirm(message)) {
-      action();
-    }
+    if (window.confirm(message)) action();
   };
 
-  //Returns true if any score field is checked. Used to determine if there was no exchange.
   const hasCheckedValues = useCallback(() => {
     return (
       Object.values(scores[judgementData?.fighter1Id || 0] || {}).some(Boolean) ||
@@ -183,37 +169,27 @@ const JudgementManager: React.FC = () => {
     );
   }, [scores, judgementData]);
 
-  /**
-   * This is called when a Judge submits Judgement. 
-   * Builds the score payload for fighter1 and fighter2 then submits to endpoint on backend.
-   * Has a separate button for declaring doubles.
-  */
   const handleSubmit = useCallback(
     async (action: { fighterId?: number; opponentId?: number; doubleHit?: boolean }) => {
       if (judgementData && judgeName) {
-        // Prepare the data based on the action (afterblow, self-call, double-hit, or normal submit)
         const fighter1Scores = {
           contact: action.doubleHit === undefined ? scores[judgementData.fighter1Id]?.contact || false : false,
           target: action.doubleHit === undefined ? scores[judgementData.fighter1Id]?.target || false : false,
           control: action.doubleHit === undefined ? scores[judgementData.fighter1Id]?.control || false : false,
-          afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false ? true : false,
-          opponentSelfCall: action.opponentId === judgementData.fighter1Id ? true : false,
+          afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false,
+          opponentSelfCall: action.opponentId === judgementData.fighter1Id,
           doubleHit: action.doubleHit || false,
-          judgeName: judgeName,
+          judgeName,
         };
-
-        //same payload construction for fighter 2
         const fighter2Scores = {
           contact: action.doubleHit === undefined ? scores[judgementData.fighter2Id]?.contact || false : false,
           target: action.doubleHit === undefined ? scores[judgementData.fighter2Id]?.target || false : false,
           control: action.doubleHit === undefined ? scores[judgementData.fighter2Id]?.control || false : false,
-          afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false ? true : false,
-          opponentSelfCall: action.opponentId === judgementData.fighter2Id ? true : false,
+          afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false,
+          opponentSelfCall: action.opponentId === judgementData.fighter2Id,
           doubleHit: action.doubleHit || false,
-          judgeName: judgeName,
+          judgeName,
         };
-
-        //final payload to send to server.
         const data = {
           matchId: judgementData.matchId,
           boutId: judgementData.boutId,
@@ -222,46 +198,37 @@ const JudgementManager: React.FC = () => {
             [judgementData.fighter2Id]: fighter2Scores,
           },
         };
+        const response = await fetch(`${backend_uri}/${judge_score_submit_api}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
 
-        //submit payload to server asyncronously.
-        try {
-          console.log('Submitting data:', data);
+        const result = await response.json();
+        console.log('Judgement submitted:', result);
 
-          // const response = await fetch(`${backend_uri}/judgementScoreSubmit.php`, {
-          //   method: 'POST',
-          //   headers: {
-          //     'Content-Type': 'application/json',
-          //   },
-          //   body: JSON.stringify(data),
-          // });
-
-          // const result = await response.json();
-          // console.log('Judgement submitted:', result);
-          // setJudgementData(null);
-          // setScores({}); // Reset scores after submission
-        } catch (error) {
-          console.error('Error submitting judgement:', error);
-        }
+        // Clear state after successful submission
+        setJudgementData(null);
+        setScores({});
       }
     },
     [judgementData, scores, judgeName]
   );
 
-  //Memoize fighter1 data for use in score display.
   const fighter1 = useMemo(() => judgementData ? {
     fighterId: judgementData.fighter1Id,
     fighterName: judgementData.fighter1Name,
     fighterColor: judgementData.fighter1Color,
   } : null, [judgementData]);
 
-  ///Memoize fighter2 data for use in score display.
   const fighter2 = useMemo(() => judgementData ? {
     fighterId: judgementData.fighter2Id,
     fighterName: judgementData.fighter2Name,
     fighterColor: judgementData.fighter2Color,
   } : null, [judgementData]);
 
-  //HTML that will render if a judge has not entered a name. Asks judge to enter their name.
   if (!judgeName) {
     return (
       <div>
@@ -279,19 +246,25 @@ const JudgementManager: React.FC = () => {
     );
   }
 
-  //HTML that will render when waiting for Judgement to commence. Will commence when Judgement data is received.
   if (!judgementData) {
     return (
       <div>
         <h1>Judgement Wait</h1>
         <p>You are judging ring {ringNumber} as {judgeName}</p>
+        <button
+          onClick={() => {
+            if (window.confirm("Pounding refresh like a jackhammer will cause you to miss updates. Click 'OK' if you promise to be patient and refresh sparingly.")) {
+              esInstance?.close();
+              connectToSSE(0);
+            }
+          }}
+        >
+          Refresh Connection
+        </button>
       </div>
     );
   }
 
-  //HTML that will render for Judgement. 
-  //Uses 2 ScoreTable components: one for each fighter.
-  //Should only display when judge name and Judgement data are present.
   return (
     <div>
       <h1>Judgement Now Make!</h1>

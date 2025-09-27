@@ -2,81 +2,106 @@
 /**
  * requestJudgementPOLL.php
  * 
- * A fallback in case SSE fails for a judge is to poll the server with this script.
- * 
- * Not fully functional last time I checked as the intended method worked well.
- * Might want to work on this
+ * Polling fallback for judges if SSE fails.
+ * Returns the most recent match in a given ring with its fighter details
+ * only if lastMatchJudgement has changed since the client’s last known value.
  */
+
 header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 
-// Include the database connection script
 require_once("connect.php");
+
+// --- validate input ---
+$ringNumber = isset($_GET['ringNumber']) ? intval($_GET['ringNumber']) : null;
+$lastKnown  = isset($_GET['lastKnown']) ? $_GET['lastKnown'] : null;
+
+if ($ringNumber === null || $ringNumber <= 0) {
+    echo json_encode(['status' => 'error', 'message' => 'Ring number not provided.']);
+    exit;
+}
 
 try {
     $db = connect();
 } catch (PDOException $e) {
-    // Log and send error if the connection fails
     error_log("Database connection failed: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
     exit;
 }
 
 try {
-    // Query the database to get the current lastJudgement timestamp and matchId
-    $stmt = $db->prepare("SELECT matchId, lastJudgement FROM Matches ORDER BY lastJudgement DESC LIMIT 1");
-    $stmt->execute();
+    // Get the most recent match for this ring (exclude NULL judgements)
+    $stmt = $db->prepare("
+        SELECT MatchId, lastMatchJudgement
+        FROM Matches
+        WHERE MatchRingNo = :ring
+          AND lastMatchJudgement IS NOT NULL
+        ORDER BY lastMatchJudgement DESC
+        LIMIT 1
+    ");
+    $stmt->execute([':ring' => $ringNumber]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($result) {
-        $matchId = $result['matchId'];
+        $matchId            = (int)$result['MatchId'];
+        $lastMatchJudgement = $result['lastMatchJudgement'];
 
-        // Fetch detailed data for the updated match
-        $sql = "
+        // --- compare client vs server timestamps ---
+        if ($lastKnown !== null && $lastMatchJudgement !== null) {
+            $clientTs = strtotime($lastKnown);
+            $serverTs = strtotime($lastMatchJudgement);
+
+            if ($clientTs !== false && $serverTs !== false && $clientTs >= $serverTs) {
+                echo json_encode(['status' => 'no_update', 'message' => 'No new judgement.']);
+                exit;
+            }
+        }
+
+        // Get match + fighter details
+        $stmtDetails = $db->prepare("
             SELECT 
-                m.matchId, 
-                m.matchRing, 
-                m.fighter1Id,
-                m.fighter2Id,
-                m.fighter1Color,
-                m.fighter2Color,
-                f1.fighterName AS fighter1Name,
-                f2.fighterName AS fighter2Name
+                m.MatchId, 
+                m.MatchRingNo,
+                mf1.FighterId AS fighter1Id,
+                f1.FighterName AS fighter1Name,
+                mf1.FighterColor AS fighter1Color,
+                mf2.FighterId AS fighter2Id,
+                f2.FighterName AS fighter2Name,
+                mf2.FighterColor AS fighter2Color,
+                m.lastMatchJudgement
             FROM Matches m
-            LEFT JOIN Fighters f1 ON m.fighter1Id = f1.fighterId
-            LEFT JOIN Fighters f2 ON m.fighter2Id = f2.fighterId
-            WHERE m.matchId = :matchId
-        ";
-
-        $stmtDetails = $db->prepare($sql);
-        $stmtDetails->bindParam(':matchId', $matchId, PDO::PARAM_INT);
-        $stmtDetails->execute();
+            LEFT JOIN MatchFighters mf1 ON m.MatchId = mf1.MatchId AND mf1.FighterColor = 'Red'
+            LEFT JOIN Fighters f1 ON mf1.FighterId = f1.FighterId
+            LEFT JOIN MatchFighters mf2 ON m.MatchId = mf2.MatchId AND mf2.FighterColor = 'Blue'
+            LEFT JOIN Fighters f2 ON mf2.FighterId = f2.FighterId
+            WHERE m.MatchId = :mid
+        ");
+        $stmtDetails->execute([':mid' => $matchId]);
 
         if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
-            $matchData = [
-                'matchId' => $row['matchId'],
-                'matchRing' => $row['matchRing'],
-                'fighter1Id' => $row['fighter1Id'],
-                'fighter1Name' => $row['fighter1Name'],
+            $payload = [
+                'status'        => 'success',
+                'matchId'       => $row['MatchId'],
+                'matchRing'     => $row['MatchRingNo'],
+                'fighter1Id'    => $row['fighter1Id'],
+                'fighter1Name'  => $row['fighter1Name'],
                 'fighter1Color' => $row['fighter1Color'],
-                'fighter2Id' => $row['fighter2Id'],
-                'fighter2Name' => $row['fighter2Name'],
+                'fighter2Id'    => $row['fighter2Id'],
+                'fighter2Name'  => $row['fighter2Name'],
                 'fighter2Color' => $row['fighter2Color'],
+                'lastJudgement' => $row['lastMatchJudgement']
             ];
-
-            // Return the match data as JSON
-            echo json_encode($matchData);
+            echo json_encode($payload);
         } else {
-            echo json_encode(['status' => 'no_update', 'message' => 'No updates found.']);
+            echo json_encode(['status' => 'no_update', 'message' => 'No fighters linked to this match.']);
         }
     } else {
-        echo json_encode(['status' => 'no_update', 'message' => 'No updates found.']);
+        // Nothing with lastMatchJudgement set
+        echo json_encode(['status' => 'no_update', 'message' => 'No judged matches found for this ring.']);
     }
 } catch (PDOException $e) {
-    // Log and send error if the query fails
     error_log("Query failed: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'message' => 'Query failed.']);
 } finally {
-    // Ensure the database connection is closed
     $db = null;
 }

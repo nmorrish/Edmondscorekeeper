@@ -219,7 +219,7 @@ try {
                     // Activate this match (if not already active)
                     $stmt = $db->prepare("
                         UPDATE Matches
-                        SET PendingActiveDone = 'A', lastMatchJudgement = CURRENT_TIMESTAMP
+                        SET PendingActiveDone = 'A'
                         WHERE MatchId = ? AND PendingActiveDone <> 'A'
                     ");
                     $stmt->execute([$id]);
@@ -296,7 +296,7 @@ try {
             // Complete
             if (($input['action'] ?? null) === 'complete') {
                 if (!$id) throw new Exception("matchId required");
-                $db->prepare("UPDATE Matches SET PendingActiveDone='D', lastMatchJudgement=CURRENT_TIMESTAMP WHERE MatchId=?")
+                $db->prepare("UPDATE Matches SET PendingActiveDone='D' WHERE MatchId=?")
                    ->execute([$id]);
                 echo json_encode(['status' => 'success','updated'=>'complete','matchId'=>$id]);
                 break;
@@ -305,7 +305,7 @@ try {
             // Pending
             if (($input['action'] ?? null) === 'pending') {
                 if (!$id) throw new Exception("matchId required");
-                $db->prepare("UPDATE Matches SET PendingActiveDone='P', lastMatchJudgement=CURRENT_TIMESTAMP WHERE MatchId=?")
+                $db->prepare("UPDATE Matches SET PendingActiveDone='P' WHERE MatchId=?")
                    ->execute([$id]);
                 echo json_encode(['status' => 'success','updated'=>'pending','matchId'=>$id]);
                 break;
@@ -340,7 +340,7 @@ try {
 
             // Ring change
             if (isset($input['ringNo'])) {
-                $db->prepare("UPDATE Matches SET MatchRingNo=?, lastMatchJudgement=CURRENT_TIMESTAMP WHERE MatchId=?")
+                $db->prepare("UPDATE Matches SET MatchRingNo=? WHERE MatchId=?")
                    ->execute([(int)$input['ringNo'],$id]);
                 echo json_encode(['status'=>'success','updated'=>'ring','matchId'=>$id,'ring'=>(int)$input['ringNo']]);
                 break;
@@ -350,7 +350,7 @@ try {
             if (!$id) throw new Exception("id required");
             $stmt = $db->prepare("
                 UPDATE Matches
-                SET EventId=:eventId, MatchRingNo=:ring, PendingActiveDone=:status, lastMatchJudgement=CURRENT_TIMESTAMP
+                SET EventId=:eventId, MatchRingNo=:ring, PendingActiveDone=:status
                 WHERE MatchId=:id
             ");
             $stmt->execute([
