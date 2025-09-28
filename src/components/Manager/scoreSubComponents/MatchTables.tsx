@@ -14,6 +14,7 @@ import { useRefresh } from "../../utility/RefreshContext";
 import { backend_uri, match_api, score_api } from "../../utility/endpoints";
 import ScoreDisplayComponent from "./ScoreDisplayComponent";
 import FighterDropdown from "../matchSubComponents/fighterDropdown";
+import RingDropdown from "../matchSubComponents/ringDropdown";
 import { useToast } from "../../utility/ToastProvider";
 import debounce from "lodash/debounce";
 import { Fighter } from "../subComponents/useFighters";
@@ -61,6 +62,7 @@ interface MatchTablesProps {
   eventId: number;
   tournamentId: number;
   fighters: Fighter[];
+  maxRings: number;
   onStrikeUpdate: (fighterId: number, newStrikes: number) => void;
 }
 
@@ -69,6 +71,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   eventId,
   tournamentId,
   fighters,
+  maxRings,
   onStrikeUpdate,
 }) => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -219,6 +222,19 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     return "match-table pending-match";
   };
 
+  // --- Ring Change (optimistic + refresh) ---
+  const handleChangeRing = (matchId: number, newRing: number) => {
+    // Optimistic local update
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.matchId === matchId ? { ...m, matchRing: newRing } : m
+      )
+    );
+
+    // Force backend resync after optimistic update
+    triggerRefresh();
+  };
+
   // --- Render ---
   return (
     <div>
@@ -300,7 +316,19 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                   </span>
                 </div>
 
-                <div>
+                {/* Controls row: RingDropdown left, Open/Close right */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <RingDropdown
+                    matchId={match.matchId}
+                    currentRing={match.matchRing}
+                    maxRings={maxRings}
+                    interactive={true}
+                    onChangeRing={(id, newRing) => {
+                      handleChangeRing(id, newRing);
+                      addToast(`Match ${id} moved to Ring ${newRing}`);
+                    }}
+                  />
+
                   <button
                     className="toggle-button"
                     onClick={() => toggleVisibility(match.matchId)}
@@ -358,7 +386,9 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                       className="toggle-drilldown"
                       onClick={() => toggleJudgeDrilldown(match.matchId)}
                     >
-                      {openJudgeDrilldown[match.matchId] ? "Close Judge Details" : "Open Judge Details"}
+                      {openJudgeDrilldown[match.matchId]
+                        ? "Close Judge Details"
+                        : "Open Judge Details"}
                     </button>
                   )}
 

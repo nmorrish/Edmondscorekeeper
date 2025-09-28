@@ -60,7 +60,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
   };
 
   return (
-    <div>
+    <div style={{marginTop: "15px"}}>
       <TotalsCalculator
         fighter={{ ...fighter, exchanges: localExchanges }}
         onTotalsCalculated={handleTotalsCalculated}

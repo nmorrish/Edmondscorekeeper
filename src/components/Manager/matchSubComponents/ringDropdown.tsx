@@ -7,6 +7,7 @@ import { useToast } from "../../utility/ToastProvider";
 interface RingDropdownProps {
   matchId: number;
   currentRing: number;
+  /** total number of rings available for this event (must be passed in by parent) */
   maxRings: number;
   interactive?: boolean;
   onChangeRing?: (matchId: number, newRing: number) => void;
@@ -31,7 +32,7 @@ const RingDropdown: React.FC<RingDropdownProps> = ({
 
       const data = await response.json();
       if (response.ok && data.status === "success") {
-        onChangeRing?.(matchId, newRing);
+        onChangeRing?.(matchId, newRing); // optimistic update handled by parent
         addToast(`Match ${matchId} moved to Ring ${newRing}`);
       } else {
         addToast("Failed to change ring.");

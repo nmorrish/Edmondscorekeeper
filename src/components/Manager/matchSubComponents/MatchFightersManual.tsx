@@ -221,6 +221,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
                     allFighters={fighters}
                     ringNo={m.MatchRingNo}
                     matchNumber={idx + 1}
+                    maxRings={maxRings}   // <-- pass dynamic max rings here
                     interactive
                     onDelete={handleDelete}
                     onChangeRing={handleRingChangeMatch}

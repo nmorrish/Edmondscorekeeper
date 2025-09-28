@@ -105,6 +105,7 @@ const ScoreManagement: React.FC = () => {
               ringNumber={selectedRing}
               tournamentId={numericTournamentId}
               fighters={fighters}
+              maxRings={maxRings}
               onStrikeUpdate={handleStrikeUpdate}
             />
           )}

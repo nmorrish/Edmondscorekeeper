@@ -829,7 +829,7 @@ select option {
 
 button.toggle-button{
   margin-top:0;
-  margin-bottom:10px;
+  margin-bottom:0;
 }
 
 .table-header div{

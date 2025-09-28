@@ -23,6 +23,7 @@ interface MatchCardProps {
   allFighters: Fighter[];
   ringNo: number;
   matchNumber: number;
+  maxRings: number; // <-- NEW: dynamic max rings passed in
 
   interactive?: boolean;
 
@@ -39,6 +40,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   allFighters,
   ringNo,
   matchNumber,
+  maxRings,
   interactive = false,
   onChange,
   onDelete,
@@ -54,7 +56,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
   const winners = localFighters.filter((f) => (f.FinalScore ?? 0) === maxScore);
 
   // === API ACTIONS ===
-
   const handleUpdateFighter = async (fighterColor: string, fighterId: number) => {
     try {
       const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
@@ -183,18 +184,20 @@ const MatchCard: React.FC<MatchCardProps> = ({
   };
 
   // === RENDER ===
+  const getMatchCardClass = (status: MatchStatus) => {
+    if (status === "A") return "match-card match-table active-match";
+    if (status === "D") return "match-card match-table completed-match";
+    return "match-card match-table pending-match";
+  };
+
   return (
-    <div
-      className={`match-card ${
-        localStatus === "A" ? "active-match" : localStatus === "D" ? "completed-match" : ""
-      }`}
-    >
+    <div className={getMatchCardClass(localStatus)}>
       <div className="match-header">
         Match No. {matchNumber} –
         <RingDropdown
           matchId={matchId}
           currentRing={localRing}
-          maxRings={4} // TODO: pass event.MaxRings dynamically
+          maxRings={maxRings} // <-- dynamic now
           interactive={interactive}
           onChangeRing={(id, newRing) => {
             setLocalRing(newRing);
