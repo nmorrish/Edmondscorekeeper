@@ -125,19 +125,60 @@ try {
             }
             break;
 
-        case 'DELETE':
-            if (!$tournamentId || !$fighterId) {
-                throw new Exception("tournamentId and fighterId are required");
+        case 'DELETE': // Remove fighter from tournament
+            if (!isset($_GET['tournamentId'], $_GET['fighterId'])) {
+                throw new Exception("Missing tournamentId or fighterId.");
             }
 
-            $stmt = $db->prepare("
-                DELETE FROM TournamentFighters
-                WHERE TournamentId = :tid AND FighterId = :fid
-            ");
-            $stmt->execute([':tid' => $tournamentId, ':fid' => $fighterId]);
+            $tournamentId = (int)$_GET['tournamentId'];
+            $fighterId    = (int)$_GET['fighterId'];
 
-            echo json_encode(['status' => 'success', 'message' => 'Fighter removed from tournament']);
+            $db->beginTransaction();
+
+            try {
+                // 1) Remove fighter from TournamentFighters
+                $stmt = $db->prepare("DELETE FROM TournamentFighters WHERE TournamentId = ? AND FighterId = ?");
+                $stmt->execute([$tournamentId, $fighterId]);
+
+                // 2) Find all events in this tournament
+                $stmt = $db->prepare("SELECT EventId FROM Events WHERE TournamentId = ?");
+                $stmt->execute([$tournamentId]);
+                $events = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                if ($events) {
+                    // 3) Remove fighter from EventFighters
+                    $inClause = implode(',', array_fill(0, count($events), '?'));
+                    $params   = array_merge([$fighterId], $events);
+
+                    $stmt = $db->prepare("DELETE FROM EventFighters WHERE FighterId = ? AND EventId IN ($inClause)");
+                    $stmt->execute($params);
+
+                    // 4) Delete all pending matches for this fighter in those events
+                    $stmt = $db->prepare("
+                        DELETE m
+                        FROM Matches m
+                        JOIN MatchFighters mf ON m.MatchId = mf.MatchId
+                        WHERE mf.FighterId = ?
+                        AND m.EventId IN ($inClause)
+                        AND m.PendingActiveDone = 'P'
+                    ");
+                    $stmt->execute($params);
+                }
+
+                $db->commit();
+
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Fighter removed from tournament, events, and pending matches cleared.",
+                    "tournamentId" => $tournamentId,
+                    "fighterId" => $fighterId
+                ]);
+            } catch (Exception $e) {
+                $db->rollBack();
+                throw $e;
+            }
             break;
+
 
         default:
             http_response_code(405);

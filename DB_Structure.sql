@@ -103,6 +103,21 @@ CREATE TABLE `Events` (
   CONSTRAINT `FK_Event_Weapon` FOREIGN KEY (`WeaponId`) REFERENCES `Weapons` (`WeaponId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `EventFighters`
+
+DROP TABLE IF EXISTS `EventFighters`;
+CREATE TABLE `EventFighters` (
+  `EventId` int(11) NOT NULL,
+  `FighterId` int(11) NOT NULL,
+  PRIMARY KEY (`EventId`, `FighterId`),
+  CONSTRAINT `FK_EventFighter_Event` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`) ON DELETE CASCADE,
+  CONSTRAINT `FK_EventFighter_Fighter` FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 
 -- --------------------------------------------------------
 

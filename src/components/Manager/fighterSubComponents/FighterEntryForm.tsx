@@ -3,12 +3,14 @@
  *
  * === Fighter Entry Row (Single-Line) ===
  * Unified component for fighters.
+ * Handles create/update/delete only.
+ * Tournament/event forms own add/remove buttons.
  */
 
 import React, { useState } from "react";
 import { backend_uri, fighter_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
-import { Fighter } from "../subComponents/useFighters"; 
+import { Fighter } from "../subComponents/useFighters";
 
 export interface Club {
   ClubId: number;
@@ -21,8 +23,8 @@ interface FighterEntryFormProps {
   clubs: Club[];
   tournamentId: number;
   tournamentName: string;
-  inTournament?: boolean;
-  onUpdated: () => void;
+  inTournament?: boolean; // used only for parent context
+  context?: "tournament" | "event";
 }
 
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
@@ -30,7 +32,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
   clubs,
   tournamentId,
   inTournament = false,
-  onUpdated,
+  context = "tournament",
 }) => {
   const addToast = useToast();
   const isNew = !fighter;
@@ -38,7 +40,6 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
   const [editing, setEditing] = useState<boolean>(isNew);
   const [name, setName] = useState<string>(fighter?.FighterName ?? "");
   const [clubId, setClubId] = useState<number | null>(fighter?.ClubId ?? null);
-  const [addToTournament, setAddToTournament] = useState<boolean>(true);
 
   // Helper: display acronym (fallback to name)
   const getClubDisplay = (): string => {
@@ -55,7 +56,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
 
     try {
       if (isNew) {
-        // 1. Create fighter
+        // Create fighter
         const res = await fetch(`${backend_uri}/${fighter_api}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -68,39 +69,13 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
 
         if (data.status === "success") {
           addToast("Fighter created");
-
-          // 2. If checkbox ticked → add to tournament
-          if (addToTournament && data.fighterId) {
-            try {
-              const res2 = await fetch(`${backend_uri}/tournamentFightersApi.php`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  tournamentId,
-                  fighterId: data.fighterId,
-                }),
-              });
-              const data2 = await res2.json();
-              if (data2.status === "success") {
-                addToast("Fighter also added to tournament");
-              } else {
-                addToast(`Fighter created but not added to tournament: ${data2.message}`);
-              }
-            } catch (err) {
-              console.error("Error adding fighter to tournament", err);
-              addToast("Fighter created but tournament add failed");
-            }
-          }
-
           setName("");
           setClubId(null);
-          setAddToTournament(true);
-          onUpdated();
         } else {
           addToast(`Error: ${data.message}`);
         }
       } else {
-        // Update existing fighter
+        // Update fighter
         const res = await fetch(
           `${backend_uri}/${fighter_api}?id=${fighter!.FighterId}`,
           {
@@ -116,7 +91,6 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
         if (data.status === "success") {
           addToast("Fighter updated");
           setEditing(false);
-          onUpdated();
         } else {
           addToast(`Error: ${data.message}`);
         }
@@ -138,7 +112,6 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
       const data = await res.json();
       if (data.status === "success") {
         addToast("Fighter deleted");
-        onUpdated();
       } else {
         addToast(`Error: ${data.message}`);
       }
@@ -148,42 +121,10 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
     }
   };
 
-  const toggleTournament = async () => {
-    if (!fighter) return;
-
-    try {
-      let res;
-      if (inTournament) {
-        res = await fetch(
-          `${backend_uri}/tournamentFightersApi.php?tournamentId=${tournamentId}&fighterId=${fighter.FighterId}`,
-          { method: "DELETE" }
-        );
-      } else {
-        res = await fetch(`${backend_uri}/tournamentFightersApi.php`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tournamentId, fighterId: fighter.FighterId }),
-        });
-      }
-
-      const data = await res.json();
-      if (data.status === "success") {
-        addToast(inTournament ? "Removed from tournament" : "Added to tournament");
-        onUpdated();
-      } else {
-        addToast(`Error: ${data.message}`);
-      }
-    } catch (err) {
-      console.error("Error toggling tournament", err);
-      addToast("Error toggling tournament");
-    }
-  };
-
   const handleCancel = () => {
     if (isNew) {
       setName("");
       setClubId(null);
-      setAddToTournament(true);
     } else {
       setName(fighter!.FighterName);
       setClubId(fighter!.ClubId);
@@ -192,26 +133,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
   };
 
   return (
-    <div
-      className="fighter-entry-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: inTournament
-          ? "2fr 1fr auto auto auto" // name | club | save | cancel | delete (edit mode)
-          : "auto 2fr 1fr auto auto", // add | name | club | edit/save | delete
-        gap: "0.5rem",
-        alignItems: "center",
-        borderBottom: "1px solid #444",
-        padding: "0.4rem 0",
-      }}
-    >
-      {/* Add button on far left (only when OUT) */}
-      {!isNew && !inTournament && (
-        <div>
-          <button onClick={toggleTournament}>← Add</button>
-        </div>
-      )}
-
+    <div className="fighter-entry-row">
       {/* Fighter name */}
       <div>
         {editing ? (
@@ -221,10 +143,9 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            style={{ width: "100%" }}
           />
         ) : (
-          <span style={{ fontWeight: 600 }}>{fighter?.FighterName}</span>
+          <span className="fighter-name">{fighter?.FighterName}</span>
         )}
       </div>
 
@@ -236,7 +157,6 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
             onChange={(e) =>
               setClubId(e.target.value ? Number(e.target.value) : null)
             }
-            style={{ width: "50%" }}
           >
             <option value="">No Club</option>
             {clubs.map((c) => (
@@ -246,7 +166,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
             ))}
           </select>
         ) : (
-          <span style={{ opacity: 0.8 }}>{getClubDisplay()}</span>
+          <span className="club-display">{getClubDisplay()}</span>
         )}
       </div>
 
@@ -265,16 +185,9 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
       {/* Delete button (only in edit mode, existing fighters) */}
       {editing && !isNew && (
         <div>
-          <button onClick={handleDelete} style={{ color: "red" }} title="Delete fighter">
+          <button onClick={handleDelete} className="delete-button" title="Delete fighter">
             🗑️
           </button>
-        </div>
-      )}
-
-      {/* Remove button on far right (only when IN) */}
-      {!isNew && inTournament && !editing && (
-        <div style={{ textAlign: "right" }}>
-          <button onClick={toggleTournament}>Remove →</button>
         </div>
       )}
     </div>
