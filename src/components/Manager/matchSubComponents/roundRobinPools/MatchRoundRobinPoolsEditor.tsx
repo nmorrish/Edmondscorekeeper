@@ -1,5 +1,9 @@
 /**
  * src/components/Manager/matchSubComponents/MatchRoundRobinPoolsEditor.tsx
+ *
+ * === Round Robin Pools Editor / Viewer ===
+ * Displays saved pools and their matches using MatchCard,
+ * with collapsible pool sections and fighter swap support.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -8,7 +12,9 @@ import FighterSwapInterface, {
   Fighter as SwapFighter,
   PoolPlan,
 } from "./FighterSwapInterface";
-import { Fighter as FullFighter } from "../../subComponents/useFighters"; 
+import { Fighter as FullFighter } from "../../subComponents/useFighters";
+import { backend_uri, round_robin_pool_api } from "../../../utility/endpoints";
+import { useToast } from "../../../utility/ToastProvider";
 
 type MatchFighter = SwapFighter & {
   FighterColor: string;
@@ -27,75 +33,102 @@ interface PoolBlock {
   poolId: number;
   poolNo: number;
   ringAssigned: number;
+  roster: FullFighter[]; // authoritative roster for swap interface
   matches: PoolMatch[];
 }
 
 interface MatchRoundRobinPoolsEditorProps {
+  eventId: number;
   pools: PoolBlock[];
   maxRings: number;
   interactive?: boolean;
-  allFighters?: FullFighter[]; // now typed correctly
+  allFighters?: FullFighter[];
 }
 
+const POOLS_RR_API = `${backend_uri}/${round_robin_pool_api}`;
+
 const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
+  eventId,
   pools,
   maxRings,
   interactive = true,
   allFighters = [],
 }) => {
+  const addToast = useToast();
+
+  // Local copy for optimistic UI updates
+  const [displayPools, setDisplayPools] = useState<PoolBlock[]>(pools);
+  useEffect(() => setDisplayPools(pools), [pools]);
+
   const [openPools, setOpenPools] = useState<Record<number, boolean>>(
     () => pools.reduce((acc, pool) => ({ ...acc, [pool.poolId]: false }), {})
   );
   const togglePool = (poolId: number) =>
     setOpenPools((prev) => ({ ...prev, [poolId]: !prev[poolId] }));
 
-  // Build a full fighter directory compatible with MatchCard
+  // Build fighter directory strictly from pool rosters (authoritative source)
   const swapFighterDirectory: FullFighter[] = useMemo(() => {
     const map = new Map<number, FullFighter>();
-
-    for (const f of allFighters) {
-      if (f?.FighterId) {
-        map.set(f.FighterId, f);
-      }
-    }
-
-    for (const p of pools) {
-      for (const m of p.matches) {
-        for (const f of m.fighters ?? []) {
-          map.set(f.FighterId, {
-            FighterId: f.FighterId,
-            FighterName: f.FighterName ?? `#${f.FighterId}`,   // fallback
-            ClubAcronym: f.ClubAcronym ?? null,
-            ClubId: f.ClubId ?? null,
-            ClubName: f.ClubName ?? null,
-          });
+    for (const p of displayPools) {
+      for (const f of p.roster ?? []) {
+        if (f?.FighterId) {
+          map.set(f.FighterId, f);
         }
       }
     }
-
     return Array.from(map.values()).sort((a, b) =>
       (a.FighterName ?? "").localeCompare(b.FighterName ?? "")
     );
-  }, [allFighters, pools]);
+  }, [displayPools]);
 
-  // Editable pool plans for the swapper
+  const fighterById = useMemo(() => {
+    const map = new Map<number, FullFighter>();
+    for (const f of swapFighterDirectory) {
+      map.set(f.FighterId, f);
+    }
+    return map;
+  }, [swapFighterDirectory]);
+
+  // Build PoolPlans from roster (authoritative, not matches)
   const buildEditableFromPools = useMemo<PoolPlan[]>(
     () =>
-      pools.map((p) => ({
+      displayPools.map((p) => ({
         poolNo: p.poolNo,
-        fighterIds: Array.from(
-          new Set(p.matches.flatMap((m) => (m.fighters ?? []).map((f) => f.FighterId)))
-        ),
+        fighterIds: (p.roster ?? []).map((f) => f.FighterId),
       })),
-    [pools]
+    [displayPools]
   );
-  const [editablePools, setEditablePools] = useState<PoolPlan[]>(buildEditableFromPools);
-
+  const [editablePools, setEditablePools] =
+    useState<PoolPlan[]>(buildEditableFromPools);
   useEffect(() => {
     setEditablePools(buildEditableFromPools);
   }, [buildEditableFromPools]);
 
-  if (!pools || pools.length === 0) {
+  const handleSwapPersist = async (
+    fromFighterId: number,
+    toFighterId: number
+  ) => {
+    try {
+      const res = await fetch(`${POOLS_RR_API}?action=swap`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          fromFighterId,
+          toFighterId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "success") {
+        throw new Error(data.message || "Swap failed");
+      }
+      addToast(data.message || "Swap completed");
+    } catch (err: any) {
+      addToast(err.message || "Network error during swap");
+    }
+  };
+
+  if (!displayPools || displayPools.length === 0) {
     return (
       <div className="container" style={{ margin: "0 auto" }}>
         <p>No pools generated yet.</p>
@@ -105,16 +138,87 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
 
   return (
     <div className="container" style={{ margin: "0 auto" }}>
-      <h2 style={{ textAlign: "center" }}>Round Robin Pools</h2>
+      <br />
 
-      {/* Fighter swap interface (still uses simplified Fighter type) */}
       <FighterSwapInterface
         fighters={swapFighterDirectory}
         pools={editablePools}
-        onSwap={setEditablePools}
+        onSwap={(nextPools, lastSwap) => {
+          setEditablePools(nextPools);
+          if (!lastSwap) return;
+          const { fromFighterId, toFighterId } = lastSwap;
+
+          // Optimistically update both rosters and pending matches
+          setDisplayPools((prev) =>
+            prev.map((pool) => {
+              // update roster
+              const newRoster = pool.roster.map((f) => {
+                if (f.FighterId === fromFighterId) {
+                  return {
+                    ...f,
+                    FighterId: toFighterId,
+                    FighterName:
+                      fighterById.get(toFighterId)?.FighterName ?? `#${toFighterId}`,
+                    ClubAcronym: fighterById.get(toFighterId)?.ClubAcronym ?? null,
+                    ClubId: fighterById.get(toFighterId)?.ClubId ?? null,
+                    ClubName: fighterById.get(toFighterId)?.ClubName ?? null,
+                  };
+                }
+                if (f.FighterId === toFighterId) {
+                  return {
+                    ...f,
+                    FighterId: fromFighterId,
+                    FighterName:
+                      fighterById.get(fromFighterId)?.FighterName ?? `#${fromFighterId}`,
+                    ClubAcronym: fighterById.get(fromFighterId)?.ClubAcronym ?? null,
+                    ClubId: fighterById.get(fromFighterId)?.ClubId ?? null,
+                    ClubName: fighterById.get(fromFighterId)?.ClubName ?? null,
+                  };
+                }
+                return f;
+              });
+
+              // update matches (only pending)
+              const newMatches = pool.matches.map((m) => {
+                if (m.status !== "P" || !m.fighters) return m;
+                const updatedFighters = m.fighters.map((f) => {
+                  if (f.FighterId === fromFighterId) {
+                    const nf = fighterById.get(toFighterId);
+                    return {
+                      ...f,
+                      FighterId: toFighterId,
+                      FighterName: nf?.FighterName ?? `#${toFighterId}`,
+                      ClubAcronym: nf?.ClubAcronym ?? null,
+                      ClubId: nf?.ClubId ?? null,
+                      ClubName: nf?.ClubName ?? null,
+                    };
+                  }
+                  if (f.FighterId === toFighterId) {
+                    const nf = fighterById.get(fromFighterId);
+                    return {
+                      ...f,
+                      FighterId: fromFighterId,
+                      FighterName: nf?.FighterName ?? `#${fromFighterId}`,
+                      ClubAcronym: nf?.ClubAcronym ?? null,
+                      ClubId: nf?.ClubId ?? null,
+                      ClubName: nf?.ClubName ?? null,
+                    };
+                  }
+                  return f;
+                });
+                return { ...m, fighters: updatedFighters };
+              });
+
+              return { ...pool, roster: newRoster, matches: newMatches };
+            })
+          );
+
+          // Persist to backend
+          handleSwapPersist(fromFighterId, toFighterId);
+        }}
       />
 
-      {pools.map((pool) => {
+      {displayPools.map((pool) => {
         const isOpen = openPools[pool.poolId];
         return (
           <div
@@ -161,15 +265,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                     <MatchCard
                       key={m.matchId}
                       matchId={m.matchId}
-                      fighters={(m.fighters ?? []).map((f) => ({
-                        FighterId: f.FighterId,
-                        FighterName: f.FighterName,
-                        ClubAcronym: f.ClubAcronym ?? null,
-                        FighterColor: f.FighterColor,
-                        FinalScore: 0,
-                      }))}
+                      fighters={m.fighters ?? []}   // use the updated fighters from displayPools
                       status={m.status}
-                      allFighters={swapFighterDirectory} 
+                      allFighters={swapFighterDirectory} // pass known fighters for dropdowns
                       ringNo={m.ringNo}
                       matchNumber={idx + 1}
                       maxRings={maxRings}

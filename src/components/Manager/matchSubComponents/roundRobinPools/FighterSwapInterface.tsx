@@ -3,7 +3,7 @@
  *
  * === Fighter Swap Interface ===
  * Click a fighter in Pool A, then click another in Pool B → swap them.
- * Reusable in both Generator and Editor views.
+ * Works with pool fighterIds (from generator) or roster-based pools (from editor).
  */
 
 import React, { useState } from "react";
@@ -17,13 +17,16 @@ export interface Fighter {
 
 export interface PoolPlan {
   poolNo: number;
-  fighterIds: number[];
+  fighterIds: number[]; // authoritative IDs for this pool
 }
 
 interface FighterSwapInterfaceProps {
-  fighters: Fighter[];
+  fighters: Fighter[]; // global directory of fighters
   pools: PoolPlan[];
-  onSwap: (updatedPools: PoolPlan[]) => void;
+  onSwap: (
+    updatedPools: PoolPlan[],
+    swapDetail?: { fromFighterId: number; toFighterId: number }
+  ) => void;
 }
 
 const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
@@ -40,7 +43,9 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
   const fighterLabel = (id: number) => {
     const f = fighters.find((x) => x.FighterId === id);
     if (!f) return `#${id}`;
-    return f.ClubAcronym ? `${f.FighterName} (${f.ClubAcronym})` : f.FighterName;
+    return f.ClubAcronym
+      ? `${f.FighterName} (${f.ClubAcronym})`
+      : f.FighterName;
   };
 
   const handleSelectForSwap = (poolNo: number, fighterId: number) => {
@@ -49,16 +54,11 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
       return;
     }
 
-    // cancel if same fighter clicked
-    if (
-      swapSelection.poolNo === poolNo &&
-      swapSelection.fighterId === fighterId
-    ) {
+    if (swapSelection.poolNo === poolNo && swapSelection.fighterId === fighterId) {
       setSwapSelection(null);
       return;
     }
 
-    // must be across pools
     if (swapSelection.poolNo === poolNo) {
       addToast("Pick a fighter from a different pool to swap.");
       return;
@@ -82,15 +82,18 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
       poolA.fighterIds[idxA],
     ];
 
-    onSwap(next);
+    onSwap(next, {
+      fromFighterId: swapSelection.fighterId,
+      toFighterId: fighterId,
+    });
+
     setSwapSelection(null);
   };
 
   return (
     <div style={{ marginBottom: "1rem" }}>
       <div style={{ color: "#bbb", marginBottom: 8 }}>
-        Swap mode: click one fighter, then click another fighter in a different
-        pool to swap.
+        Swap mode: click one fighter, then another in a different pool to swap.
         {swapSelection && (
           <span style={{ marginLeft: 8, color: "#ddd" }}>
             Selected: {fighterLabel(swapSelection.fighterId)} (Pool{" "}
@@ -124,7 +127,9 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
               }}
             >
               <strong>Pool {p.poolNo}</strong>
-              <span style={{ color: "#999" }}>{p.fighterIds.length} fighters</span>
+              <span style={{ color: "#999" }}>
+                {p.fighterIds.length} fighters
+              </span>
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {p.fighterIds.map((fid) => {
@@ -138,9 +143,7 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
                     style={{
                       padding: "6px 8px",
                       marginBottom: 6,
-                      border: selected
-                        ? "1px solid #80bfff"
-                        : "1px solid #333",
+                      border: selected ? "1px solid #80bfff" : "1px solid #333",
                       borderRadius: 6,
                       background: selected ? "#0d1b2a" : "#222",
                       cursor: "pointer",

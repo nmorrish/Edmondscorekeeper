@@ -272,6 +272,20 @@ CREATE TABLE `PoolMatches` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `PoolFighters`
+-- Holds an list of fighters in pools separate from matches.
+
+DROP TABLE IF EXISTS `PoolFighters`;
+CREATE TABLE PoolFighters (
+    `PoolFighterId` INT AUTO_INCREMENT PRIMARY KEY,
+    `PoolId` INT NOT NULL,
+    `FighterId` INT NOT NULL,
+    UNIQUE (`PoolId`, `FighterId`),
+    FOREIGN KEY (`PoolId`) REFERENCES `Pools` (`PoolId`) ON DELETE CASCADE,
+    FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`) ON DELETE CASCADE
+);
+
+--
 -- Create FK Indexes
 -- 
 

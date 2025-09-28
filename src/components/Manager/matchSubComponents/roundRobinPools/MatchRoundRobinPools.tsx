@@ -65,6 +65,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           pools={savedPools}
           maxRings={maxRings}
           interactive={true}
+          eventId={eventId}
         />
       )}
     </div>
