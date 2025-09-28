@@ -125,13 +125,6 @@ const FighterManagement: React.FC = () => {
   // ---------- Render ----------
   return (
     <div className="fighter-management">
-      {/* Tournament-wide fighter management */}
-      {tournamentId && (
-        <TournamentFighterForm
-          tournamentId={Number(tournamentId)}
-          tournamentName={tournamentName}
-        />
-      )}
 
       {/* Event-specific fighter management (collapsible, starts collapsed) */}
       {events.length > 0 && (
@@ -173,14 +166,14 @@ const FighterManagement: React.FC = () => {
           justifyContent: "center",
         }}
       >
-        <button onClick={() => togglePane("clubs")}>
+        <button onClick={() => togglePane("clubs")} style={{padding: "1.2rem 2rem", fontSize: "1.5rem"}}>
           {activePane === "clubs" ? "Close Clubs" : "Manage Clubs"}
         </button>
-        <button onClick={() => togglePane("fighters")}>
+        <button onClick={() => togglePane("fighters")} style={{padding: "1.2rem 2rem", fontSize: "1.5rem"}}>
           {activePane === "fighters" ? "Close Add Fighter" : "Add New Fighter"}
         </button>
       </div>
-
+      <br></br>
       {/* Manage Clubs pane */}
       {activePane === "clubs" && (
         <div
@@ -244,6 +237,14 @@ const FighterManagement: React.FC = () => {
             <div>Loading clubs...</div>
           )}
         </div>
+      )}
+
+            {/* Tournament-wide fighter management */}
+      {tournamentId && (
+        <TournamentFighterForm
+          tournamentId={Number(tournamentId)}
+          tournamentName={tournamentName}
+        />
       )}
 
       {numericTournamentId !== undefined && (

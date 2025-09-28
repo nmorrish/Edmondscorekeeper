@@ -1,3 +1,6 @@
+/**
+ * src/components/Manager/matchSubComponents/MatchFightersManual.tsx
+ */
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { backend_uri, match_fighters_manual_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
@@ -9,17 +12,26 @@ interface MatchFightersProps {
   fighters: Fighter[];
   eventId: number;
   maxRings: number;
+  isActive: boolean; // NEW
 }
 
 const MatchFightersManual: React.FC<MatchFightersProps> = ({
   fighters,
   eventId,
   maxRings,
+  isActive,
 }) => {
   const addToast = useToast();
 
-  const [selectedFighter1, setSelectedFighter1] = useState(fighters[0]?.FighterId ?? 0);
-  const [selectedFighter2, setSelectedFighter2] = useState(fighters[1]?.FighterId ?? 0);
+  // NEW: hold isActive in a local variable for potential use
+  const active = isActive;
+
+  const [selectedFighter1, setSelectedFighter1] = useState(
+    fighters[0]?.FighterId ?? 0
+  );
+  const [selectedFighter2, setSelectedFighter2] = useState(
+    fighters[1]?.FighterId ?? 0
+  );
   const [selectedRing, setSelectedRing] = useState(1);
   const [colorFighter1, setColorFighter1] = useState<"Red" | "Blue">("Red");
 
@@ -36,18 +48,24 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
 
   // Handlers for new match form
   const handleFighter1Change = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFighter1(parseInt(e.target.value)),
+    (e: React.ChangeEvent<HTMLSelectElement>) =>
+      setSelectedFighter1(parseInt(e.target.value)),
     []
   );
   const handleFighter2Change = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFighter2(parseInt(e.target.value)),
+    (e: React.ChangeEvent<HTMLSelectElement>) =>
+      setSelectedFighter2(parseInt(e.target.value)),
     []
   );
   const handleRingChangeForm = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedRing(parseInt(e.target.value)),
+    (e: React.ChangeEvent<HTMLSelectElement>) =>
+      setSelectedRing(parseInt(e.target.value)),
     []
   );
-  const handleColorChange = useCallback((color: "Red" | "Blue") => setColorFighter1(color), []);
+  const handleColorChange = useCallback(
+    (color: "Red" | "Blue") => setColorFighter1(color),
+    []
+  );
 
   // Filter dropdowns so fighter1 ≠ fighter2
   const filteredFighter1Options = useMemo(
@@ -71,16 +89,23 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
     };
 
     try {
-      const response = await fetch(`${backend_uri}/${match_fighters_manual_api}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(matchData),
-      });
+      const response = await fetch(
+        `${backend_uri}/${match_fighters_manual_api}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(matchData),
+        }
+      );
       const data = await response.json();
 
       if (response.ok && data.status === "success") {
-        const fighterInfo1 = fighters.find((f) => f.FighterId === selectedFighter1);
-        const fighterInfo2 = fighters.find((f) => f.FighterId === selectedFighter2);
+        const fighterInfo1 = fighters.find(
+          (f) => f.FighterId === selectedFighter1
+        );
+        const fighterInfo2 = fighters.find(
+          (f) => f.FighterId === selectedFighter2
+        );
 
         const newMatch: Match = {
           MatchId: data.matchId,
@@ -124,7 +149,9 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
   // Ring change handler for existing matches
   const handleRingChangeMatch = (matchId: number, newRing: number) => {
     setLocalMatches((prev) =>
-      prev.map((m) => (m.MatchId === matchId ? { ...m, MatchRingNo: newRing } : m))
+      prev.map((m) =>
+        m.MatchId === matchId ? { ...m, MatchRingNo: newRing } : m
+      )
     );
   };
 
@@ -137,10 +164,15 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
         {/* Fighter 1 */}
         <div className="form-group">
           <label>Fighter&nbsp;1:</label>
-          <select value={selectedFighter1} onChange={handleFighter1Change}>
+          <select
+            value={selectedFighter1}
+            onChange={handleFighter1Change}
+            style={{ width: "250px" }}
+          >
             {filteredFighter1Options.map((fighter) => (
               <option key={fighter.FighterId} value={fighter.FighterId}>
                 {fighter.FighterName}
+                {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
               </option>
             ))}
           </select>
@@ -167,10 +199,15 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
         {/* Fighter 2 */}
         <div className="form-group">
           <label>Fighter 2:</label>
-          <select value={selectedFighter2} onChange={handleFighter2Change}>
+          <select
+            value={selectedFighter2}
+            onChange={handleFighter2Change}
+            style={{ width: "250px" }}
+          >
             {filteredFighter2Options.map((fighter) => (
               <option key={fighter.FighterId} value={fighter.FighterId}>
                 {fighter.FighterName}
+                {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
               </option>
             ))}
           </select>
@@ -182,7 +219,11 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
         {/* Ring */}
         <div className="form-group">
           <label>Ring:</label>
-          <select value={selectedRing} onChange={handleRingChangeForm}>
+          <select
+            value={selectedRing}
+            onChange={handleRingChangeForm}
+            style={{ width: "250px" }}
+          >
             {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
               <option key={`ring-${ring}`} value={ring}>
                 {`Ring ${ring}`}
@@ -205,7 +246,9 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
         {!loading && localMatches.length === 0 && <p>No matches yet.</p>}
 
         {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => {
-          const ringMatches = localMatches.filter((m) => m.MatchRingNo === ring);
+          const ringMatches = localMatches.filter(
+            (m) => m.MatchRingNo === ring
+          );
           if (ringMatches.length === 0) return null;
 
           return (
@@ -221,7 +264,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
                     allFighters={fighters}
                     ringNo={m.MatchRingNo}
                     matchNumber={idx + 1}
-                    maxRings={maxRings}   // <-- pass dynamic max rings here
+                    maxRings={maxRings}
                     interactive
                     onDelete={handleDelete}
                     onChangeRing={handleRingChangeMatch}

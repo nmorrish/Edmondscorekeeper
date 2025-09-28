@@ -43,7 +43,38 @@ try {
                 $maxRings = $row ? (int)$row['maxRings'] : 1;
                 echo json_encode(['status' => 'success', 'maxRings' => $maxRings]);
                 break;
-                
+
+            } elseif (isset($_GET['eventId']) && isset($_GET['format'])) {
+                $eventId = (int)$_GET['eventId'];
+
+                // Default
+                $format = "manual";
+
+                // Check Pools
+                $stmt = $db->prepare("SELECT COUNT(*) FROM Pools WHERE EventId=?");
+                $stmt->execute([$eventId]);
+                $poolCount = (int)$stmt->fetchColumn();
+
+                if ($poolCount > 0) {
+                    $format = "roundRobinPools";
+                } else {
+                    // Check Brackets
+                    $stmt = $db->prepare("SELECT BracketFormat FROM Brackets WHERE EventId=? LIMIT 1");
+                    $stmt->execute([$eventId]);
+                    $br = $stmt->fetchColumn();
+                    if ($br === 'S') {
+                        $format = "singleElimination";
+                    } elseif ($br === 'D') {
+                        $format = "doubleElimination";
+                    }
+                }
+
+                echo json_encode([
+                    'status' => 'success',
+                    'format' => $format
+                ]);
+                break; 
+            
             } elseif ($id) {
                 // Single event (include joined names for convenience)
                 $stmt = $db->prepare("

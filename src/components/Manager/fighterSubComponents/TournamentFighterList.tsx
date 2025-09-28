@@ -13,11 +13,11 @@ interface FighterListProps {
   eventId: number;
 }
 
-const FighterList: React.FC<FighterListProps> = ({ fighters, eventId }) => {
+const TournamentFighterList: React.FC<FighterListProps> = ({ fighters, eventId }) => {
   if (!fighters || fighters.length === 0) {
     return (
-      <a href={`/manager/matching/${eventId}`}>
-        Click here to add fighters to this event
+      <a href={`/manager/fighters/${eventId}`}>
+        Click here to add fighters to this tournament
       </a>
     );
   }
@@ -42,4 +42,4 @@ const FighterList: React.FC<FighterListProps> = ({ fighters, eventId }) => {
   );
 };
 
-export default memo(FighterList);
+export default memo(TournamentFighterList);

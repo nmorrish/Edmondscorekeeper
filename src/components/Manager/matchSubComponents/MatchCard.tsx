@@ -1,6 +1,14 @@
-import React, { useState } from "react";
+/**
+ * src/components/Manager/matchSubComponents/MatchCard.tsx
+ *
+ * Portable MatchCard
+ * - Falls back to self-loading match + event fighter list if props are incomplete.
+ * - Keeps the original props API intact, so existing callers keep working.
+ */
+
+import React, { useEffect, useMemo, useState } from "react";
 import { Fighter } from "../subComponents/useFighters";
-import { backend_uri, match_api } from "../../utility/endpoints";
+import { backend_uri, match_api, event_fighters_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
 import FighterDropdown from "./fighterDropdown";
 import MatchActions from "./matchActions";
@@ -18,12 +26,12 @@ export interface MatchFighterRow {
 
 interface MatchCardProps {
   matchId: number;
-  fighters: MatchFighterRow[];
+  fighters: MatchFighterRow[];   // callers can still pass these (recommended when available, if not, pass in [])
   status: MatchStatus;
-  allFighters: Fighter[];
+  allFighters: Fighter[];        // callers can still pass these (recommended when available, if not, pass in [])
   ringNo: number;
   matchNumber: number;
-  maxRings: number; // <-- NEW: dynamic max rings passed in
+  maxRings: number;
 
   interactive?: boolean;
 
@@ -32,6 +40,8 @@ interface MatchCardProps {
   onComplete?: (matchId: number) => void;
   onChangeRing?: (matchId: number, newRing: number) => void;
 }
+
+const EVENT_FIGHTERS_API = `${backend_uri}/${event_fighters_api}`;
 
 const MatchCard: React.FC<MatchCardProps> = ({
   matchId,
@@ -48,9 +58,115 @@ const MatchCard: React.FC<MatchCardProps> = ({
   onChangeRing,
 }) => {
   const addToast = useToast();
-  const [localFighters, setLocalFighters] = useState<MatchFighterRow[]>(fighters);
-  const [localStatus, setLocalStatus] = useState<MatchStatus>(status);
-  const [localRing, setLocalRing] = useState<number>(ringNo);
+
+  // local state mirrors props, but can self-fill if props are incomplete
+  const [localFighters, setLocalFighters] = useState<MatchFighterRow[]>(fighters || []);
+  const [localStatus, setLocalStatus] = useState<MatchStatus>(status || "P");
+  const [localRing, setLocalRing] = useState<number>(typeof ringNo === "number" ? ringNo : 0);
+
+  // optional self-loaded context
+  const [eventId, setEventId] = useState<number | null>(null);
+  const [localAllFighters, setLocalAllFighters] = useState<Fighter[]>(allFighters || []);
+  const [loading, setLoading] = useState(false);
+
+  // keep local state synced when caller updates props later
+  useEffect(() => {
+    if (fighters && fighters.length) setLocalFighters(fighters);
+  }, [fighters]);
+
+  useEffect(() => {
+    if (status) setLocalStatus(status);
+  }, [status]);
+
+  useEffect(() => {
+    if (typeof ringNo === "number") setLocalRing(ringNo);
+  }, [ringNo]);
+
+  useEffect(() => {
+    if (allFighters && allFighters.length) setLocalAllFighters(allFighters);
+  }, [allFighters]);
+
+  // Determine if we need to self-fetch match details
+  const needsMatchFetch = useMemo(() => {
+    if (!localFighters || localFighters.length < 2) return true;
+    // also fetch if names are missing (would blank dropdown labels)
+    return localFighters.some(f => !f.FighterName || f.FighterName.trim() === "");
+  }, [localFighters]);
+
+  // self-load: fetch match (includes EventId + fighters w/ names)
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      if (!needsMatchFetch) return;
+      try {
+        setLoading(true);
+        const res = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (abort) return;
+
+        if (res.ok && data.status === "success" && data.match) {
+          const m = data.match;
+          // match payload includes: fighters[], PendingActiveDone, MatchRingNo, EventId
+          setLocalFighters(
+            (m.fighters || []).map((f: any) => ({
+              FighterId: Number(f.FighterId),
+              FighterName: f.FighterName ?? `#${f.FighterId}`,
+              ClubAcronym: f.ClubAcronym ?? null,
+              FighterColor: f.FighterColor,
+              FinalScore: typeof f.FinalScore === "number" ? f.FinalScore : 0,
+            }))
+          );
+          if (m.PendingActiveDone) setLocalStatus(m.PendingActiveDone as MatchStatus);
+          if (typeof m.MatchRingNo === "number") setLocalRing(m.MatchRingNo);
+          if (typeof m.EventId === "number") setEventId(m.EventId);
+        } else {
+          addToast("Failed to load match details.");
+        }
+      } catch {
+        if (!abort) addToast("Network error loading match.");
+      } finally {
+        if (!abort) setLoading(false);
+      }
+    })();
+    return () => {
+      abort = true;
+    };
+  }, [matchId, needsMatchFetch, addToast]);
+
+  // self-load: if we still don't have a fighter list for dropdown options, fetch event fighters (needs eventId)
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      if (localAllFighters.length > 0) return;       // caller provided fighters list
+      if (!eventId) return;                          // need event context to fetch fighters
+      try {
+        const res = await fetch(`${EVENT_FIGHTERS_API}?eventId=${encodeURIComponent(eventId)}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (abort) return;
+        if (data.status === "success" && Array.isArray(data.fighters)) {
+          // normalize to Fighter[]
+          setLocalAllFighters(
+            data.fighters.map((f: any) => ({
+              FighterId: Number(f.FighterId),
+              FighterName: f.FighterName ?? `#${f.FighterId}`,
+              ClubAcronym: f.ClubAcronym ?? null,
+              ClubId: f.ClubId ?? null,
+            }))
+          );
+        }
+      } catch {
+        if (!abort) addToast("Failed to load event fighters.");
+      }
+    })();
+    return () => {
+      abort = true;
+    };
+  }, [eventId, localAllFighters.length, addToast]);
 
   const maxScore = Math.max(...localFighters.map((f) => f.FinalScore ?? 0));
   const winners = localFighters.filter((f) => (f.FinalScore ?? 0) === maxScore);
@@ -66,7 +182,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
       const data = await response.json();
       if (response.ok && data.status === "success") {
-        const fighterInfo = allFighters.find((f) => f.FighterId === fighterId);
+        const fighterInfo = localAllFighters.find((f) => f.FighterId === fighterId);
         const updated = localFighters.map((f) =>
           f.FighterColor === fighterColor
             ? {
@@ -95,7 +211,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "swap" }),
       });
-
       const data = await response.json();
       if (response.ok && data.status === "success") {
         if (localFighters.length === 2) {
@@ -183,12 +298,16 @@ const MatchCard: React.FC<MatchCardProps> = ({
     }
   };
 
-  // === RENDER ===
   const getMatchCardClass = (status: MatchStatus) => {
     if (status === "A") return "match-card match-table active-match";
     if (status === "D") return "match-card match-table completed-match";
     return "match-card match-table pending-match";
   };
+
+  // Loading guard: if we still don't have fighters with names OR dropdown options list, show loader
+  const readyForRender =
+    localFighters.length > 0 &&
+    !localFighters.some((f) => !f.FighterName || f.FighterName.trim() === "");
 
   return (
     <div className={getMatchCardClass(localStatus)}>
@@ -197,7 +316,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <RingDropdown
           matchId={matchId}
           currentRing={localRing}
-          maxRings={maxRings} // <-- dynamic now
+          maxRings={maxRings}
           interactive={interactive}
           onChangeRing={(id, newRing) => {
             setLocalRing(newRing);
@@ -207,25 +326,29 @@ const MatchCard: React.FC<MatchCardProps> = ({
         />
       </div>
 
-      <div className="fighters">
-        {localFighters.map((f) => {
-          const isWinner = winners.some((w) => w.FighterId === f.FighterId);
-          return (
-            <div key={`${matchId}-${f.FighterColor}`} className={`fighter-row ${f.FighterColor}`}>
-              <FighterDropdown
-                fighter={f}
-                allFighters={allFighters}
-                localFighters={localFighters}
-                onUpdate={handleUpdateFighter}
-                interactive={interactive}
-              />
-              <span className={`score ${isWinner ? "winner" : ""}`}>
-                {f.FinalScore ?? 0}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {!readyForRender ? (
+        <div style={{ padding: "12px 8px", opacity: 0.8 }}>Loading…</div>
+      ) : (
+        <div className="fighters">
+          {localFighters.map((f) => {
+            const isWinner = f.FinalScore !== undefined && f.FinalScore === (isFinite(maxScore) ? maxScore : 0);
+            return (
+              <div key={`${matchId}-${f.FighterColor}`} className={`fighter-row ${f.FighterColor}`}>
+                <FighterDropdown
+                  fighter={f}
+                  allFighters={localAllFighters}   
+                  localFighters={localFighters}
+                  onUpdate={handleUpdateFighter}
+                  interactive={interactive}
+                />
+                <span className={`score ${isWinner ? "winner" : ""}`}>
+                  {f.FinalScore ?? 0}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {interactive && (
         <MatchActions

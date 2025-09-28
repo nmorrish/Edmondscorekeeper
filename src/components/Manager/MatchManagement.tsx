@@ -12,18 +12,28 @@ import MatchFightersManual from "./matchSubComponents/MatchFightersManual";
 import useTournamentFighters from "./subComponents/useTournamentFighters";
 import useEvents from "./subComponents/useEvents";
 import useTournaments from "./subComponents/useTournaments";
-import FloatingNav from "../utility/FloatingNav"
+import FloatingNav from "../utility/FloatingNav";
 import { RefreshProvider, useRefresh } from "../utility/RefreshContext";
+import MatchRoundRobinPools from "./matchSubComponents/roundRobinPools/MatchRoundRobinPools";
+import { backend_uri, event_api } from "../utility/endpoints";
 
-type MatchType = "manual" | "roundRobinPools" | "singleElim" | "doubleElim";
+type MatchType =
+  | "manual"
+  | "roundRobinPools"
+  | "singleElimination"
+  | "doubleElimination";
 
 const MatchManagement: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const numericTournamentId = tournamentId ? parseInt(tournamentId, 10) : undefined;
+  const numericTournamentId = tournamentId
+    ? parseInt(tournamentId, 10)
+    : undefined;
 
   // Tournament info
   const { tournaments } = useTournaments();
-  const tournament = tournaments.find(t => t.TournamentId === numericTournamentId);
+  const tournament = tournaments.find(
+    (t) => t.TournamentId === numericTournamentId
+  );
 
   // Fighters
   const {
@@ -42,7 +52,31 @@ const MatchManagement: React.FC = () => {
 
   // Selected event + match type
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
-  const [matchType, setMatchType] = useState<MatchType>("manual");
+  const [matchType, setMatchType] = useState<MatchType>("manual"); // truth from API
+  const [viewType, setViewType] = useState<MatchType>("manual");   // UI state
+
+  // Fetch format when an event is selected
+  useEffect(() => {
+    const fetchFormat = async () => {
+      if (!selectedEventId) return;
+
+      try {
+        const res = await fetch(
+          `${backend_uri}/${event_api}?eventId=${selectedEventId}&format=1`
+        );
+        const data = await res.json();
+        if (data.status === "success") {
+          const apiFormat = data.format as MatchType;
+          setMatchType(apiFormat); // set default for this event
+          setViewType(apiFormat);  // also set the current view
+        }
+      } catch (err) {
+        console.error("Error fetching match format", err);
+      }
+    };
+
+    fetchFormat();
+  }, [selectedEventId]);
 
   // Refetch fighters on refresh
   useEffect(() => {
@@ -58,10 +92,13 @@ const MatchManagement: React.FC = () => {
   if (fightersError) return <div>Error loading fighters: {fightersError}</div>;
   if (eventsError) return <div>Error loading events: {eventsError}</div>;
 
-  const selectedEvent = events.find(e => e.EventId === selectedEventId);
+  const selectedEvent = events.find((e) => e.EventId === selectedEventId);
 
   return (
-    <div className="App" style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+    <div
+      className="App"
+      style={{ width: "100%", display: "flex", flexDirection: "column" }}
+    >
       {/* Toolbar with events */}
       <div
         className="event-toolbar"
@@ -78,7 +115,7 @@ const MatchManagement: React.FC = () => {
           zIndex: 1000,
         }}
       >
-        {events.map(event => (
+        {events.map((event) => (
           <button
             key={`event-${event.EventId}`}
             onClick={() => setSelectedEventId(event.EventId)}
@@ -130,37 +167,91 @@ const MatchManagement: React.FC = () => {
                 gap: "1rem",
               }}
             >
-              <button onClick={() => setMatchType("manual")}>Manual</button>
-              <button onClick={() => setMatchType("roundRobinPools")}>Round Robin Pools</button>
-              <button onClick={() => setMatchType("singleElim")}>Single Elim</button>
-              <button onClick={() => setMatchType("doubleElim")}>Double Elim</button>
+              {(
+                [
+                  "manual",
+                  "roundRobinPools",
+                  "singleElimination",
+                  "doubleElimination",
+                ] as MatchType[]
+              ).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setViewType(type)} // only changes view
+                  style={{
+                    background: viewType === type ? "#007bff" : "",
+                    color: "#fff",
+                    padding:
+                      viewType === type ? "1rem 1.5rem" : "0.5rem 1rem",
+                    fontSize: viewType === type ? "1.2rem" : "1rem",
+                    fontWeight: viewType === type ? "bold" : "normal",
+                    borderRadius: "6px",
+                    transform:
+                      viewType === type ? "scale(1.05)" : "scale(1)",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  {type === "manual"
+                    ? "Manual"
+                    : type === "roundRobinPools"
+                    ? "Round Robin Pools"
+                    : type === "singleElimination"
+                    ? "Single Elimination"
+                    : "Double Elimination"}
+                </button>
+              ))}
             </div>
 
-            {/* Matching UI - render based on matchType */}
+            {/* Matching UI - render based on viewType */}
             <div className="matching-section" style={{ marginTop: "1.5rem" }}>
-              {matchType === "manual" && (
+              {viewType === "manual" && (
                 <MatchFightersManual
                   fighters={fighters}
                   eventId={selectedEvent.EventId}
                   maxRings={selectedEvent.MaxRings || 1}
+                  isActive={matchType === "manual"} // only true if API says so
+                />
+              )}
+
+              {viewType === "roundRobinPools" && selectedEvent && (
+                <MatchRoundRobinPools
+                  eventId={selectedEvent.EventId}
+                  eventName={selectedEvent.EventName}
+                  maxRings={selectedEvent.MaxRings || 1}
+                  isActive={matchType === "roundRobinPools"}
                 />
               )}
 
               {/* Future components: */}
-              {/* {matchType === "roundRobinPools" && <MatchFightersRoundRobinPools ... />} */}
-              {/* {matchType === "singleElim" && <MatchFightersSingleElim ... />} */}
-              {/* {matchType === "doubleElim" && <MatchFightersDoubleElim ... />} */}
+              {/* {viewType === "singleElimination" && (
+                <MatchFightersSingleElimination
+                  eventId={selectedEvent.EventId}
+                  isActive={matchType === "singleElimination"}
+                />
+              )} */}
+              {/* {viewType === "doubleElimination" && (
+                <MatchFightersDoubleElimination
+                  eventId={selectedEvent.EventId}
+                  isActive={matchType === "doubleElimination"}
+                />
+              )} */}
             </div>
           </>
         )}
       </div>
       {numericTournamentId !== undefined && (
         <FloatingNav
-          tournamentId={numericTournamentId} 
+          tournamentId={numericTournamentId}
           backUrl="/manager/tournament"
           links={[
-            { text: "Scorekeeping", to: `/manager/tournament/${numericTournamentId}` },
-            { text: "Edit Fighters", to: `/manager/fighters/${numericTournamentId}` }
+            {
+              text: "Scorekeeping",
+              to: `/manager/tournament/${numericTournamentId}`,
+            },
+            {
+              text: "Edit Fighters",
+              to: `/manager/fighters/${numericTournamentId}`,
+            },
           ]}
         />
       )}

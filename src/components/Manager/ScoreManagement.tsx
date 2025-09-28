@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import FighterList from "./fighterSubComponents/FighterList";
+import TournamentFighterList from "./fighterSubComponents/TournamentFighterList";
 import MatchTables from "./scoreSubComponents/MatchTables";
 import { RefreshProvider } from "../utility/RefreshContext";
 import useFighters from "./subComponents/useFighters";
@@ -90,7 +90,7 @@ const ScoreManagement: React.FC = () => {
       <div style={{ marginTop: "110px" }} className="score-layout">
         {selectedEvent && (
           <aside className="score-sidebar">
-            <FighterList fighters={fighters} eventId={selectedEvent} />
+            <TournamentFighterList fighters={fighters} eventId={numericTournamentId} />
           </aside>
         )}
 
