@@ -7,6 +7,11 @@
  *   fighters: [
  *     { FighterId, FighterName, ClubAcronym, FighterColor, FinalScore, Scores: [...] }
  *   ]
+ * 
+ * Extended:
+ * - Includes MatchQueueNumber in responses
+ * - Orders by MatchQueueNumber ASC (then MatchId ASC as fallback)
+ * - Supports updating MatchQueueNumber via PUT
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -107,7 +112,7 @@ try {
                     $params[':ringNo'] = $ringNo;
                 }
 
-                $query .= " ORDER BY m.MatchId DESC";
+                $query .= " ORDER BY m.MatchQueueNumber ASC, m.MatchId ASC";
 
                 $stmt = $db->prepare($query);
                 $stmt->execute($params);
@@ -139,7 +144,7 @@ try {
                     SELECT m.*, e.EventName
                     FROM Matches m
                     JOIN Events e ON m.EventId = e.EventId
-                    ORDER BY m.MatchId DESC
+                    ORDER BY m.MatchQueueNumber ASC, m.MatchId ASC
                 ");
                 $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -159,19 +164,21 @@ try {
             $eventId = $input['eventId'] ?? null;
             $ring    = $input['ring'] ?? null;
             $status  = $input['status'] ?? 'P';
+            $queueNo = $input['queueNo'] ?? null;
 
             if (!$eventId || !$ring) {
                 throw new Exception("eventId and ring are required");
             }
 
             $stmt = $db->prepare("
-                INSERT INTO Matches (EventId, MatchRingNo, PendingActiveDone, lastMatchJudgement)
-                VALUES (:eventId, :ring, :status, CURRENT_TIMESTAMP)
+                INSERT INTO Matches (EventId, MatchRingNo, PendingActiveDone, MatchQueueNumber, lastMatchJudgement)
+                VALUES (:eventId, :ring, :status, :queueNo, CURRENT_TIMESTAMP)
             ");
             $stmt->execute([
                 ':eventId' => $eventId,
                 ':ring'    => $ring,
-                ':status'  => $status
+                ':status'  => $status,
+                ':queueNo' => $queueNo
             ]);
 
             echo json_encode([
@@ -207,23 +214,28 @@ try {
                 break;
             }
 
-            // === Activate match, set PendingActiveDone = 'A' if not already ===
+            // Queue number update
+            if (isset($input['queueNo'])) {
+                if (!$id) throw new Exception("matchId required for queue update");
+                $db->prepare("UPDATE Matches SET MatchQueueNumber=? WHERE MatchId=?")
+                   ->execute([(int)$input['queueNo'], $id]);
+                echo json_encode(['status'=>'success','updated'=>'queue','matchId'=>$id,'queueNo'=>(int)$input['queueNo']]);
+                break;
+            }
+
+            // === Activate match
             if (($input['action'] ?? null) === 'activate') {
                 if (!$id) throw new Exception("matchId required");
 
                 try {
                     $db->beginTransaction();
 
-                    // Find the ring for this match
                     $stmt = $db->prepare("SELECT MatchRingNo FROM Matches WHERE MatchId = ?");
                     $stmt->execute([$id]);
                     $ringNo = $stmt->fetchColumn();
 
-                    if (!$ringNo) {
-                        throw new Exception("Ring not found for this match");
-                    }
+                    if (!$ringNo) throw new Exception("Ring not found for this match");
 
-                    // Mark other active matches in the same ring as Done
                     $stmt = $db->prepare("
                         UPDATE Matches
                         SET PendingActiveDone = 'D'
@@ -231,7 +243,6 @@ try {
                     ");
                     $stmt->execute([$ringNo, $id]);
 
-                    // Activate this match (if not already active)
                     $stmt = $db->prepare("
                         UPDATE Matches
                         SET PendingActiveDone = 'A'
@@ -253,21 +264,19 @@ try {
                 break;
             }
 
-            // === Stop timer, update timestamp + insert Exchanges ===
+            // === Stop timer, insert Exchanges ===
             if (($input['action'] ?? null) === 'judgement') {
                 if (!$id) throw new Exception("matchId required");
 
                 try {
                     $db->beginTransaction();
 
-                    // Update Matches
                     $db->prepare("
                         UPDATE Matches 
                         SET lastMatchJudgement = CURRENT_TIMESTAMP 
                         WHERE MatchId = ?
                     ")->execute([$id]);
 
-                    // Insert one exchange per fighter
                     $stmt = $db->prepare("SELECT MatchFighterId FROM MatchFighters WHERE MatchId = ?");
                     $stmt->execute([$id]);
                     $fighters = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -291,7 +300,7 @@ try {
                 break;
             }
 
-            // === Refresh judgement → only update timestamp ===
+            // === Refresh judgement
             if (($input['action'] ?? null) === 'refreshJudgement') {
                 if (!$id) throw new Exception("matchId required");
                 $db->prepare("

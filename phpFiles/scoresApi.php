@@ -13,6 +13,8 @@
  *     {
  *       matchId,
  *       matchRing,
+ *       queueNo,
+ *       poolNo,
  *       pendingActiveDone,
  *       fighters: [
  *         {
@@ -26,19 +28,7 @@
  *             {
  *               exchangeId,
  *               exchangeTimeStamp,
- *               scores: [
- *                 {
- *                   scoreId,
- *                   judgeName,
- *                   contact,
- *                   target,
- *                   control,
- *                   afterBlow,
- *                   doubleHit,
- *                   opponentSelfCall,
- *                   scoreTimeStamp
- *                 }
- *               ]
+ *               scores: [...]
  *             }
  *           ]
  *         }
@@ -64,8 +54,16 @@ if ($method === 'OPTIONS') {
 
 // ---- helper: build full match structure ----
 function buildMatch($db, $matchId) {
-    // fetch match metadata
-    $stmt = $db->prepare("SELECT MatchId, MatchRingNo, PendingActiveDone FROM Matches WHERE MatchId=?");
+    // fetch match metadata including queue number + pool number
+    $stmt = $db->prepare("
+        SELECT m.MatchId, m.MatchRingNo, m.PendingActiveDone, m.MatchQueueNumber,
+               p.PoolNo
+        FROM Matches m
+        LEFT JOIN PoolMatches pm ON m.MatchId = pm.MatchId
+        LEFT JOIN Pools p ON pm.PoolId = p.PoolId
+        WHERE m.MatchId=?
+        LIMIT 1
+    ");
     $stmt->execute([$matchId]);
     $match = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$match) return null;
@@ -146,6 +144,8 @@ function buildMatch($db, $matchId) {
     return [
         'matchId'          => (int)$match['MatchId'],
         'matchRing'        => (int)$match['MatchRingNo'],
+        'queueNo'          => $match['MatchQueueNumber'] !== null ? (int)$match['MatchQueueNumber'] : null,
+        'poolNo'           => $match['PoolNo'] !== null ? (int)$match['PoolNo'] : null,
         'pendingActiveDone'=> $match['PendingActiveDone'],
         'fighters'         => $fighters
     ];
@@ -162,7 +162,12 @@ try {
         $m = buildMatch($db, $matchId);
         if ($m) $matches[] = $m;
     } elseif ($eventId && $ringNo) {
-        $stmt = $db->prepare("SELECT MatchId FROM Matches WHERE EventId=? AND MatchRingNo=? ORDER BY MatchId DESC");
+        $stmt = $db->prepare("
+            SELECT MatchId 
+            FROM Matches 
+            WHERE EventId=? AND MatchRingNo=? 
+            ORDER BY MatchQueueNumber ASC, MatchId ASC
+        ");
         $stmt->execute([$eventId, $ringNo]);
         $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
         foreach ($ids as $id) {

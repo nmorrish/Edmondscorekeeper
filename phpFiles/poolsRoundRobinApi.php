@@ -10,24 +10,28 @@
  * - GET ?action=get&eventId=123
  *   Returns Pools + PoolFighters roster + Matches (fighters only IDs/colors).
  *
- * - PUT ?action=swap
- *   Swaps two fighters across pools: updates PoolFighters + swaps them in pending matches only.
- *
- * --- Hybrid Add/Drop for Pools (NEW) ---
- * - GET    ?action=candidates&eventId=123&poolId=456
+ * - GET ?action=candidates&eventId=123&poolId=456
  *   Returns:
  *     - roster: fighters currently in the given pool (with names/clubs)
  *     - available: tournament fighters NOT in any pool for this event (with names/clubs)
  *
- * - POST   ?action=addToPool
+ * - PUT ?action=swap
+ *   Body: { eventId, fighterAId, fighterBId }
+ *   If all matches are PENDING in both pools → simple swap (swap PoolFighters membership + rename in PENDING).
+ *   If any ACTIVE/DONE exist → balanced swap (freeze A/D, delete P involving the two fighters, reshuffle both pools).
+ *
+ * - PUT ?action=move
+ *   Body: { eventId, movedFighterId, toPoolId }
+ *   Moves one fighter to a new pool; deletes their PENDING matches, reshuffles old & new pools.
+ *
+ * - POST ?action=addToPool
  *   Body: { eventId, poolId, fighterId }
- *   Ensures fighter is in EventFighters, inserts into PoolFighters, creates PENDING matches vs. all current poolmates,
- *   assigns ring for new matches using the pool’s existing ring (or falls back to ring 1).
+ *   Ensures fighter is in EventFighters, inserts into PoolFighters, reshuffles pool.
  *
  * - DELETE ?action=removeFromPoolAndEvent
  *   Body: { eventId, poolId, fighterId }
  *   Removes fighter from PoolFighters and EventFighters, deletes PENDING matches that include this fighter for this event,
- *   leaves ACTIVE/DONE matches intact for history, cleans PoolMatches links for deleted matches.
+ *   leaves ACTIVE/DONE matches intact for history, cleans PoolMatches links for deleted matches, reshuffles pool.
  */
 
 require_once("connect.php");
@@ -41,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $action = $_GET['action'] ?? null;
 
 /* ------------------------------
-   Helpers (NEW)
+   Helpers
    ------------------------------ */
 function db(): PDO {
     static $pdo = null;
@@ -49,10 +53,6 @@ function db(): PDO {
     return $pdo;
 }
 
-/**
- * Returns pool’s assigned ring inferred from existing matches.
- * If no matches yet, returns 1 as a safe default.
- */
 function getPoolRing(int $poolId): int {
     $pdo = db();
     $stmt = $pdo->prepare("
@@ -67,9 +67,6 @@ function getPoolRing(int $poolId): int {
     return $ring ? (int)$ring : 1;
 }
 
-/**
- * Returns all fighter IDs already assigned to any pool in this event.
- */
 function getAssignedFighterIdsForEvent(int $eventId): array {
     $pdo = db();
     $stmt = $pdo->prepare("
@@ -82,9 +79,6 @@ function getAssignedFighterIdsForEvent(int $eventId): array {
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
-/**
- * Returns true if fighterId exists in EventFighters for eventId.
- */
 function isInEvent(int $eventId, int $fighterId): bool {
     $pdo = db();
     $stmt = $pdo->prepare("SELECT 1 FROM EventFighters WHERE EventId = ? AND FighterId = ? LIMIT 1");
@@ -92,9 +86,6 @@ function isInEvent(int $eventId, int $fighterId): bool {
     return (bool)$stmt->fetchColumn();
 }
 
-/**
- * Ensures a (eventId, fighterId) row exists in EventFighters.
- */
 function ensureEventFighter(int $eventId, int $fighterId): void {
     if (isInEvent($eventId, $fighterId)) return;
     $pdo = db();
@@ -102,9 +93,6 @@ function ensureEventFighter(int $eventId, int $fighterId): void {
     $stmt->execute([$eventId, $fighterId]);
 }
 
-/**
- * Build full roster rows for given poolId with Fighter + Club fields used by UI.
- */
 function getPoolRoster(int $poolId): array {
     $pdo = db();
     $stmt = $pdo->prepare("
@@ -119,14 +107,8 @@ function getPoolRoster(int $poolId): array {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/**
- * Build available list = Tournament fighters NOT in any pool for eventId.
- * Returns FighterId, FighterName, ClubId, ClubAcronym.
- */
 function getAvailableTournamentFightersNotInPools(int $eventId): array {
     $pdo = db();
-
-    // All tournament fighters for the tournament of this event
     $stmt = $pdo->prepare("SELECT TournamentId FROM Events WHERE EventId = ? LIMIT 1");
     $stmt->execute([$eventId]);
     $tournamentId = $stmt->fetchColumn();
@@ -150,15 +132,11 @@ function getAvailableTournamentFightersNotInPools(int $eventId): array {
     }
 
     $sql .= " ORDER BY f.FighterName ASC";
-
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/**
- * Insert a fighter into PoolFighters; no-op if already there.
- */
 function ensureInPool(int $poolId, int $fighterId): void {
     $pdo = db();
     $stmt = $pdo->prepare("SELECT 1 FROM PoolFighters WHERE PoolId = ? AND FighterId = ? LIMIT 1");
@@ -168,67 +146,8 @@ function ensureInPool(int $poolId, int $fighterId): void {
     $stmt->execute([$poolId, $fighterId]);
 }
 
-/**
- * Create pending matches for (newFighterId) vs. all existing poolmates (excluding themself).
- * Assign ring based on pool’s existing ring.
- */
-function createPendingMatchesForNewPoolFighter(int $eventId, int $poolId, int $newFighterId): array {
-    $pdo = db();
-
-    // Current roster (excluding new fighter)
-    $stmt = $pdo->prepare("
-        SELECT FighterId
-        FROM PoolFighters
-        WHERE PoolId = ?
-          AND FighterId <> ?
-        ORDER BY FighterId ASC
-    ");
-    $stmt->execute([$poolId, $newFighterId]);
-    $opponentIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-
-    if (!count($opponentIds)) return [];
-
-    $ring = getPoolRing($poolId);
-    $created = [];
-
-    foreach ($opponentIds as $oppId) {
-        // Create Match
-        $stmt = $pdo->prepare("INSERT INTO Matches (EventId, PendingActiveDone, MatchRingNo) VALUES (?, 'P', ?)");
-        $stmt->execute([$eventId, $ring]);
-        $matchId = (int)$pdo->lastInsertId();
-
-        // Create fighters (deterministic but arbitrary color assignment)
-        // Keep new fighter Red, opponent Blue (consistent with save())
-        $stmt = $pdo->prepare("INSERT INTO MatchFighters (MatchId, FighterId, FighterColor) VALUES (?, ?, ?)");
-        $stmt->execute([$matchId, $newFighterId, "Red"]);
-        $stmt->execute([$matchId, $oppId,       "Blue"]);
-
-        // Link to pool
-        $stmt = $pdo->prepare("INSERT INTO PoolMatches (PoolId, MatchId) VALUES (?, ?)");
-        $stmt->execute([$poolId, $matchId]);
-
-        $created[] = [
-            "matchId"  => $matchId,
-            "status"   => "P",
-            "ringNo"   => $ring,
-            "fighters" => [
-                ["FighterId" => $newFighterId, "FighterColor" => "Red"],
-                ["FighterId" => $oppId,        "FighterColor" => "Blue"],
-            ],
-        ];
-    }
-
-    return $created;
-}
-
-/**
- * Delete all PENDING matches for (eventId) where the fighter participates.
- * Also cleans PoolMatches links for those deleted matches.
- */
 function deletePendingMatchesForFighterInEvent(int $eventId, int $fighterId): void {
     $pdo = db();
-
-    // Find pending matchIds that include fighter
     $stmt = $pdo->prepare("
         SELECT DISTINCT m.MatchId
         FROM Matches m
@@ -239,17 +158,266 @@ function deletePendingMatchesForFighterInEvent(int $eventId, int $fighterId): vo
     ");
     $stmt->execute([$eventId, $fighterId]);
     $matchIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-
     if (!count($matchIds)) return;
 
-    // Remove PoolMatches links for those matches first (FK safety)
     $in = implode(',', array_fill(0, count($matchIds), '?'));
     $stmt = $pdo->prepare("DELETE FROM PoolMatches WHERE MatchId IN ($in)");
     $stmt->execute($matchIds);
 
-    // Delete Matches (cascades to MatchFighters → Exchanges → ExchangeScores)
     $stmt = $pdo->prepare("DELETE FROM Matches WHERE MatchId IN ($in)");
     $stmt->execute($matchIds);
+}
+
+/**
+ * Circle method scheduler
+ */
+function generateCircleSchedule(array $fighters): array {
+    $count = count($fighters);
+    if ($count < 2) return [];
+
+    // pad odd count with bye
+    if ($count % 2 === 1) {
+        $fighters[] = -1; // sentinel bye
+        $count++;
+    }
+
+    $rounds = $count - 1;
+    $half   = (int)($count / 2);
+    $schedule = [];
+
+    for ($r = 0; $r < $rounds; $r++) {
+        for ($i = 0; $i < $half; $i++) {
+            $f1 = $fighters[$i];
+            $f2 = $fighters[$count - 1 - $i];
+            if ($f1 === -1 || $f2 === -1) continue; // skip bye
+            $schedule[] = [$f1, $f2];
+        }
+        // rotate, keep index 0 fixed
+        $first = array_shift($fighters);
+        $last  = array_pop($fighters);
+        array_unshift($fighters, $first);
+        array_splice($fighters, 1, 0, [$last]);
+    }
+
+    return $schedule;
+}
+
+/**
+ * Reshuffle pending matches for a pool using circle method.
+ * Keeps DONE + ACTIVE matches intact, regenerates PENDING.
+ * Returns a complete list of matches (ACTIVE/DONE preserved + new PENDING),
+ * each with: matchId, status, ringNo, queueNo, fighters[FighterId,FighterColor].
+ */
+function reshufflePoolMatches(PDO $db, int $eventId, int $poolId, int $ring): array {
+    // 1) Fetch roster
+    $roster = getPoolRoster($poolId);
+    $fighterIds = array_map('intval', array_column($roster, 'FighterId'));
+
+    // 2) Fetch existing matches (rich)
+    $stmt = $db->prepare("
+        SELECT m.MatchId, m.PendingActiveDone, m.MatchRingNo, m.MatchQueueNumber,
+               mf.FighterId, mf.FighterColor
+        FROM PoolMatches pm
+        JOIN Matches m ON pm.MatchId = m.MatchId
+        JOIN MatchFighters mf ON m.MatchId = mf.MatchId
+        WHERE pm.PoolId = ?
+        ORDER BY m.MatchQueueNumber ASC, m.MatchId ASC, mf.FighterColor ASC
+    ");
+    $stmt->execute([$poolId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $byId = [];       // all matches by id
+    $pendingIds = []; // list of pending match ids to delete
+
+    foreach ($rows as $r) {
+        $mid = (int)$r['MatchId'];
+        if (!isset($byId[$mid])) {
+            $byId[$mid] = [
+                "matchId"  => $mid,
+                "status"   => $r['PendingActiveDone'],
+                "ringNo"   => (int)$r['MatchRingNo'],
+                "queueNo"  => (int)$r['MatchQueueNumber'],
+                "fighters" => []
+            ];
+        }
+        $byId[$mid]["fighters"][] = [
+            "FighterId"    => (int)$r['FighterId'],
+            "FighterColor" => $r['FighterColor']
+        ];
+        if ($r['PendingActiveDone'] === 'P') {
+            $pendingIds[$mid] = true;
+        }
+    }
+
+    // 3) Delete all pending matches from DB
+    if (!empty($pendingIds)) {
+        $ids = array_map('intval', array_keys($pendingIds));
+        $in  = implode(',', array_fill(0, count($ids), '?'));
+        $db->prepare("DELETE FROM PoolMatches WHERE MatchId IN ($in)")->execute($ids);
+        $db->prepare("DELETE FROM Matches WHERE MatchId IN ($in)")->execute($ids);
+        // Remove them from memory snapshot as well
+        foreach ($ids as $mid) unset($byId[$mid]);
+    }
+
+    // If fewer than 2 fighters, nothing to create — return existing A/D only
+    if (count($fighterIds) < 2) {
+        return array_values($byId);
+    }
+
+    // 4) Generate fresh pending matches
+    $pairs = generateCircleSchedule($fighterIds);
+    foreach ($pairs as [$f1, $f2]) {
+        // Create new pending match on the pool's ring
+        $stmt = $db->prepare("INSERT INTO Matches (EventId, PendingActiveDone, MatchRingNo) VALUES (?, 'P', ?)");
+        $stmt->execute([$eventId, $ring]);
+        $matchId = (int)$db->lastInsertId();
+
+        $db->prepare("INSERT INTO MatchFighters (MatchId, FighterId, FighterColor) VALUES (?, ?, 'Red')")
+           ->execute([$matchId, $f1]);
+        $db->prepare("INSERT INTO MatchFighters (MatchId, FighterId, FighterColor) VALUES (?, ?, 'Blue')")
+           ->execute([$matchId, $f2]);
+
+        $db->prepare("INSERT INTO PoolMatches (PoolId, MatchId) VALUES (?, ?)")
+           ->execute([$poolId, $matchId]);
+
+        $queue = (int)$db->query("SELECT MatchQueueNumber FROM Matches WHERE MatchId = $matchId")->fetchColumn();
+
+        $byId[$matchId] = [
+            "matchId"  => $matchId,
+            "status"   => "P",
+            "ringNo"   => $ring,
+            "queueNo"  => $queue,
+            "fighters" => [
+                ["FighterId" => (int)$f1, "FighterColor" => "Red"],
+                ["FighterId" => (int)$f2, "FighterColor" => "Blue"]
+            ]
+        ];
+    }
+
+    // 5) Return ACTIVE/DONE (preserved) + new PENDING, as flat list
+    // Sort by queueNo then matchId for stability
+    $list = array_values($byId);
+    usort($list, function($a, $b) {
+        if (($a['queueNo'] ?? 0) === ($b['queueNo'] ?? 0)) return ($a['matchId'] <=> $b['matchId']);
+        return ($a['queueNo'] <=> $b['queueNo']);
+    });
+    return $list;
+}
+
+/**
+ * Swap fighters mid-event with balance compensation.
+ * - If both pools have only pending matches → simple swap:
+ *   • swap PoolFighters membership
+ *   • update PENDING matches to swap fighterIds
+ * - If either pool has ACTIVE/DONE → balanced swap:
+ *   • freeze ACTIVE/DONE
+ *   • delete PENDING involving swapped fighters
+ *   • swap PoolFighters membership
+ *   • reshuffle both pools
+ */
+function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array {
+    // Get pools of each fighter and detect A/D presence
+    $stmt = $db->prepare("
+        SELECT pf.FighterId, pf.PoolId, m.PendingActiveDone
+        FROM PoolFighters pf
+        JOIN Pools p ON pf.PoolId = p.PoolId
+        LEFT JOIN PoolMatches pm ON pf.PoolId = pm.PoolId
+        LEFT JOIN Matches m ON pm.MatchId = m.MatchId
+        WHERE p.EventId = ? AND (pf.FighterId = ? OR pf.FighterId = ?)
+    ");
+    $stmt->execute([$eventId, $f1, $f2]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $poolByFighter = [];
+    $hasDoneOrActive = false;
+    foreach ($rows as $r) {
+        $poolByFighter[(int)$r['FighterId']] = (int)$r['PoolId'];
+        if ($r['PendingActiveDone'] === 'D' || $r['PendingActiveDone'] === 'A') {
+            $hasDoneOrActive = true;
+        }
+    }
+
+    $p1 = $poolByFighter[$f1] ?? null;
+    $p2 = $poolByFighter[$f2] ?? null;
+    if (!$p1 || !$p2) {
+        throw new Exception("Both fighters must be in pools.");
+    }
+
+    if (!$hasDoneOrActive) {
+        // === SIMPLE SWAP ===
+        // 1) swap PoolFighters membership
+        $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p1, $f1]);
+        $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p2, $f2]);
+        ensureInPool($p1, $f2);
+        ensureInPool($p2, $f1);
+
+        // 2) update PENDING matches to rename fighterIds
+        $stmt = $db->prepare("
+            UPDATE MatchFighters SET FighterId = :newId
+            WHERE FighterId = :oldId AND MatchId IN (
+                SELECT m.MatchId
+                FROM Matches m
+                WHERE m.EventId = :eventId AND m.PendingActiveDone = 'P'
+            )
+        ");
+        $stmt->execute(['newId' => $f2, 'oldId' => $f1, 'eventId' => $eventId]);
+        $stmt->execute(['newId' => $f1, 'oldId' => $f2, 'eventId' => $eventId]);
+
+        // No reshuffle needed; PENDING matches still complete after rename.
+        return [
+            'mode'  => 'simple',
+            'pools' => [
+                ['poolId' => $p1, 'roster' => getPoolRoster($p1)],
+                ['poolId' => $p2, 'roster' => getPoolRoster($p2)],
+            ]
+        ];
+    }
+
+    // === BALANCED SWAP ===
+    // swap membership
+    $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p1, $f1]);
+    $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p2, $f2]);
+    ensureInPool($p1, $f2);
+    ensureInPool($p2, $f1);
+
+    // delete all pending involving either fighter
+    deletePendingMatchesForFighterInEvent($eventId, $f1);
+    deletePendingMatchesForFighterInEvent($eventId, $f2);
+
+    // reshuffle both pools
+    $ring1    = getPoolRing($p1);
+    $ring2    = getPoolRing($p2);
+    $matches1 = reshufflePoolMatches($db, $eventId, $p1, $ring1);
+    $matches2 = reshufflePoolMatches($db, $eventId, $p2, $ring2);
+
+    return [
+        'mode'  => 'balanced',
+        'pools' => [
+            ['poolId' => $p1, 'matches' => $matches1, 'roster' => getPoolRoster($p1)],
+            ['poolId' => $p2, 'matches' => $matches2, 'roster' => getPoolRoster($p2)],
+        ]
+    ];
+}
+
+/* ------------------------------
+   GET: candidates (roster + available)
+   ------------------------------ */
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'candidates') {
+    $eventId = isset($_GET['eventId']) ? (int)$_GET['eventId'] : 0;
+    $poolId  = isset($_GET['poolId']) ? (int)$_GET['poolId'] : 0;
+    if (!$eventId || !$poolId) {
+        echo json_encode(["status" => "error", "message" => "eventId and poolId required"]);
+        exit;
+    }
+
+    try {
+        $roster    = getPoolRoster($poolId);
+        $available = getAvailableTournamentFightersNotInPools($eventId);
+        echo json_encode(["status" => "success", "roster" => $roster, "available" => $available]);
+    } catch (Exception $e) {
+        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    }
+    exit;
 }
 
 /* ------------------------------
@@ -272,7 +440,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
         foreach ($pools as $pool) {
             $poolId = (int)$pool['PoolId'];
 
-            // Roster with full fighter info for swap UI
             $stmtR = $db->prepare("
                 SELECT pf.FighterId, f.FighterName, f.ClubId, c.ClubAcronym
                 FROM PoolFighters pf
@@ -284,15 +451,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
             $stmtR->execute([$poolId]);
             $roster = $stmtR->fetchAll(PDO::FETCH_ASSOC);
 
-            // Matches (fighters only IDs/colors for cards that self-load)
             $stmtM = $db->prepare("
-                SELECT m.MatchId, m.MatchRingNo, m.PendingActiveDone,
+                SELECT m.MatchId, m.MatchRingNo, m.PendingActiveDone, m.MatchQueueNumber,
                        mf.FighterId, mf.FighterColor
                 FROM PoolMatches pm
                 JOIN Matches m ON pm.MatchId = m.MatchId
                 JOIN MatchFighters mf ON m.MatchId = mf.MatchId
                 WHERE pm.PoolId = ?
-                ORDER BY m.MatchId ASC, mf.FighterColor ASC
+                ORDER BY m.MatchQueueNumber ASC, m.MatchId ASC, mf.FighterColor ASC
             ");
             $stmtM->execute([$poolId]);
             $rows = $stmtM->fetchAll(PDO::FETCH_ASSOC);
@@ -305,6 +471,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
                         "matchId"  => $mid,
                         "status"   => $r['PendingActiveDone'],
                         "ringNo"   => (int)$r['MatchRingNo'],
+                        "queueNo"  => (int)$r['MatchQueueNumber'],
                         "fighters" => []
                     ];
                 }
@@ -314,10 +481,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
                 ];
             }
 
+            // ringAssigned from first match (if any)
+            $ringAssigned = null;
+            if (!empty($rows)) {
+                $ringAssigned = (int)$rows[0]['MatchRingNo'];
+            }
+
             $structured[] = [
                 "poolId"       => $poolId,
                 "poolNo"       => (int)$pool['PoolNo'],
-                "ringAssigned" => count($rows) ? (int)$rows[0]['MatchRingNo'] : null,
+                "ringAssigned" => $ringAssigned,
                 "roster"       => $roster,
                 "matches"      => array_values($matches)
             ];
@@ -335,64 +508,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
    ------------------------------ */
 if ($_SERVER['REQUEST_METHOD'] === 'PUT' && $action === 'swap') {
     $data = json_decode(file_get_contents("php://input"), true);
-    if (!$data || !isset($data['eventId'], $data['fromFighterId'], $data['toFighterId'])) {
+    if (!$data || !isset($data['eventId'], $data['fighterAId'], $data['fighterBId'])) {
         echo json_encode(["status" => "error", "message" => "Invalid payload."]);
         exit;
     }
 
-    $eventId       = (int)$data['eventId'];
-    $fromFighterId = (int)$data['fromFighterId'];
-    $toFighterId   = (int)$data['toFighterId'];
+    $eventId = (int)$data['eventId'];
+    $f1 = (int)$data['fighterAId'];
+    $f2 = (int)$data['fighterBId'];
 
     try {
         $db = db();
         $db->beginTransaction();
 
-        // Find pools of each fighter within the event
+        $result = swapFightersWithBalance($db, $eventId, $f1, $f2);
+
+        $db->commit();
+        echo json_encode([
+            "status"  => "success",
+            "message" => $result['mode'] === 'simple'
+                ? "Fighters swapped (simple)."
+                : "Fighters swapped with balanced reshuffle.",
+            "details" => $result
+        ]);
+    } catch (Exception $e) {
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
+        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    }
+    exit;
+}
+
+/* ------------------------------
+   PUT: move fighter (to another pool)
+   ------------------------------ */
+if ($_SERVER['REQUEST_METHOD'] === 'PUT' && $action === 'move') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (!$data || !isset($data['eventId'], $data['movedFighterId'], $data['toPoolId'])) {
+        echo json_encode(["status" => "error", "message" => "Invalid payload."]);
+        exit;
+    }
+
+    $eventId        = (int)$data['eventId'];
+    $movedFighterId = (int)$data['movedFighterId'];
+    $toPoolId       = (int)$data['toPoolId'];
+
+    try {
+        $db = db();
+        $db->beginTransaction();
+
+        // Validate pool belongs to event
+        $stmt = $db->prepare("SELECT PoolId FROM Pools WHERE PoolId=? AND EventId=? LIMIT 1");
+        $stmt->execute([$toPoolId, $eventId]);
+        if (!$stmt->fetchColumn()) throw new Exception("Target pool does not belong to event.");
+
+        // Find old pool
         $stmt = $db->prepare("
             SELECT pf.PoolId
             FROM PoolFighters pf
             JOIN Pools p ON pf.PoolId = p.PoolId
-            WHERE pf.FighterId = ? AND p.EventId = ?
-            LIMIT 1
+            WHERE pf.FighterId=? AND p.EventId=? LIMIT 1
         ");
-        $stmt->execute([$fromFighterId, $eventId]);
-        $fromPool = $stmt->fetchColumn();
+        $stmt->execute([$movedFighterId, $eventId]);
+        $fromPoolId = $stmt->fetchColumn();
 
-        $stmt->execute([$toFighterId, $eventId]);
-        $toPool = $stmt->fetchColumn();
-
-        if (!$fromPool || !$toPool) {
-            throw new Exception("Fighters not found in event pools.");
+        if ($fromPoolId && (int)$fromPoolId === $toPoolId) {
+            throw new Exception("Fighter is already in that pool.");
         }
 
-        // Swap pool roster assignments
-        $db->prepare("UPDATE PoolFighters SET FighterId = ? WHERE PoolId = ? AND FighterId = ?")
-           ->execute([$toFighterId, $fromPool, $fromFighterId]);
-        $db->prepare("UPDATE PoolFighters SET FighterId = ? WHERE PoolId = ? AND FighterId = ?")
-           ->execute([$fromFighterId, $toPool, $toFighterId]);
+        // Remove from old pool + delete their pending matches + reshuffle old
+        if ($fromPoolId) {
+            $stmt = $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?");
+            $stmt->execute([(int)$fromPoolId, $movedFighterId]);
+            deletePendingMatchesForFighterInEvent($eventId, $movedFighterId);
+            $oldRing = getPoolRing((int)$fromPoolId);
+            reshufflePoolMatches($db, $eventId, (int)$fromPoolId, $oldRing);
+        }
 
-        // Swap only in pending matches
-        $stmt = $db->prepare("
-            UPDATE MatchFighters mf
-            JOIN Matches m ON mf.MatchId = m.MatchId
-            SET mf.FighterId = CASE 
-                WHEN mf.FighterId = :fromFighter THEN :toFighter
-                WHEN mf.FighterId = :toFighter THEN :fromFighter
-                ELSE mf.FighterId END
-            WHERE m.EventId = :eventId
-              AND m.PendingActiveDone = 'P'
-              AND mf.FighterId IN (:fromFighter, :toFighter)
-        ");
-        $stmt->bindValue(":fromFighter", $fromFighterId, PDO::PARAM_INT);
-        $stmt->bindValue(":toFighter",   $toFighterId,   PDO::PARAM_INT);
-        $stmt->bindValue(":eventId",     $eventId,       PDO::PARAM_INT);
-        $stmt->execute();
+        // Add to new pool and reshuffle
+        ensureEventFighter($eventId, $movedFighterId);
+        ensureInPool($toPoolId, $movedFighterId);
+
+        $ring    = getPoolRing($toPoolId);
+        $matches = reshufflePoolMatches($db, $eventId, $toPoolId, $ring);
+        $roster  = getPoolRoster($toPoolId);
 
         $db->commit();
-        echo json_encode(["status" => "success", "message" => "Swap complete"]);
+        echo json_encode([
+            "status"  => "success",
+            "message" => "Fighter moved to new pool.",
+            "poolId"  => $toPoolId,
+            "roster"  => $roster,
+            "matches" => $matches
+        ]);
     } catch (Exception $e) {
-        if ($db && $db->inTransaction()) $db->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     }
     exit;
@@ -415,8 +624,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
         $db = db();
         $db->beginTransaction();
 
-        // Max rings
-        $stmt = $db->prepare("SELECT MaxRings FROM Events WHERE EventId = ?");
+        $stmt = $db->prepare("SELECT MaxRings FROM Events WHERE EventId = ? LIMIT 1");
         $stmt->execute([$eventId]);
         $eventRow = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$eventRow) throw new Exception("Event not found.");
@@ -434,114 +642,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
         foreach ($data['pools'] as $pool) {
             $poolNo     = (int)$pool['poolNo'];
             $fighterIds = $pool['fighterIds'] ?? [];
-            $matches    = $pool['matches'] ?? [];
-            if (!$fighterIds || !$matches) continue;
+            if (!$fighterIds) continue;
 
-            // Create pool
             $stmt = $db->prepare("INSERT INTO Pools (EventId, PoolNo, MinFighters, MaxFighters)
                                   VALUES (?, ?, ?, ?)");
             $stmt->execute([$eventId, $poolNo, count($fighterIds), count($fighterIds)]);
-            $poolId = $db->lastInsertId();
+            $poolId = (int)$db->lastInsertId();
 
-            // Insert PoolFighters
             $stmtPF = $db->prepare("INSERT INTO PoolFighters (PoolId, FighterId) VALUES (?, ?)");
-            foreach ($fighterIds as $fid) {
-                $stmtPF->execute([$poolId, (int)$fid]);
-            }
+            foreach ($fighterIds as $fid) $stmtPF->execute([$poolId, (int)$fid]);
 
-            // Fetch FULL roster (Id, Name, ClubAcronym) for response (authoritative for swap UI)
-            $stmtR = $db->prepare("
-                SELECT pf.FighterId, f.FighterName, f.ClubId, c.ClubAcronym
-                FROM PoolFighters pf
-                JOIN Fighters f ON pf.FighterId = f.FighterId
-                LEFT JOIN Clubs c ON f.ClubId = c.ClubId
-                WHERE pf.PoolId = ?
-                ORDER BY f.FighterName ASC
-            ");
-            $stmtR->execute([$poolId]);
-            $roster = $stmtR->fetchAll(PDO::FETCH_ASSOC);
+            $roster = getPoolRoster($poolId);
 
-            // Ring
+            // assign ring cyclically
             $assignedRing   = $poolRingCounter;
             $poolRingCounter = ($poolRingCounter % $maxRings) + 1;
 
-            $poolBlock = [
-                "poolId"       => (int)$poolId,
+            $matches = reshufflePoolMatches($db, $eventId, $poolId, $assignedRing);
+
+            $structured[] = [
+                "poolId"       => $poolId,
                 "poolNo"       => $poolNo,
                 "ringAssigned" => $assignedRing,
                 "roster"       => $roster,
-                "matches"      => []
+                "matches"      => $matches
             ];
-
-            // Insert matches
-            foreach ($matches as $pair) {
-                if (count($pair) !== 2) continue;
-                [$f1, $f2] = array_map('intval', $pair);
-
-                $stmt = $db->prepare("INSERT INTO Matches (EventId, PendingActiveDone, MatchRingNo)
-                                      VALUES (?, 'P', ?)");
-                $stmt->execute([$eventId, $assignedRing]);
-                $matchId = $db->lastInsertId();
-
-                $stmt = $db->prepare("INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
-                                      VALUES (?, ?, ?)");
-                $stmt->execute([$matchId, $f1, "Red"]);
-                $stmt->execute([$matchId, $f2, "Blue"]);
-
-                $db->prepare("INSERT INTO PoolMatches (PoolId, MatchId) VALUES (?, ?)")
-                   ->execute([$poolId, $matchId]);
-
-                $poolBlock["matches"][] = [
-                    "matchId"  => (int)$matchId,
-                    "status"   => "P",
-                    "ringNo"   => $assignedRing,
-                    "fighters" => [
-                        ["FighterId" => $f1, "FighterColor" => "Red"],
-                        ["FighterId" => $f2, "FighterColor" => "Blue"]
-                    ]
-                ];
-            }
-
-            $structured[] = $poolBlock;
         }
 
         $db->commit();
         echo json_encode(["status" => "success", "pools" => $structured]);
     } catch (Exception $e) {
-        if ($db && $db->inTransaction()) $db->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     }
     exit;
 }
 
 /* ------------------------------
-   NEW: GET candidates (roster + available)
-   ------------------------------ */
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'candidates') {
-    $eventId = isset($_GET['eventId']) ? (int)$_GET['eventId'] : 0;
-    $poolId  = isset($_GET['poolId'])  ? (int)$_GET['poolId']  : 0;
-    if (!$eventId || !$poolId) {
-        echo json_encode(["status" => "error", "message" => "eventId and poolId required"]);
-        exit;
-    }
-
-    try {
-        $roster    = getPoolRoster($poolId);
-        $available = getAvailableTournamentFightersNotInPools($eventId);
-        echo json_encode([
-            "status"    => "success",
-            "roster"    => $roster,
-            "available" => $available
-        ]);
-    } catch (Exception $e) {
-        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
-    }
-    exit;
-}
-
-/* ------------------------------
-   NEW: POST addToPool
-   Body: { eventId, poolId, fighterId }
+   POST: addToPool
    ------------------------------ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addToPool') {
     $data = json_decode(file_get_contents("php://input"), true);
@@ -555,42 +693,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'addToPool') {
     $fighterId = (int)$data['fighterId'];
 
     try {
-        $pdo = db();
-        $pdo->beginTransaction();
+        $db = db();
+        $db->beginTransaction();
 
-        // Validate pool belongs to event
-        $stmt = $pdo->prepare("SELECT PoolId FROM Pools WHERE PoolId = ? AND EventId = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT PoolId FROM Pools WHERE PoolId = ? AND EventId = ? LIMIT 1");
         $stmt->execute([$poolId, $eventId]);
         if (!$stmt->fetchColumn()) throw new Exception("Pool does not belong to event.");
 
-        // Ensure event roster, ensure pool membership
         ensureEventFighter($eventId, $fighterId);
         ensureInPool($poolId, $fighterId);
 
-        // Create pending matches vs existing poolmates
-        $createdMatches = createPendingMatchesForNewPoolFighter($eventId, $poolId, $fighterId);
+        $ring    = getPoolRing($poolId);
+        $matches = reshufflePoolMatches($db, $eventId, $poolId, $ring);
+        $roster  = getPoolRoster($poolId);
 
-        // Fresh roster for response
-        $roster = getPoolRoster($poolId);
-
-        $pdo->commit();
+        $db->commit();
         echo json_encode([
             "status"  => "success",
-            "message" => "Fighter added to pool and pending matches created.",
+            "message" => "Fighter added to pool and matches reshuffled.",
             "poolId"  => $poolId,
             "roster"  => $roster,
-            "matches" => $createdMatches
+            "matches" => $matches
         ]);
     } catch (Exception $e) {
-        if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     }
     exit;
 }
 
 /* ------------------------------
-   NEW: DELETE removeFromPoolAndEvent
-   Body: { eventId, poolId, fighterId }
+   DELETE: removeFromPoolAndEvent
    ------------------------------ */
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && $action === 'removeFromPoolAndEvent') {
     $data = json_decode(file_get_contents("php://input"), true);
@@ -604,37 +737,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && $action === 'removeFromPoolAndEve
     $fighterId = (int)$data['fighterId'];
 
     try {
-        $pdo = db();
-        $pdo->beginTransaction();
+        $db = db();
+        $db->beginTransaction();
 
-        // Validate pool belongs to event
-        $stmt = $pdo->prepare("SELECT PoolId FROM Pools WHERE PoolId = ? AND EventId = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT PoolId FROM Pools WHERE PoolId = ? AND EventId = ? LIMIT 1");
         $stmt->execute([$poolId, $eventId]);
         if (!$stmt->fetchColumn()) throw new Exception("Pool does not belong to event.");
 
-        // Delete pending matches involving this fighter (for this event)
         deletePendingMatchesForFighterInEvent($eventId, $fighterId);
 
-        // Remove from PoolFighters (if present)
-        $stmt = $pdo->prepare("DELETE FROM PoolFighters WHERE PoolId = ? AND FighterId = ?");
+        $stmt = $db->prepare("DELETE FROM PoolFighters WHERE PoolId = ? AND FighterId = ?");
         $stmt->execute([$poolId, $fighterId]);
 
-        // Remove from EventFighters (global to event)
-        $stmt = $pdo->prepare("DELETE FROM EventFighters WHERE EventId = ? AND FighterId = ?");
+        $stmt = $db->prepare("DELETE FROM EventFighters WHERE EventId = ? AND FighterId = ?");
         $stmt->execute([$eventId, $fighterId]);
 
-        // Fresh roster (now missing removed fighter)
-        $roster = getPoolRoster($poolId);
+        $ring    = getPoolRing($poolId);
+        $matches = reshufflePoolMatches($db, $eventId, $poolId, $ring);
+        $roster  = getPoolRoster($poolId);
 
-        $pdo->commit();
+        $db->commit();
         echo json_encode([
             "status"  => "success",
-            "message" => "Fighter removed from pool and event; pending matches deleted.",
+            "message" => "Fighter removed from pool and matches reshuffled.",
             "poolId"  => $poolId,
-            "roster"  => $roster
+            "roster"  => $roster,
+            "matches" => $matches
         ]);
     } catch (Exception $e) {
-        if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     }
     exit;

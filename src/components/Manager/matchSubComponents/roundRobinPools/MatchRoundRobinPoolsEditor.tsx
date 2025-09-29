@@ -16,7 +16,6 @@ import FighterSwapInterface, {
 import { Fighter as FullFighter } from "../../subComponents/useFighters";
 import { backend_uri, round_robin_pool_api } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
-/* 🔹 NEW: useRefresh for cross-component re-fetch */
 import { useRefresh } from "../../../utility/RefreshContext";
 
 type MatchFighter = SwapFighter & {
@@ -29,13 +28,14 @@ interface PoolMatch {
   matchId: number;
   status: MatchStatus;
   ringNo: number;
+  queueNo?: number;
   fighters?: MatchFighter[];
 }
 
 interface PoolBlock {
   poolId: number;
   poolNo: number;
-  ringAssigned: number;
+  ringAssigned: number | null;
   roster: FullFighter[]; // authoritative roster for swap interface
   matches: PoolMatch[];
 }
@@ -58,7 +58,6 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   allFighters = [],
 }) => {
   const addToast = useToast();
-  /* 🔹 NEW */
   const { triggerRefresh } = useRefresh();
 
   // Local copy for optimistic UI updates
@@ -70,6 +69,21 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   );
   const togglePool = (poolId: number) =>
     setOpenPools((prev) => ({ ...prev, [poolId]: !prev[poolId] }));
+
+  // Reload all pools from backend (used after operations that reshape matches in multiple pools)
+  const reloadPools = async () => {
+    try {
+      const res = await fetch(`${POOLS_RR_API}?action=get&eventId=${encodeURIComponent(eventId)}`);
+      const data = await res.json();
+      if (res.ok && data.status === "success" && Array.isArray(data.pools)) {
+        setDisplayPools(data.pools);
+      } else {
+        addToast(data.message || "Failed to refresh pools.");
+      }
+    } catch {
+      addToast("Network error refreshing pools.");
+    }
+  };
 
   // Build fighter directory strictly from pool rosters (authoritative source)
   const swapFighterDirectory: FullFighter[] = useMemo(() => {
@@ -88,11 +102,15 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
 
   const fighterById = useMemo(() => {
     const map = new Map<number, FullFighter>();
+    // include any externally supplied list, but roster entries win
+    for (const f of allFighters ?? []) {
+      if (f?.FighterId) map.set(f.FighterId, f);
+    }
     for (const f of swapFighterDirectory) {
       map.set(f.FighterId, f);
     }
     return map;
-  }, [swapFighterDirectory]);
+  }, [swapFighterDirectory, allFighters]);
 
   // Build PoolPlans from roster (authoritative, not matches)
   const buildEditableFromPools = useMemo<PoolPlan[]>(
@@ -109,6 +127,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     setEditablePools(buildEditableFromPools);
   }, [buildEditableFromPools]);
 
+  /* ---------- API helpers ---------- */
+
+  // Persist swap. If backend detects "balanced" swap, it returns updated rosters+matches for both pools.
   const handleSwapPersist = async (
     fromFighterId: number,
     toFighterId: number
@@ -119,23 +140,105 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId,
-          fromFighterId,
-          toFighterId,
+          fighterAId: fromFighterId,
+          fighterBId: toFighterId,
         }),
       });
       const data = await res.json();
       if (!res.ok || data.status !== "success") {
         throw new Error(data.message || "Swap failed");
       }
+
+      // If balanced, server reshuffled both pools — replace those pools from server response
+      if (data?.details?.mode === "balanced" && Array.isArray(data?.details?.pools)) {
+        const updated = data.details.pools as Array<{
+          poolId: number;
+          roster?: FullFighter[];
+          matches?: PoolMatch[];
+        }>;
+        setDisplayPools((prev) =>
+          prev.map((p) => {
+            const found = updated.find((u) => u.poolId === p.poolId);
+            if (!found) return p;
+            return {
+              ...p,
+              roster: found.roster ?? p.roster,
+              matches: found.matches ?? p.matches,
+            };
+          })
+        );
+      } else if (data?.details?.mode === "simple" && Array.isArray(data?.details?.pools)) {
+        // For simple mode, pool membership changed; prefer to sync rosters from server (matches remain PENDING-adjusted)
+        const updated = data.details.pools as Array<{ poolId: number; roster: FullFighter[] }>;
+        setDisplayPools((prev) =>
+          prev.map((p) => {
+            const found = updated.find((u) => u.poolId === p.poolId);
+            if (!found) return p;
+            return { ...p, roster: found.roster ?? p.roster };
+          })
+        );
+      }
+
       addToast(data.message || "Swap completed");
+
+      // If balanced, just to be 100% consistent with queue numbers etc., refresh all pools
+      if (data?.details?.mode === "balanced") {
+        await reloadPools();
+      }
     } catch (err: any) {
       addToast(err.message || "Network error during swap");
     }
   };
 
-  /* ----------------------------
-     Pool Fighter Management Modal
-     ---------------------------- */
+  // Persist fighter moves. Server returns the destination pool roster+matches after reshuffle.
+  // We also refresh all pools to reflect the reshuffled source pool.
+  const handleMovePersist = async (
+    movedFighterId: number,
+    toPoolNo: number,
+    fromPoolId: number | null
+  ) => {
+    try {
+      const dest = displayPools.find((p) => p.poolNo === toPoolNo);
+      if (!dest) throw new Error("Target pool not found");
+
+      const res = await fetch(`${POOLS_RR_API}?action=move`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          movedFighterId,
+          toPoolId: dest.poolId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "success") {
+        throw new Error(data.message || "Move failed");
+      }
+
+      addToast(data.message || "Move completed");
+
+      // Replace destination pool with authoritative roster+matches from server
+      setDisplayPools((prev) =>
+        prev.map((p) =>
+          p.poolId === dest.poolId
+            ? {
+                ...p,
+                roster: data.roster || p.roster,
+                matches: Array.isArray(data.matches) ? data.matches : p.matches,
+              }
+            : p
+        )
+      );
+
+      // Refresh all pools so the reshuffled source pool is accurate
+      await reloadPools();
+    } catch (err: any) {
+      addToast(err.message || "Network error during move");
+    }
+  };
+
+  /* ---------- Pool Fighter Management (modal) ---------- */
+
   const [managePoolId, setManagePoolId] = useState<number | null>(null);
   const [roster, setRoster] = useState<FullFighter[]>([]);
   const [available, setAvailable] = useState<FullFighter[]>([]);
@@ -145,12 +248,14 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     setLoadingCandidates(true);
     try {
       const res = await fetch(
-        `${POOLS_RR_API}?action=candidates&eventId=${eventId}&poolId=${poolId}`
+        `${POOLS_RR_API}?action=candidates&eventId=${encodeURIComponent(
+          eventId
+        )}&poolId=${encodeURIComponent(poolId)}`
       );
       const data = await res.json();
       if (data.status === "success") {
-        setRoster(data.roster || []);
-        setAvailable(data.available || []);
+        setRoster(Array.isArray(data.roster) ? data.roster : []);
+        setAvailable(Array.isArray(data.available) ? data.available : []);
       } else {
         addToast(data.message || "Failed to load pool candidates");
       }
@@ -166,7 +271,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     const fighter = available.find((f) => f.FighterId === fighterId);
     if (!fighter) return;
 
-    // 🔹 Optimistic update
+    // Optimistic: roster only
     setRoster((prev) => [...prev, fighter]);
     setAvailable((prev) => prev.filter((f) => f.FighterId !== fighterId));
     setDisplayPools((prev) =>
@@ -184,23 +289,24 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.message);
 
-      // sync authoritative response (roster + matches)
-      setRoster(data.roster);
+      // Sync authoritative response (roster + full reshuffled matches)
+      setRoster(Array.isArray(data.roster) ? data.roster : []);
       setDisplayPools((prev) =>
         prev.map((p) =>
           p.poolId === managePoolId
             ? {
                 ...p,
-                roster: data.roster,
-                matches: [...p.matches, ...(data.matches || [])],
+                roster: Array.isArray(data.roster) ? data.roster : p.roster,
+                matches: Array.isArray(data.matches) ? data.matches : p.matches,
               }
             : p
         )
       );
-
+      // refresh to pick up any queue/ring changes
+      await reloadPools();
     } catch (err: any) {
       addToast(err.message || "Error adding fighter");
-      // 🔹 Rollback
+      // Roll back
       setRoster((prev) => prev.filter((f) => f.FighterId !== fighterId));
       setAvailable((prev) => [...prev, fighter]);
       setDisplayPools((prev) =>
@@ -218,7 +324,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     const fighter = roster.find((f) => f.FighterId === fighterId);
     if (!fighter) return;
 
-    // 🔹 Optimistic update: drop from roster and remove any pending matches containing fighter
+    // Optimistic: drop from roster and remove any pending matches containing fighter
     setRoster((prev) => prev.filter((f) => f.FighterId !== fighterId));
     setDisplayPools((prev) =>
       prev.map((p) => {
@@ -228,7 +334,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           roster: p.roster.filter((f) => f.FighterId !== fighterId),
           matches: p.matches.filter((m) => {
             if (m.status !== "P" || !m.fighters) return true;
-            return !m.fighters.some((f) => f.FighterId === fighterId); // remove whole pending match
+            return !m.fighters.some((f) => f.FighterId === fighterId);
           }),
         };
       })
@@ -243,19 +349,25 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.message);
 
-      // sync authoritative roster
-      setRoster(data.roster);
+      // Sync authoritative roster + reshuffled matches
+      setRoster(Array.isArray(data.roster) ? data.roster : []);
       setDisplayPools((prev) =>
         prev.map((p) =>
-          p.poolId === managePoolId ? { ...p, roster: data.roster } : p
+          p.poolId === managePoolId
+            ? {
+                ...p,
+                roster: Array.isArray(data.roster) ? data.roster : p.roster,
+                matches: Array.isArray(data.matches) ? data.matches : p.matches,
+              }
+            : p
         )
       );
 
-      /* 🔹 NEW: force a fresh load so any server-side deletions of Matches/PoolMatches are reflected */
       triggerRefresh();
+      await reloadPools();
     } catch (err: any) {
       addToast(err.message || "Error removing fighter");
-      // 🔹 Rollback (roster; matches were not removed on server if call failed)
+      // Roll back roster (matches were not removed on server if call failed)
       setRoster((prev) => [...prev, fighter]);
       setDisplayPools((prev) =>
         prev.map((p) =>
@@ -293,42 +405,15 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
         onSwap={(nextPools, lastSwap) => {
           setEditablePools(nextPools);
           if (!lastSwap) return;
-          const { fromFighterId, toFighterId } = lastSwap;
 
-          // Optimistically update both rosters and pending matches
-          setDisplayPools((prev) =>
-            prev.map((pool) => {
-              // update roster
-              const newRoster = pool.roster.map((f) => {
-                if (f.FighterId === fromFighterId) {
-                  return {
-                    ...f,
-                    FighterId: toFighterId,
-                    FighterName:
-                      fighterById.get(toFighterId)?.FighterName ?? `#${toFighterId}`,
-                    ClubAcronym: fighterById.get(toFighterId)?.ClubAcronym ?? null,
-                    ClubId: fighterById.get(toFighterId)?.ClubId ?? null,
-                    ClubName: fighterById.get(toFighterId)?.ClubName ?? null,
-                  };
-                }
-                if (f.FighterId === toFighterId) {
-                  return {
-                    ...f,
-                    FighterId: fromFighterId,
-                    FighterName:
-                      fighterById.get(fromFighterId)?.FighterName ?? `#${fromFighterId}`,
-                    ClubAcronym: fighterById.get(fromFighterId)?.ClubAcronym ?? null,
-                    ClubId: fighterById.get(fromFighterId)?.ClubId ?? null,
-                    ClubName: fighterById.get(fromFighterId)?.ClubName ?? null,
-                  };
-                }
-                return f;
-              });
+          if ("fromFighterId" in lastSwap && "toFighterId" in lastSwap) {
+            const { fromFighterId, toFighterId } = lastSwap;
 
-              // update matches (only pending)
-              const newMatches = pool.matches.map((m) => {
-                if (m.status !== "P" || !m.fighters) return m;
-                const updatedFighters = m.fighters.map((f) => {
+            // Optimistically update rosters + pending matches for P-status only
+            setDisplayPools((prev) =>
+              prev.map((pool) => {
+                // roster swap
+                const newRoster = pool.roster.map((f) => {
                   if (f.FighterId === fromFighterId) {
                     const nf = fighterById.get(toFighterId);
                     return {
@@ -353,15 +438,76 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   }
                   return f;
                 });
-                return { ...m, fighters: updatedFighters };
-              });
 
-              return { ...pool, roster: newRoster, matches: newMatches };
-            })
-          );
+                // pending match swap (rename only)
+                const newMatches = pool.matches.map((m) => {
+                  if (m.status !== "P" || !m.fighters) return m;
+                  const updatedFighters = m.fighters.map((mf) => {
+                    if (mf.FighterId === fromFighterId) {
+                      const nf = fighterById.get(toFighterId);
+                      return {
+                        ...mf,
+                        FighterId: toFighterId,
+                        FighterName: nf?.FighterName ?? `#${toFighterId}`,
+                      } as MatchFighter;
+                    }
+                    if (mf.FighterId === toFighterId) {
+                      const nf = fighterById.get(fromFighterId);
+                      return {
+                        ...mf,
+                        FighterId: fromFighterId,
+                        FighterName: nf?.FighterName ?? `#${fromFighterId}`,
+                      } as MatchFighter;
+                    }
+                    return mf;
+                  });
+                  return { ...m, fighters: updatedFighters };
+                });
 
-          // Persist to backend
-          handleSwapPersist(fromFighterId, toFighterId);
+                return { ...pool, roster: newRoster, matches: newMatches };
+              })
+            );
+
+            // Persist swap
+            handleSwapPersist(fromFighterId, toFighterId);
+          }
+
+          if ("movedFighterId" in lastSwap && "toPoolNo" in lastSwap) {
+            const { movedFighterId, toPoolNo } = lastSwap;
+
+            // Capture source pool BEFORE optimistic change so we can refresh it later
+            const from = displayPools.find((p) =>
+              p.roster?.some((f) => f.FighterId === movedFighterId)
+            );
+            const fromPoolId = from?.poolId ?? null;
+
+            // Optimistic: update rosters only (leave matches alone until server confirms)
+            setDisplayPools((prev) =>
+              prev.map((pool) => {
+                if (pool.roster.some((f) => f.FighterId === movedFighterId)) {
+                  // source: remove from roster
+                  return {
+                    ...pool,
+                    roster: pool.roster.filter(
+                      (f) => f.FighterId !== movedFighterId
+                    ),
+                  };
+                }
+                if (pool.poolNo === toPoolNo) {
+                  // destination: add to roster
+                  const nf = fighterById.get(movedFighterId);
+                  if (!nf) return pool;
+                  return { ...pool, roster: [...pool.roster, nf] };
+                }
+                return pool;
+              })
+            );
+
+            addToast(`Moved fighter #${movedFighterId} to Pool ${toPoolNo}`);
+
+            // Persist move to backend and then refresh source/destination from server
+            handleMovePersist(movedFighterId, toPoolNo, fromPoolId);
+          }
         }}
         onManagePool={(poolNo) => {
           const pool = displayPools.find((p) => p.poolNo === poolNo);
@@ -405,7 +551,13 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
             {loadingCandidates ? (
               <p>Loading...</p>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                }}
+              >
                 {/* Left: roster */}
                 <div>
                   <h4>In Pool</h4>
@@ -413,7 +565,11 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   {roster.map((f) => (
                     <div
                       key={f.FighterId}
-                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
                     >
                       <span>
                         {f.FighterName}
@@ -432,9 +588,15 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   {available.map((f) => (
                     <div
                       key={f.FighterId}
-                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
                     >
-                      <button onClick={() => handleAddFighter(f.FighterId)}>Add</button>
+                      <button onClick={() => handleAddFighter(f.FighterId)}>
+                        Add
+                      </button>
                       <span>
                         {f.FighterName}
                         {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
@@ -453,9 +615,8 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
 
       {/* Pool match sections */}
       {displayPools.map((pool) => {
-        const isOpen = openPools[pool.poolId];
-
-        /* 🔹 NEW: avoid rendering orphan pending matches with < 2 fighters (pre-refresh) */
+        const isOpen = !!openPools[pool.poolId];
+        // hide orphan pending matches if any
         const visibleMatches = (pool.matches || []).filter(
           (m) => !(m.status === "P" && (!m.fighters || m.fighters.length < 2))
         );
@@ -483,7 +644,10 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
               onClick={() => togglePool(pool.poolId)}
             >
               <span style={{ fontWeight: "bold", color: "#fff" }}>
-                Pool {pool.poolNo} – Ring {pool.ringAssigned}
+                Pool {pool.poolNo} – Ring {pool.ringAssigned ?? "-"}{" "}
+                <span style={{ color: "#bbb", fontWeight: "normal" }}>
+                  ({visibleMatches.length} matches)
+                </span>
               </span>
               <button
                 style={{
@@ -513,7 +677,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                       maxRings={maxRings}
                       interactive={interactive}
                       onDelete={(deletedId) => {
-                        // 🔹 Optimistic removal from displayPools
+                        // Optimistic removal from displayPools
                         setDisplayPools((prev) =>
                           prev.map((p) =>
                             p.poolId === pool.poolId

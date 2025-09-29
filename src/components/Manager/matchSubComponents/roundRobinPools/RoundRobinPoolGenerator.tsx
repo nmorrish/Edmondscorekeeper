@@ -198,6 +198,11 @@ const MatchRoundRobinPoolsGenerator: React.FC<
   }, [plan, eventId, addToast]);
 
   const handleSave = useCallback(async () => {
+    const confirmed = window.confirm(
+      `WARNING!\nSaving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${eventName} — including completed and in-progress matches.\nAre you sure you want to continue?\n\nYou are safe to continue if there are no matches currently in ${eventName}.`
+    );
+    if (!confirmed) return;
+
     const payload = buildSavePayload();
     if (!payload) return;
 
@@ -224,9 +229,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
       }
 
       addToast(
-        `Saved: ${data.poolsInserted ?? 0} pools, ${
-          data.poolMatchesInserted ?? 0
-        } pool-matches, ${data.matchesInserted ?? 0} matches.`
+        `Saved new matches and pools to database`
       );
       if (data.pools && onSaved) {
         onSaved(data.pools); // hand JSON up to parent so editor can open

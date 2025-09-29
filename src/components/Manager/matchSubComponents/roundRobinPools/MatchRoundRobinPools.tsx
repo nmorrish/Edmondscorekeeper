@@ -47,11 +47,39 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
     }
   }, [isActive, eventId]);
 
+  const handleRegenerateClick = () => {
+    const confirmed = window.confirm(
+      `!!!DANGER WARNING!!!\n\nAre you sure? Regenerating pools will delete all current pools, matches, and scores for in progress and completed matches in ${eventName}.\n\nREPEAT: THIS DELETES ALL SCORES FOR IN PROGRESS AND COMPLETED MATCHES IN ${eventName == undefined ? "THIS EVENT" : eventName.toUpperCase()}!`
+    );
+    if (confirmed) {
+      setSavedPools(null); // hide editor, show generator
+    }
+  };
+
   return (
     <div style={{ textAlign: "left", margin: "0 auto", maxWidth: 1200 }}>
-      <h2 style={{ marginBottom: "0.5rem" }}>
-        Round Robin Pools {eventName ? `— ${eventName}` : ""}
-      </h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ marginBottom: "0.5rem" }}>
+          Round Robin Pools {eventName ? `— ${eventName}` : ""}
+        </h2>
+
+        {savedPools && (
+          <button
+            onClick={handleRegenerateClick}
+            style={{
+              padding: "6px 12px",
+              background: "#840000ff",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Regenerate Pools
+          </button>
+        )}
+      </div>
 
       {!savedPools ? (
         <MatchRoundRobinPoolsGenerator

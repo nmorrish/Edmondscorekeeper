@@ -100,7 +100,7 @@ try {
                         JOIN Weapons w ON e.WeaponId = w.WeaponId
                         JOIN Tournaments t ON e.TournamentId = t.TournamentId
                         WHERE e.TournamentId = ?
-                        ORDER BY e.EventId DESC
+                        ORDER BY e.EventId
                     ");
                     $stmt->execute([$filterTournamentId]);
                 } else {
@@ -111,7 +111,7 @@ try {
                         FROM Events e
                         JOIN Weapons w ON e.WeaponId = w.WeaponId
                         JOIN Tournaments t ON e.TournamentId = t.TournamentId
-                        ORDER BY e.EventId DESC
+                        ORDER BY e.EventId
                     ");
                 }
                 $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
