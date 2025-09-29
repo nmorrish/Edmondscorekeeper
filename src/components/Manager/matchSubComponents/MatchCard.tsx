@@ -282,21 +282,32 @@ const MatchCard: React.FC<MatchCardProps> = ({
   };
 
   const handleDelete = async () => {
+    // 🔹 Optimistic update first
+    onDelete?.(matchId);
+
     try {
       const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "DELETE",
       });
       const data = await response.json();
+
       if (response.ok && data.status === "success") {
-        onDelete?.(matchId);
         addToast(`Deleted match ${matchId}`);
       } else {
-        addToast("Failed to delete match.");
+        throw new Error(data.message || "Failed to delete match.");
       }
-    } catch {
-      addToast("Failed to delete match.");
+    } catch (err) {
+      addToast("Error deleting match, rolling back");
+
+      // 🔹 Rollback if backend fails
+      if (fighters && fighters.length) {
+        setLocalFighters(fighters);
+        setLocalStatus(status);
+        setLocalRing(ringNo);
+      }
     }
   };
+
 
   const getMatchCardClass = (status: MatchStatus) => {
     if (status === "A") return "match-card match-table active-match";

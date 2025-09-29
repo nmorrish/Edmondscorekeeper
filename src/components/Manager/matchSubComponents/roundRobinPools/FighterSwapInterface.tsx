@@ -4,6 +4,9 @@
  * === Fighter Swap Interface ===
  * Click a fighter in Pool A, then click another in Pool B → swap them.
  * Works with pool fighterIds (from generator) or roster-based pools (from editor).
+ * 
+ * Extended: Adds a "Manage Pool Fighters" button under each pool.
+ * Parent can hook into this with onManagePool(poolNo).
  */
 
 import React, { useState } from "react";
@@ -27,12 +30,14 @@ interface FighterSwapInterfaceProps {
     updatedPools: PoolPlan[],
     swapDetail?: { fromFighterId: number; toFighterId: number }
   ) => void;
+  onManagePool?: (poolNo: number) => void; // 🔹 new optional handler
 }
 
 const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
   fighters,
   pools,
   onSwap,
+  onManagePool,
 }) => {
   const addToast = useToast();
   const [swapSelection, setSwapSelection] = useState<{
@@ -117,44 +122,68 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
               borderRadius: 8,
               padding: 10,
               background: "#1b1b1b",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 6,
-              }}
-            >
-              <strong>Pool {p.poolNo}</strong>
-              <span style={{ color: "#999" }}>
-                {p.fighterIds.length} fighters
-              </span>
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 6,
+                }}
+              >
+                <strong>Pool {p.poolNo}</strong>
+                <span style={{ color: "#999" }}>
+                  {p.fighterIds.length} fighters
+                </span>
+              </div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {p.fighterIds.map((fid) => {
+                  const selected =
+                    swapSelection?.fighterId === fid &&
+                    swapSelection?.poolNo === p.poolNo;
+                  return (
+                    <li
+                      key={`pool-${p.poolNo}-f-${fid}`}
+                      onClick={() => handleSelectForSwap(p.poolNo, fid)}
+                      style={{
+                        padding: "6px 8px",
+                        marginBottom: 6,
+                        border: selected
+                          ? "1px solid #80bfff"
+                          : "1px solid #333",
+                        borderRadius: 6,
+                        background: selected ? "#0d1b2a" : "#222",
+                        cursor: "pointer",
+                      }}
+                      title="Click to select for swap"
+                    >
+                      {fighterLabel(fid)}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {p.fighterIds.map((fid) => {
-                const selected =
-                  swapSelection?.fighterId === fid &&
-                  swapSelection?.poolNo === p.poolNo;
-                return (
-                  <li
-                    key={`pool-${p.poolNo}-f-${fid}`}
-                    onClick={() => handleSelectForSwap(p.poolNo, fid)}
-                    style={{
-                      padding: "6px 8px",
-                      marginBottom: 6,
-                      border: selected ? "1px solid #80bfff" : "1px solid #333",
-                      borderRadius: 6,
-                      background: selected ? "#0d1b2a" : "#222",
-                      cursor: "pointer",
-                    }}
-                    title="Click to select for swap"
-                  >
-                    {fighterLabel(fid)}
-                  </li>
-                );
-              })}
-            </ul>
+
+            {onManagePool && (
+              <button
+                onClick={() => onManagePool(p.poolNo)}
+                style={{
+                  marginTop: "0.5rem",
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #666",
+                  background: "#2a2a2a",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Manage Pool Fighters
+              </button>
+            )}
           </div>
         ))}
       </div>

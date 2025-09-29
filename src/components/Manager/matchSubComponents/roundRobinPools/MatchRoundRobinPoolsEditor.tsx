@@ -3,7 +3,8 @@
  *
  * === Round Robin Pools Editor / Viewer ===
  * Displays saved pools and their matches using MatchCard,
- * with collapsible pool sections and fighter swap support.
+ * with collapsible pool sections, fighter swap support,
+ * and pool fighter add/remove management.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -15,6 +16,8 @@ import FighterSwapInterface, {
 import { Fighter as FullFighter } from "../../subComponents/useFighters";
 import { backend_uri, round_robin_pool_api } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
+/* 🔹 NEW: useRefresh for cross-component re-fetch */
+import { useRefresh } from "../../../utility/RefreshContext";
 
 type MatchFighter = SwapFighter & {
   FighterColor: string;
@@ -55,6 +58,8 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   allFighters = [],
 }) => {
   const addToast = useToast();
+  /* 🔹 NEW */
+  const { triggerRefresh } = useRefresh();
 
   // Local copy for optimistic UI updates
   const [displayPools, setDisplayPools] = useState<PoolBlock[]>(pools);
@@ -127,6 +132,148 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       addToast(err.message || "Network error during swap");
     }
   };
+
+  /* ----------------------------
+     Pool Fighter Management Modal
+     ---------------------------- */
+  const [managePoolId, setManagePoolId] = useState<number | null>(null);
+  const [roster, setRoster] = useState<FullFighter[]>([]);
+  const [available, setAvailable] = useState<FullFighter[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+
+  const loadCandidates = async (poolId: number) => {
+    setLoadingCandidates(true);
+    try {
+      const res = await fetch(
+        `${POOLS_RR_API}?action=candidates&eventId=${eventId}&poolId=${poolId}`
+      );
+      const data = await res.json();
+      if (data.status === "success") {
+        setRoster(data.roster || []);
+        setAvailable(data.available || []);
+      } else {
+        addToast(data.message || "Failed to load pool candidates");
+      }
+    } catch {
+      addToast("Error loading pool candidates");
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleAddFighter = async (fighterId: number) => {
+    if (!managePoolId) return;
+    const fighter = available.find((f) => f.FighterId === fighterId);
+    if (!fighter) return;
+
+    // 🔹 Optimistic update
+    setRoster((prev) => [...prev, fighter]);
+    setAvailable((prev) => prev.filter((f) => f.FighterId !== fighterId));
+    setDisplayPools((prev) =>
+      prev.map((p) =>
+        p.poolId === managePoolId ? { ...p, roster: [...p.roster, fighter] } : p
+      )
+    );
+
+    try {
+      const res = await fetch(`${POOLS_RR_API}?action=addToPool`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, poolId: managePoolId, fighterId }),
+      });
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.message);
+
+      // sync authoritative response (roster + matches)
+      setRoster(data.roster);
+      setDisplayPools((prev) =>
+        prev.map((p) =>
+          p.poolId === managePoolId
+            ? {
+                ...p,
+                roster: data.roster,
+                matches: [...p.matches, ...(data.matches || [])],
+              }
+            : p
+        )
+      );
+
+    } catch (err: any) {
+      addToast(err.message || "Error adding fighter");
+      // 🔹 Rollback
+      setRoster((prev) => prev.filter((f) => f.FighterId !== fighterId));
+      setAvailable((prev) => [...prev, fighter]);
+      setDisplayPools((prev) =>
+        prev.map((p) =>
+          p.poolId === managePoolId
+            ? { ...p, roster: p.roster.filter((f) => f.FighterId !== fighterId) }
+            : p
+        )
+      );
+    }
+  };
+
+  const handleRemoveFighter = async (fighterId: number) => {
+    if (!managePoolId) return;
+    const fighter = roster.find((f) => f.FighterId === fighterId);
+    if (!fighter) return;
+
+    // 🔹 Optimistic update: drop from roster and remove any pending matches containing fighter
+    setRoster((prev) => prev.filter((f) => f.FighterId !== fighterId));
+    setDisplayPools((prev) =>
+      prev.map((p) => {
+        if (p.poolId !== managePoolId) return p;
+        return {
+          ...p,
+          roster: p.roster.filter((f) => f.FighterId !== fighterId),
+          matches: p.matches.filter((m) => {
+            if (m.status !== "P" || !m.fighters) return true;
+            return !m.fighters.some((f) => f.FighterId === fighterId); // remove whole pending match
+          }),
+        };
+      })
+    );
+
+    try {
+      const res = await fetch(`${POOLS_RR_API}?action=removeFromPoolAndEvent`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, poolId: managePoolId, fighterId }),
+      });
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.message);
+
+      // sync authoritative roster
+      setRoster(data.roster);
+      setDisplayPools((prev) =>
+        prev.map((p) =>
+          p.poolId === managePoolId ? { ...p, roster: data.roster } : p
+        )
+      );
+
+      /* 🔹 NEW: force a fresh load so any server-side deletions of Matches/PoolMatches are reflected */
+      triggerRefresh();
+    } catch (err: any) {
+      addToast(err.message || "Error removing fighter");
+      // 🔹 Rollback (roster; matches were not removed on server if call failed)
+      setRoster((prev) => [...prev, fighter]);
+      setDisplayPools((prev) =>
+        prev.map((p) =>
+          p.poolId === managePoolId ? { ...p, roster: [...p.roster, fighter] } : p
+        )
+      );
+    }
+  };
+
+  const closeManage = () => {
+    setManagePoolId(null);
+    setRoster([]);
+    setAvailable([]);
+  };
+
+  /* ----------------------------
+     Render
+     ---------------------------- */
 
   if (!displayPools || displayPools.length === 0) {
     return (
@@ -216,10 +363,103 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           // Persist to backend
           handleSwapPersist(fromFighterId, toFighterId);
         }}
+        onManagePool={(poolNo) => {
+          const pool = displayPools.find((p) => p.poolNo === poolNo);
+          if (pool) {
+            setManagePoolId(pool.poolId);
+            loadCandidates(pool.poolId);
+          }
+        }}
       />
 
+      {/* Pool Fighter Management Modal */}
+      {managePoolId && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+          onClick={closeManage}
+        >
+          <div
+            style={{
+              background: "#1e1e1e",
+              padding: "1rem",
+              borderRadius: 8,
+              width: "90%",
+              maxWidth: "800px",
+              maxHeight: "80%",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Manage Pool Fighters</h3>
+            {loadingCandidates ? (
+              <p>Loading...</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                {/* Left: roster */}
+                <div>
+                  <h4>In Pool</h4>
+                  {roster.length === 0 && <p>No fighters</p>}
+                  {roster.map((f) => (
+                    <div
+                      key={f.FighterId}
+                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+                    >
+                      <span>
+                        {f.FighterName}
+                        {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
+                      </span>
+                      <button onClick={() => handleRemoveFighter(f.FighterId)}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {/* Right: available */}
+                <div>
+                  <h4>Available Fighters (not in any pool)</h4>
+                  {available.length === 0 && <p>No available fighters</p>}
+                  {available.map((f) => (
+                    <div
+                      key={f.FighterId}
+                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}
+                    >
+                      <button onClick={() => handleAddFighter(f.FighterId)}>Add</button>
+                      <span>
+                        {f.FighterName}
+                        {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: "1rem", textAlign: "right" }}>
+              <button onClick={closeManage}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pool match sections */}
       {displayPools.map((pool) => {
         const isOpen = openPools[pool.poolId];
+
+        /* 🔹 NEW: avoid rendering orphan pending matches with < 2 fighters (pre-refresh) */
+        const visibleMatches = (pool.matches || []).filter(
+          (m) => !(m.status === "P" && (!m.fighters || m.fighters.length < 2))
+        );
+
         return (
           <div
             key={pool.poolId}
@@ -261,17 +501,32 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
             {isOpen && (
               <div style={{ padding: "1rem" }}>
                 <div className="matches-grid">
-                  {pool.matches.map((m, idx) => (
+                  {visibleMatches.map((m, idx) => (
                     <MatchCard
                       key={m.matchId}
                       matchId={m.matchId}
-                      fighters={m.fighters ?? []}   // use the updated fighters from displayPools
+                      fighters={m.fighters ?? []}
                       status={m.status}
-                      allFighters={swapFighterDirectory} // pass known fighters for dropdowns
+                      allFighters={swapFighterDirectory}
                       ringNo={m.ringNo}
                       matchNumber={idx + 1}
                       maxRings={maxRings}
                       interactive={interactive}
+                      onDelete={(deletedId) => {
+                        // 🔹 Optimistic removal from displayPools
+                        setDisplayPools((prev) =>
+                          prev.map((p) =>
+                            p.poolId === pool.poolId
+                              ? {
+                                  ...p,
+                                  matches: p.matches.filter(
+                                    (mx) => mx.matchId !== deletedId
+                                  ),
+                                }
+                              : p
+                          )
+                        );
+                      }}
                     />
                   ))}
                 </div>

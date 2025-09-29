@@ -131,6 +131,7 @@ CREATE TABLE `Matches` (
   `EventId` int(11) NOT NULL,
   `PendingActiveDone` ENUM('P','A','D') NOT NULL DEFAULT 'P',
   `MatchRingNo` int(11) NOT NULL,
+  `MatchQueueNumber` int(11) DEFAULT NULL,
   `lastMatchJudgement` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`MatchId`),
   CONSTRAINT `FK_Match_Event` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)
@@ -380,3 +381,23 @@ END$$
 
 DELIMITER ;
 
+-- --------------------------------------------------------
+-- Trigger: trg_finalize_match
+-- Increments a matches Queue Number if not specified in the match insert statement
+-- --------------------------------------------------------
+DELIMITER $$
+
+CREATE TRIGGER trg_matches_queue_default
+BEFORE INSERT ON Matches
+FOR EACH ROW
+BEGIN
+  IF NEW.MatchQueueNumber IS NULL THEN
+    SET NEW.MatchQueueNumber = (
+      SELECT IFNULL(MAX(MatchQueueNumber), 0) + 1
+      FROM Matches
+      WHERE EventId = NEW.EventId
+    );
+  END IF;
+END$$
+
+DELIMITER ;
