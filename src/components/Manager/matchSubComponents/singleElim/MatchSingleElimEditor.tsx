@@ -61,14 +61,6 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
             {renderRoundTitle(roundNo)}
           </div>
           {(rounds[String(roundNo)] || []).map((m: BracketMatch, idx: number) => {
-            // Convert BracketMatch → MatchCard props
-            const fighters: MatchFighterRow[] = (m.fighters || []).map((f, i) => ({
-              FighterId: f.fighterId,
-              FighterName: f.fighterName ?? `#${f.fighterId}`,
-              ClubAcronym: null, // backend doesn’t supply acronym here
-              FighterColor: i === 0 ? "Red" : "Blue",
-              FinalScore: 0,
-            }));
 
             return (
               <MatchCard

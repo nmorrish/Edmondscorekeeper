@@ -54,7 +54,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
   const [loading, setLoading] = useState(false);
   const [tournamentFighters, setTournamentFighters] = useState<FighterUpper[]>([]);
   const [eventFighters, setEventFighters] = useState<FighterUpper[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]); // kept for normalization (club acronyms)
+  const [_, setClubs] = useState<Club[]>([]); // kept for normalization (club acronyms)
 
   // ---------- Helpers ----------
   const safeJson = async (res: Response): Promise<any | null> => {

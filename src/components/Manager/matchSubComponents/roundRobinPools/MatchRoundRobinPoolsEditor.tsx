@@ -475,12 +475,6 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           if ("movedFighterId" in lastSwap && "toPoolNo" in lastSwap) {
             const { movedFighterId, toPoolNo } = lastSwap;
 
-            // Capture source pool BEFORE optimistic change so we can refresh it later
-            const from = displayPools.find((p) =>
-              p.roster?.some((f) => f.FighterId === movedFighterId)
-            );
-            const fromPoolId = from?.poolId ?? null;
-
             // Optimistic: update rosters only (leave matches alone until server confirms)
             setDisplayPools((prev) =>
               prev.map((pool) => {

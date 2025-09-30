@@ -19,7 +19,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
   fighters,
   eventId,
   maxRings,
-  isActive,
+  // isActive,
 }) => {
   const addToast = useToast();
 

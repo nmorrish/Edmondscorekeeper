@@ -36,37 +36,6 @@ const FighterManagement: React.FC = () => {
   const [activePane, setActivePane] = useState<string | null>(null);
   const [clubs, setClubs] = useState<Club[]>([]);
 
-  // ---------- Fetch: Tournament ----------
-  const fetchTournament = useCallback(async () => {
-    if (!tournamentId) return;
-    try {
-      const response = await fetch(`${backend_uri}/${tournament_api}?id=${tournamentId}`);
-      const data = await response.json();
-      if (data.status === "success" && data.tournament) {
-        setTournamentName(data.tournament.TournamentName);
-      }
-    } catch (err) {
-      console.error("Error fetching tournament:", err);
-    }
-  }, [tournamentId]);
-
-  // ---------- Fetch: Events for this Tournament ----------
-  const fetchEvents = useCallback(async () => {
-    if (!tournamentId) return;
-    try {
-      const resp = await fetch(`${backend_uri}/${event_api}?tournamentId=${tournamentId}`);
-      const data = await resp.json();
-      if (data.status === "success" && Array.isArray(data.events)) {
-        setEvents(data.events);
-      } else {
-        setEvents([]);
-      }
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      setEvents([]);
-    }
-  }, [tournamentId]);
-
   // ---------- Fetch: Clubs (for Add Fighter / Manage Clubs panes) ----------
   const fetchClubs = useCallback(async () => {
     try {

@@ -30,9 +30,9 @@ interface FighterEntryFormProps {
 const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
   fighter,
   clubs,
-  tournamentId,
-  inTournament = false,
-  context = "tournament",
+  // tournamentId,
+  // inTournament = false,
+  // context = "tournament",
 }) => {
   const addToast = useToast();
   const isNew = !fighter;

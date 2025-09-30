@@ -5,7 +5,7 @@
  * Orchestrates generation + display of a single-elimination bracket for an Event.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { backend_uri, single_elimination_api } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
 import MatchSingleElimGenerator from "./MatchSingleElimGenerator";
@@ -56,45 +56,6 @@ interface MatchSingleElimProps {
   isActive: boolean;
   tournamentId: number;
 }
-
-// Small presentational box for a single match
-const BracketMatchBox: React.FC<{ match: BracketMatch }> = ({ match }) => {
-  const f1 = match.fighters?.[0] ?? null;
-  const f2 = match.fighters?.[1] ?? null;
-
-  return (
-    <div
-      className="se-match-box"
-      style={{
-        border: "1px solid #555",
-        borderRadius: 8,
-        padding: 8,
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ fontSize: 12, opacity: 0.75 }}>
-        Match #{match.matchId ?? "?"}{" "}
-        {match.matchRing ? `• Ring ${match.matchRing}` : ""}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          alignItems: "center",
-          marginTop: 6,
-        }}
-      >
-        <div style={{ flex: 1 }}>
-          {f1?.fighterName || <span style={{ opacity: 0.6 }}>—</span>}
-        </div>
-        <div style={{ opacity: 0.6 }}>&nbsp;vs&nbsp;</div>
-        <div style={{ flex: 1 }}>
-          {f2?.fighterName || <span style={{ opacity: 0.6 }}>—</span>}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const eliminationApi = `${backend_uri}/${single_elimination_api}`;
 
@@ -185,36 +146,6 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
     },
     [addToast]
   );
-
-  // Sorted round keys for column order
-  const sortedRoundKeys = useMemo(() => {
-    const nums = Object.keys(rounds)
-      .map((k) => parseInt(k, 10))
-      .filter((n) => !isNaN(n))
-      .sort((a, b) => a - b);
-    return nums;
-  }, [rounds]);
-
-  // Compute labeling metadata
-  const labeling = useMemo(() => {
-    if (sortedRoundKeys.length === 0) {
-      return { standardTotalRounds: 0, finalRoundNo: 0, bronzeRoundNo: 0 };
-    }
-    const finalRoundNo = Math.max(...sortedRoundKeys);
-    const bronzeRoundNo = sortedRoundKeys.find((n) => n !== finalRoundNo) || 0;
-    const standardTotalRounds =
-      bronzeRoundNo > 0 ? Math.max(finalRoundNo, bronzeRoundNo) : finalRoundNo;
-    return { standardTotalRounds, finalRoundNo, bronzeRoundNo };
-  }, [sortedRoundKeys]);
-
-const renderRoundTitle = (roundNo: number) => {
-  const { standardTotalRounds } = labeling;
-  if (roundNo === standardTotalRounds) return "Final";
-  if (standardTotalRounds > 0) {
-    return `${roundNo}/${standardTotalRounds} Finals`;
-  }
-  return `Round ${roundNo}`;
-};
 
   return (
     <ErrorBoundary>

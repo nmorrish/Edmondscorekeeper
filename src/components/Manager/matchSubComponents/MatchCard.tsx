@@ -67,8 +67,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
   // optional self-loaded context
   const [eventId, setEventId] = useState<number | null>(null);
   const [localAllFighters, setLocalAllFighters] = useState<Fighter[]>(allFighters || []);
-  const [loading, setLoading] = useState(false);
-
   // keep local state synced when caller updates props later
   useEffect(() => {
     if (fighters && fighters.length) setLocalFighters(fighters);
@@ -99,7 +97,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
     (async () => {
       if (!needsMatchFetch) return;
       try {
-        setLoading(true);
         const res = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
           headers: { Accept: "application/json" },
         });
@@ -126,9 +123,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
         }
       } catch {
         if (!abort) addToast("Network error loading match.");
-      } finally {
-        if (!abort) setLoading(false);
-      }
+      } 
     })();
     return () => {
       abort = true;

@@ -32,7 +32,6 @@ type SortKey = keyof StandingRow;
 
 const EventStandings: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const numericTournamentId = tournamentId ? parseInt(tournamentId, 10) : undefined;
 
   const [tournamentName, setTournamentName] = useState<string>("");
   const [events, setEvents] = useState<EventSummary[]>([]);
