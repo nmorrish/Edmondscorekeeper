@@ -169,7 +169,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
   }, [eventId, localAllFighters.length, addToast]);
 
   const maxScore = Math.max(...localFighters.map((f) => f.FinalScore ?? 0));
-  const winners = localFighters.filter((f) => (f.FinalScore ?? 0) === maxScore);
 
   // === API ACTIONS ===
   const handleUpdateFighter = async (fighterColor: string, fighterId: number) => {
@@ -338,7 +337,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       {!readyForRender ? (
-        <div style={{ padding: "12px 8px", opacity: 0.8 }}>Loading…</div>
+        <div style={{ padding: "12px 8px", opacity: 0.8 }}>Match Pending</div>
       ) : (
         <div className="fighters">
           {localFighters.map((f) => {

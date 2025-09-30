@@ -211,7 +211,7 @@ CREATE TABLE `Brackets` (
   `EventId` int(11) NOT NULL,
   `BracketFormat` ENUM('S','D') NOT NULL,
   PRIMARY KEY (`BracketId`),
-  CONSTRAINT `FK_Bracket_Events` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)
+  CONSTRAINT `FK_Bracket_Events` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
 
 -- --------------------------------------------------------
@@ -251,7 +251,7 @@ CREATE TABLE `Pools` (
   `MinFighters` int(11) NOT NULL DEFAULT 4,
   `MaxFighters` int(11) NOT NULL DEFAULT 5,
   PRIMARY KEY (`PoolId`),
-  CONSTRAINT `FK_Pools_Events` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`),
+  CONSTRAINT `FK_Pools_Events` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)  ON DELETE CASCADE,
   UNIQUE KEY uq_event_poolno (`EventId`, `PoolNo`),
   CONSTRAINT chk_pool_sizes CHECK (`MinFighters` > 0 AND `MaxFighters` >= `MinFighters`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
@@ -376,6 +376,27 @@ BEGIN
       ELSE 'D'
     END
     WHERE mf.MatchId = NEW.MatchId;
+
+    -- 3) Advance in rank if using brackets.
+
+    INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
+    SELECT bm.NextMatchWin, mf.FighterId,
+           CASE 
+             WHEN NOT EXISTS (
+               SELECT 1 FROM MatchFighters WHERE MatchId = bm.NextMatchWin AND FighterColor = 'Red'
+             ) THEN 'Red'
+             ELSE 'Blue'
+           END
+    FROM BracketMatches bm
+    JOIN MatchFighters mf ON mf.MatchId = NEW.MatchId
+    WHERE bm.MatchId = NEW.MatchId
+      AND bm.NextMatchWin IS NOT NULL
+      AND mf.WinLossDraw = 'W'
+      AND NOT EXISTS (
+        SELECT 1 FROM MatchFighters mf2
+        WHERE mf2.MatchId = bm.NextMatchWin
+          AND mf2.FighterId = mf.FighterId
+      );
 
   END IF;
 END$$

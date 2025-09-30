@@ -23,7 +23,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   eventId,
   eventName,
   maxRings = 1,
-  fighters = [],
+  // fighters = [],
   isActive,
 }) => {
   const [savedPools, setSavedPools] = useState<any[] | null>(null);

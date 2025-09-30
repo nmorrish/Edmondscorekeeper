@@ -195,7 +195,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   const handleMovePersist = async (
     movedFighterId: number,
     toPoolNo: number,
-    fromPoolId: number | null
+    // fromPoolId: number | null
   ) => {
     try {
       const dest = displayPools.find((p) => p.poolNo === toPoolNo);
@@ -506,7 +506,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
             addToast(`Moved fighter #${movedFighterId} to Pool ${toPoolNo}`);
 
             // Persist move to backend and then refresh source/destination from server
-            handleMovePersist(movedFighterId, toPoolNo, fromPoolId);
+            handleMovePersist(movedFighterId, toPoolNo);
           }
         }}
         onManagePool={(poolNo) => {

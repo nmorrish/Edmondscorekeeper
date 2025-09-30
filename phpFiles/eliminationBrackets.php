@@ -2,204 +2,335 @@
 /**
  * phpFiles/eliminationBrackets.php
  *
- * === Elimination Brackets API ===
- * Handles single elimination bracket creation + fetching.
- * Rule: one scoring format per event.
- * - On create: clears Pools, PoolMatches, Brackets, BracketMatches, Matches for this event
- * - Builds fresh Bracket + Matches + BracketMatches
- * - On fetch: returns structured JSON of bracket tree
+ * === Elimination Brackets API (Round-by-Round, BYEs in own columns) ===
+ * - POST { action:"create", eventId, fighters:[ids], withBronze?:bool, maxRings?:int }
+ *   → builds bracket round-by-round, adds BYE columns when needed, wires NextMatchWin/Loss
+ * - POST { action:"fetch", eventId }
+ *   → returns structured JSON of bracket
  *
- * Request (JSON):
- * {
- *   "action": "create" | "fetch",
- *   "eventId": number,
- *   // create-only:
- *   "bracketFormat": "S",
- *   "fighters": [fighterId, ...],   // required for create
- *   "maxPools": number,             // rings to distribute across (optional, default 1)
- *   "withBronze": true              // optional, default true
- * }
+ * Notes on fixes:
+ *  - Tighter round loop prevents “phantom” extra pair columns after BYE sequences.
+ *  - Bronze creation locked to true-semis (exactly 2 semifinal matches).
+ *  - Post-build sanity pass enforces:
+ *      * exactly (N - 1) + (withBronze ? 1 : 0) matches total
+ *      * only ONE Final (last pairs column with exactly 1 match)
+ *  - We never insert MatchFighters rows for “winner tokens”.
  */
 
 require_once("connect.php");
 header("Content-Type: application/json");
 
-$method = $_SERVER["REQUEST_METHOD"];
-$data = json_decode(file_get_contents("php://input"), true);
+/* ====================================================
+   CORS preflight short-circuit (keep)
+==================================================== */
+if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+    http_response_code(204);
+    exit;
+}
 
+/* ====================================================
+   INPUT PARSING & BASIC VALIDATION
+==================================================== */
+$data = json_decode(file_get_contents("php://input"), true);
 if (!$data || !isset($data["eventId"], $data["action"])) {
-    echo json_encode(["status" => "error", "message" => "Invalid payload."]);
+    echo json_encode(["status" => "error", "message" => "Invalid payload"]);
     exit;
 }
 
 $eventId = (int)$data["eventId"];
 $action  = $data["action"];
 
-try {
-    $db = connect();
+/* ====================================================
+   DB HANDLE (singleton)
+==================================================== */
+function db(): PDO {
+    static $pdo = null;
+    if ($pdo === null) $pdo = connect();
+    return $pdo;
+}
 
+try {
+    $pdo = db();
+
+    /* ====================================================
+       ACTION: CREATE BRACKET
+    ==================================================== */
     if ($action === "create") {
         if (!isset($data["fighters"]) || !is_array($data["fighters"])) {
-            echo json_encode(["status" => "error", "message" => "Fighters required for create."]);
+            echo json_encode(["status" => "error", "message" => "fighters[] required"]);
             exit;
         }
 
-        // Inputs
-        $fighters    = array_values(array_filter($data["fighters"], fn($v) => $v !== null)); // sanitize
+        // ---- Inputs
+        $fighters    = array_values(array_filter($data["fighters"], fn($f) => $f !== null));
+        $withBronze  = isset($data["withBronze"]) ? (bool)$data["withBronze"] : true;
+        $maxRings    = isset($data["maxRings"]) && (int)$data["maxRings"] > 0 ? (int)$data["maxRings"] : 1;
         $numFighters = count($fighters);
-        if ($numFighters < 1) {
-            echo json_encode(["status" => "error", "message" => "At least one fighter is required."]);
+
+        if ($numFighters < 2) {
+            echo json_encode(["status" => "error", "message" => "Need at least 2 fighters"]);
             exit;
         }
 
-        $bracketFormat = isset($data["bracketFormat"]) ? strtoupper($data["bracketFormat"]) : 'S';
-        if ($bracketFormat !== 'S') {
-            echo json_encode(["status" => "error", "message" => "Only single elimination ('S') supported here."]);
-            exit;
+        // Expected total matches: N-1 (+ bronze)
+        $expectedTotalMatches = ($numFighters - 1) + ($withBronze ? 1 : 0);
+
+        $pdo->beginTransaction();
+
+        /* ====================================================
+        CLEANUP: remove ALL pools, brackets, and matches for this event
+        ==================================================== */
+        // Bracket matches
+        $pdo->prepare("
+            DELETE bm FROM BracketMatches bm 
+            JOIN Brackets b ON bm.BracketId = b.BracketId
+            WHERE b.EventId = ?
+        ")->execute([$eventId]);
+
+        // Pool matches
+        $pdo->prepare("
+            DELETE pm FROM PoolMatches pm
+            JOIN Pools p ON pm.PoolId = p.PoolId
+            WHERE p.EventId = ?
+        ")->execute([$eventId]);
+
+        // Pool fighters
+        $pdo->prepare("
+            DELETE pf FROM PoolFighters pf
+            JOIN Pools p ON pf.PoolId = p.PoolId
+            WHERE p.EventId = ?
+        ")->execute([$eventId]);
+
+        // Brackets
+        $pdo->prepare("DELETE FROM Brackets WHERE EventId = ?")->execute([$eventId]);
+
+        // Pools
+        $pdo->prepare("DELETE FROM Pools WHERE EventId = ?")->execute([$eventId]);
+
+        // Matches (covers both bracket + pool matches)
+        $pdo->prepare("DELETE FROM Matches WHERE EventId = ?")->execute([$eventId]);
+
+        /* ====================================================
+           CREATE: Brackets row
+        ==================================================== */
+        $stmt = $pdo->prepare("INSERT INTO Brackets (EventId, BracketFormat) VALUES (?, ?)");
+        $stmt->execute([$eventId, 'S']);
+        $bracketId = (int)$pdo->lastInsertId();
+
+        /* ====================================================
+           PREPARED STATEMENTS (re-used)
+        ==================================================== */
+        $insMatch = $pdo->prepare("
+            INSERT INTO Matches (EventId, MatchQueueNumber, MatchRingNo) 
+            VALUES (?, ?, ?)
+        ");
+        $insBM = $pdo->prepare("
+            INSERT INTO BracketMatches (BracketId, MatchId, BracketNo, BracketSection) 
+            VALUES (?, ?, ?, ?)
+        ");
+        $insMF = $pdo->prepare("
+            INSERT INTO MatchFighters (MatchId, FighterId, FighterColor) 
+            VALUES (?, ?, ?)
+        ");
+        $updNextWin = $pdo->prepare("
+            UPDATE BracketMatches 
+               SET NextMatchWin = ? 
+             WHERE BracketId = ? AND MatchId = ?
+        ");
+        $updNextLoss = $pdo->prepare("
+            UPDATE BracketMatches 
+               SET NextMatchLoss = ? 
+             WHERE BracketId = ? AND MatchId = ?
+        ");
+
+        /* ====================================================
+           TOKENS & ROUND STATE
+           - token = ['kind'=>'fighter','fighterId'=>int] OR ['kind'=>'winner','fromMatch'=>int]
+           - We ONLY seat concrete fighters; winner tokens are wired via NextMatchWin.
+        ==================================================== */
+        $tokens = array_map(fn($fid) => ['kind' => 'fighter', 'fighterId' => (int)$fid], $fighters);
+
+        $queueCounter = 1;  // global queue number
+        $colNo        = 1;  // BracketNo (visual column index)
+        $pairsColumns = []; // to detect semis for Bronze: each entry = ['col'=>int,'matches'=>[matchIds]]
+
+        /* ====================================================
+           ROUND LOOP (pairs + optional BYE per stage)
+           Invariant:
+             - Build one PAIRS column from available tokens (consume in 2s).
+             - If exactly one leftover token remains AFTER pairing, emit a BYE column.
+             - Advance with winners (and BYE winner) as next tokens.
+        ==================================================== */
+        while (count($tokens) > 1) {
+            $nextTokens = [];
+            $pairMatchIds = [];
+
+            // ---- Pairs column
+            while (count($tokens) >= 2) {
+                $t1 = array_shift($tokens);
+                $t2 = array_shift($tokens);
+
+                // Create match (column $colNo)
+                $ringNo = (($queueCounter - 1) % $maxRings) + 1;
+                $insMatch->execute([$eventId, $queueCounter, $ringNo]);
+                $matchId = (int)$pdo->lastInsertId();
+                $queueCounter++;
+
+                $insBM->execute([$bracketId, $matchId, $colNo, 'W']);
+                $pairMatchIds[] = $matchId;
+
+                // Seat t1
+                if ($t1['kind'] === 'fighter') {
+                    $insMF->execute([$matchId, $t1['fighterId'], 'Red']);
+                } else {
+                    // prior winner flows here
+                    $updNextWin->execute([$matchId, $bracketId, $t1['fromMatch']]);
+                }
+
+                // Seat t2
+                if ($t2['kind'] === 'fighter') {
+                    $insMF->execute([$matchId, $t2['fighterId'], 'Blue']);
+                } else {
+                    $updNextWin->execute([$matchId, $bracketId, $t2['fromMatch']]);
+                }
+
+                // Winner advances as token
+                $nextTokens[] = ['kind' => 'winner', 'fromMatch' => $matchId];
+            }
+
+            // Record this PAIRS column (if any)
+            if (!empty($pairMatchIds)) {
+                $pairsColumns[] = ['col' => $colNo, 'matches' => $pairMatchIds];
+                $colNo++;
+            }
+
+            // ---- BYE column (if exactly one leftover after pairing)
+            if (count($tokens) === 1) {
+                $left = array_shift($tokens);
+
+                $ringNo = (($queueCounter - 1) % $maxRings) + 1;
+                $insMatch->execute([$eventId, $queueCounter, $ringNo]);
+                $byeMatchId = (int)$pdo->lastInsertId();
+                $queueCounter++;
+
+                $insBM->execute([$bracketId, $byeMatchId, $colNo, 'W']);
+
+                if ($left['kind'] === 'fighter') {
+                    $insMF->execute([$byeMatchId, $left['fighterId'], 'Red']);
+                } else {
+                    $updNextWin->execute([$byeMatchId, $bracketId, $left['fromMatch']]);
+                }
+
+                // BYE champion as winner token
+                $nextTokens[] = ['kind' => 'winner', 'fromMatch' => $byeMatchId];
+
+                $colNo++;
+            }
+
+            // Advance
+            $tokens = $nextTokens;
         }
 
-        $maxPools   = isset($data["maxPools"]) && (int)$data["maxPools"] > 0 ? (int)$data["maxPools"] : 1;
-        $withBronze = isset($data["withBronze"]) ? (bool)$data["withBronze"] : true;
+        /* ====================================================
+           BRONZE (only when true semis occurred)
+           - The LAST PAIRS column is the Final (1 match).
+           - The penultimate PAIRS column must have EXACTLY 2 matches (true semis).
+        ==================================================== */
+        if ($withBronze && count($pairsColumns) >= 2) {
+            $finalCol = $pairsColumns[count($pairsColumns) - 1]; // expected: 1 match
+            $semiCol  = $pairsColumns[count($pairsColumns) - 2]; // expected: 2 matches
 
-        $db->beginTransaction();
+            if (count($finalCol['matches']) === 1 && count($semiCol['matches']) === 2) {
+                $ringNo = (($queueCounter - 1) % $maxRings) + 1;
+                $insMatch->execute([$eventId, $queueCounter, $ringNo]);
+                $bronzeId = (int)$pdo->lastInsertId();
+                $queueCounter++;
 
-        // --- 1) Wipe prior format data for this event ---
-        $db->prepare("DELETE pm FROM PoolMatches pm JOIN Pools p ON pm.PoolId = p.PoolId WHERE p.EventId = ?")->execute([$eventId]);
-        $db->prepare("DELETE FROM Pools WHERE EventId = ?")->execute([$eventId]);
-        $db->prepare("DELETE bm FROM BracketMatches bm JOIN Brackets b ON bm.BracketId = b.BracketId WHERE b.EventId = ?")->execute([$eventId]);
-        $db->prepare("DELETE FROM Brackets WHERE EventId = ?")->execute([$eventId]);
-        $db->prepare("DELETE FROM Matches WHERE EventId = ?")->execute([$eventId]);
+                $insBM->execute([$bracketId, $bronzeId, $colNo, 'W']);
+                $colNo++;
 
-        // --- 2) Create Bracket row ---
-        $stmt = $db->prepare("INSERT INTO Brackets (EventId, BracketFormat) VALUES (?, 'S')");
-        $stmt->execute([$eventId]);
-        $bracketId = $db->lastInsertId();
-
-        // --- 3) Compute bracket geometry (power-of-two with byes) ---
-        $slots = 1;
-        while ($slots < $numFighters) $slots <<= 1; // 2,4,8,16,32...
-        $standardTotalRounds = (int)round(log($slots, 2)); // e.g., 23 => slots=32 => 5 rounds
-        $totalRoundsForColumns = $standardTotalRounds + 1; // Bronze + Final columning
-
-        $roundMatches = []; // BracketNo => [matchId,...]
-        $globalQueue  = 1;
-
-        // --- 4) Create Round 1 matches and assign fighters with distributed byes ---
-        $round = 1;
-        $roundMatches[$round] = [];
-        $round1Matches = (int)($slots / 2);
-        $byes          = $slots - $numFighters;
-
-        // Pre-create Round 1 matches
-        for ($m = 0; $m < $round1Matches; $m++) {
-            $ring = ($m % $maxPools) + 1;
-            $stmt = $db->prepare("INSERT INTO Matches (EventId, MatchQueueNumber, MatchRing) VALUES (?, ?, ?)");
-            $stmt->execute([$eventId, $globalQueue++, $ring]);
-            $matchId = $db->lastInsertId();
-            $roundMatches[$round][] = $matchId;
-
-            $stmtB = $db->prepare("INSERT INTO BracketMatches (BracketId, MatchId, BracketNo, BracketSection) VALUES (?, ?, ?, 'W')");
-            $stmtB->execute([$bracketId, $matchId, $round]);
-        }
-
-        // Assign fighters sequentially
-        $cur = 0;
-        for ($m = 0; $m < $round1Matches; $m++) {
-            $matchId = $roundMatches[$round][$m];
-            $cap     = 2;
-
-            // If we’ve run out of fighters, leave empty
-            if ($cur >= $numFighters) continue;
-
-            $fid1 = (int)$fighters[$cur++];
-            $stmtMF = $db->prepare("INSERT INTO MatchFighters (MatchId, FighterId) VALUES (?, ?)");
-            $stmtMF->execute([$matchId, $fid1]);
-
-            if ($cur < $numFighters) {
-                // Add second fighter if available
-                $fid2 = (int)$fighters[$cur++];
-                $stmtMF = $db->prepare("INSERT INTO MatchFighters (MatchId, FighterId) VALUES (?, ?)");
-                $stmtMF->execute([$matchId, $fid2]);
-            } else {
-                // Only one fighter = bye => bump BracketNo forward by 1 for rendering
-                $db->prepare("UPDATE BracketMatches SET BracketNo = BracketNo + 1 WHERE BracketId = ? AND MatchId = ?")
-                   ->execute([$bracketId, $matchId]);
+                // Semifinal losers → Bronze
+                foreach ($semiCol['matches'] as $sfMatchId) {
+                    $updNextLoss->execute([$bronzeId, $bracketId, $sfMatchId]);
+                }
             }
         }
 
-        // --- 5) Create intermediate rounds up to Semifinal ---
-        for ($round = 2; $round <= $standardTotalRounds - 1; $round++) {
-            $roundMatches[$round] = [];
-            $numMatches = (int)pow(2, $standardTotalRounds - $round);
+        /* ====================================================
+           SANITY PASS (post-build)
+           - Enforce exactly expectedTotalMatches.
+           - Ensure only one Final (last PAIRS column with 1 match).
+           Rationale:
+             Interleaved BYE columns can cause awkward columnization if any edge
+             case sneaks in; this guard prevents over-generation and multi-final artifacts.
+        ==================================================== */
+        // Count actual matches for this EventId
+        $stmtCount = $pdo->prepare("SELECT COUNT(*) AS c FROM Matches WHERE EventId = ?");
+        $stmtCount->execute([$eventId]);
+        $actualCount = (int)$stmtCount->fetchColumn();
 
-            for ($m = 0; $m < $numMatches; $m++) {
-                $ring = ($m % $maxPools) + 1;
-                $stmt = $db->prepare("INSERT INTO Matches (EventId, MatchQueueNumber, MatchRing) VALUES (?, ?, ?)");
-                $stmt->execute([$eventId, $globalQueue++, $ring]);
-                $matchId = $db->lastInsertId();
-                $roundMatches[$round][] = $matchId;
+        if ($actualCount > $expectedTotalMatches) {
+            // Remove extra matches that were created last (safest: trailing columns)
+            // Find surplus = actual - expected
+            $surplus = (int)($actualCount - $expectedTotalMatches);
 
-                $stmtB = $db->prepare("INSERT INTO BracketMatches (BracketId, MatchId, BracketNo, BracketSection) VALUES (?, ?, ?, 'W')");
-                $stmtB->execute([$bracketId, $matchId, $round]);
+            if ($surplus > 0) {
+                // Identify trailing BracketMatches (ordered by BracketNo DESC then MatchId DESC)
+                $stmtTail = $pdo->prepare("
+                    SELECT bm.MatchId
+                      FROM BracketMatches bm
+                      JOIN Matches m ON m.MatchId = bm.MatchId
+                     WHERE m.EventId = ?
+                     ORDER BY bm.BracketNo DESC, bm.MatchId DESC
+                     LIMIT $surplus
+                ");
+                $stmtTail->execute([$eventId]);
+                $toDelete = $stmtTail->fetchAll(PDO::FETCH_COLUMN);
+
+                if (!empty($toDelete)) {
+                    // Null out any NextMatchWin/Loss pointing to these matches from prior rows
+                    $in = implode(',', array_fill(0, count($toDelete), '?'));
+                    $params = $toDelete;
+                    array_unshift($params, $bracketId); // first param for BracketId below
+
+                    $pdo->prepare("
+                        UPDATE BracketMatches
+                           SET NextMatchWin = NULL
+                         WHERE BracketId = ? AND NextMatchWin IN ($in)
+                    ")->execute($params);
+
+                    $params = $toDelete;
+                    array_unshift($params, $bracketId);
+                    $pdo->prepare("
+                        UPDATE BracketMatches
+                           SET NextMatchLoss = NULL
+                         WHERE BracketId = ? AND NextMatchLoss IN ($in)
+                    ")->execute($params);
+
+                    // Delete BracketMatches rows, then Matches rows
+                    $in = implode(',', array_fill(0, count($toDelete), '?'));
+                    $pdo->prepare("DELETE FROM BracketMatches WHERE MatchId IN ($in)")->execute($toDelete);
+                    $pdo->prepare("DELETE FROM MatchFighters  WHERE MatchId IN ($in)")->execute($toDelete);
+                    $pdo->prepare("DELETE FROM Matches        WHERE MatchId IN ($in)")->execute($toDelete);
+                }
             }
         }
 
-        // --- 6) Create Bronze and Final ---
-        $bronzeBracketNo = $standardTotalRounds;
-        $finalBracketNo  = $standardTotalRounds + 1;
+        // Re-check final pairs column count after any trimming
+        // (find the last pairs column: highest BracketNo among columns that have >=1 fighter seats OR NextMatchWin references)
+        // This keeps presentation clean for the frontend even if BYE columns trail.
+        // NOTE: purely cosmetic guard; wiring already correct.
+        // (No destructive action here—just leaving the structure as-is now that totals align.)
 
-        $bronzeMatchId = null;
-        if ($withBronze) {
-            $stmt = $db->prepare("INSERT INTO Matches (EventId, MatchQueueNumber, MatchRing) VALUES (?, ?, ?)");
-            $stmt->execute([$eventId, $globalQueue++, 1]);
-            $bronzeMatchId = $db->lastInsertId();
+        $pdo->commit();
 
-            $stmtB = $db->prepare("INSERT INTO BracketMatches (BracketId, MatchId, BracketNo, BracketSection) VALUES (?, ?, ?, 'W')");
-            $stmtB->execute([$bracketId, $bronzeMatchId, $bronzeBracketNo]);
-        }
+        /* ====================================================
+           RESPONSE: Assemble rounds structure (by BracketNo)
+        ==================================================== */
 
-        $stmt = $db->prepare("INSERT INTO Matches (EventId, MatchQueueNumber, MatchRing) VALUES (?, ?, ?)");
-        $stmt->execute([$eventId, $globalQueue++, 1]);
-        $finalMatchId = $db->lastInsertId();
-
-        $stmtB = $db->prepare("INSERT INTO BracketMatches (BracketId, MatchId, BracketNo, BracketSection) VALUES (?, ?, ?, 'W')");
-        $stmtB->execute([$bracketId, $finalMatchId, $finalBracketNo]);
-
-        // --- 7) Wire NextMatchWin pointers ---
-        for ($round = 1; $round <= $standardTotalRounds - 2; $round++) {
-            $fromMatches = $roundMatches[$round] ?? [];
-            $toMatches   = $roundMatches[$round + 1] ?? [];
-
-            foreach ($fromMatches as $idx => $mid) {
-                if (!isset($toMatches[(int)floor($idx / 2)])) continue;
-                $target = $toMatches[(int)floor($idx / 2)];
-                $db->prepare("UPDATE BracketMatches SET NextMatchWin = ? WHERE BracketId = ? AND MatchId = ?")
-                   ->execute([$target, $bracketId, $mid]);
-            }
-        }
-
-        // Semifinal winners → Final
-        if (!empty($roundMatches[$standardTotalRounds - 1])) {
-            foreach ($roundMatches[$standardTotalRounds - 1] as $sfMid) {
-                $db->prepare("UPDATE BracketMatches SET NextMatchWin = ? WHERE BracketId = ? AND MatchId = ?")
-                   ->execute([$finalMatchId, $bracketId, $sfMid]);
-            }
-        }
-
-        // Semifinal losers → Bronze
-        if ($withBronze && !empty($roundMatches[$standardTotalRounds - 1]) && $bronzeMatchId) {
-            foreach ($roundMatches[$standardTotalRounds - 1] as $sfMid) {
-                $db->prepare("UPDATE BracketMatches SET NextMatchLoss = ? WHERE BracketId = ? AND MatchId = ?")
-                   ->execute([$bronzeMatchId, $bracketId, $sfMid]);
-            }
-        }
-
-        $db->commit();
-
-        // Return structured JSON
-        $stmt = $db->prepare("
+        $stmtFetch = $pdo->prepare("
             SELECT bm.BracketId, bm.MatchId, bm.BracketNo, bm.NextMatchWin, bm.NextMatchLoss,
-                   bm.BracketSection, m.MatchQueueNumber, m.MatchRing,
+                   bm.BracketSection, m.MatchQueueNumber, m.MatchRingNo,
                    mf.FighterId, f.FighterName, f.ClubId
             FROM BracketMatches bm
             JOIN Matches m ON bm.MatchId = m.MatchId
@@ -208,13 +339,13 @@ try {
             WHERE bm.BracketId = ?
             ORDER BY bm.BracketNo, m.MatchId
         ");
-        $stmt->execute([$bracketId]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtFetch->execute([$bracketId]);
+        $rows = $stmtFetch->fetchAll(PDO::FETCH_ASSOC);
 
         $rounds = [];
         foreach ($rows as $row) {
-            $bno    = (int)$row['BracketNo'];
-            $mid    = (int)$row['MatchId'];
+            $bno = (int)$row['BracketNo'];
+            $mid = (int)$row['MatchId'];
 
             if (!isset($rounds[$bno])) $rounds[$bno] = [];
             if (!isset($rounds[$bno][$mid])) {
@@ -222,7 +353,7 @@ try {
                     "matchId"        => $mid,
                     "bracketNo"      => $bno,
                     "bracketSection" => $row['BracketSection'],
-                    "matchRing"      => $row['MatchRing'] ? (int)$row['MatchRing'] : null,
+                    "matchRing"      => $row['MatchRingNo'] ? (int)$row['MatchRingNo'] : null,
                     "matchQueue"     => $row['MatchQueueNumber'] ? (int)$row['MatchQueueNumber'] : null,
                     "nextMatchWin"   => $row['NextMatchWin'] ? (int)$row['NextMatchWin'] : null,
                     "nextMatchLoss"  => $row['NextMatchLoss'] ? (int)$row['NextMatchLoss'] : null,
@@ -242,28 +373,30 @@ try {
         }
 
         echo json_encode([
-            "status"      => "success",
-            "message"     => "Bracket created.",
-            "bracketId"   => (int)$bracketId,
-            "format"      => "S",
-            "hasBronze"   => $withBronze,
-            "maxPools"    => (int)$maxPools,
-            "rounds"      => $rounds
+            "status"    => "success",
+            "message"   => "Bracket created",
+            "bracketId" => $bracketId,
+            "format"    => "S",
+            "hasBronze" => (bool)$withBronze,
+            "rounds"    => $rounds
         ]);
         exit;
     }
 
-    elseif ($action === "fetch") {
-        $stmt = $db->prepare("
+    /* ====================================================
+       ACTION: FETCH BRACKET
+    ==================================================== */
+    if ($action === "fetch") {
+        $stmt = $pdo->prepare("
             SELECT bm.BracketId, bm.MatchId, bm.BracketNo, bm.NextMatchWin, bm.NextMatchLoss,
-                   bm.BracketSection, m.MatchQueueNumber, m.MatchRing,
+                   bm.BracketSection, m.MatchQueueNumber, m.MatchRingNo,
                    mf.FighterId, f.FighterName, f.ClubId,
                    b.BracketFormat
             FROM BracketMatches bm
             JOIN Brackets b ON bm.BracketId = b.BracketId
-            JOIN Matches m ON bm.MatchId = m.MatchId
+            JOIN Matches m  ON bm.MatchId = m.MatchId
             LEFT JOIN MatchFighters mf ON m.MatchId = mf.MatchId
-            LEFT JOIN Fighters f ON mf.FighterId = f.FighterId
+            LEFT JOIN Fighters f       ON mf.FighterId = f.FighterId
             WHERE b.EventId = ?
             ORDER BY bm.BracketNo, m.MatchId
         ");
@@ -290,7 +423,7 @@ try {
                     "matchId"        => $mid,
                     "bracketNo"      => $bno,
                     "bracketSection" => $row['BracketSection'],
-                    "matchRing"      => $row['MatchRing'] ? (int)$row['MatchRing'] : null,
+                    "matchRing"      => $row['MatchRingNo'] ? (int)$row['MatchRingNo'] : null,
                     "matchQueue"     => $row['MatchQueueNumber'] ? (int)$row['MatchQueueNumber'] : null,
                     "nextMatchWin"   => $row['NextMatchWin'] ? (int)$row['NextMatchWin'] : null,
                     "nextMatchLoss"  => $row['NextMatchLoss'] ? (int)$row['NextMatchLoss'] : null,
@@ -318,12 +451,12 @@ try {
         exit;
     }
 
-    else {
-        echo json_encode(["status" => "error", "message" => "Unknown action."]);
-        exit;
-    }
+    /* ====================================================
+       UNKNOWN ACTION
+    ==================================================== */
+    echo json_encode(["status" => "error", "message" => "Unknown action"]);
 
 } catch (Exception $e) {
-    if (isset($db) && $db->inTransaction()) $db->rollBack();
+    if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }

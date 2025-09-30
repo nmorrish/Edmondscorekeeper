@@ -101,17 +101,6 @@ const ClubEntryForm: React.FC<ClubEntryFormProps> = ({ club, onClubsUpdated }) =
     }
   };
 
-  const handleCancel = () => {
-    if (isNew) {
-      setName("");
-      setAcronym("");
-    } else {
-      setName(club!.ClubName);
-      setAcronym(club!.ClubAcronym ?? "");
-      setEditing(false);
-    }
-  };
-
   // Single-line layout
   return (
     <div

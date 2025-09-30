@@ -631,8 +631,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
         $maxRings = max(1, (int)$eventRow['MaxRings']);
 
         if ($deleteExisting) {
+            // First remove bracket match links
+            $db->prepare("DELETE bm FROM BracketMatches bm
+                        JOIN Matches m ON bm.MatchId = m.MatchId
+                        WHERE m.EventId = ?")->execute([$eventId]);
+
+            // Then remove pool match links
+            $db->prepare("DELETE pm FROM PoolMatches pm
+                        JOIN Matches m ON pm.MatchId = m.MatchId
+                        WHERE m.EventId = ?")->execute([$eventId]);
+
+            // Remove pool fighters
+            $db->prepare("DELETE pf FROM PoolFighters pf
+                        JOIN Pools p ON pf.PoolId = p.PoolId
+                        WHERE p.EventId = ?")->execute([$eventId]);
+
+            // Now safe to delete matches themselves
             $db->prepare("DELETE FROM Matches WHERE EventId = ?")->execute([$eventId]);
+
+            // Delete pools for the event
             $db->prepare("DELETE FROM Pools WHERE EventId = ?")->execute([$eventId]);
+
+            // Finally delete brackets for the event
             $db->prepare("DELETE FROM Brackets WHERE EventId = ?")->execute([$eventId]);
         }
 

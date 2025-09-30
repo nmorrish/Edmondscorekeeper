@@ -5,12 +5,17 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { backend_uri, single_elimination_api } from "../../../utility/endpoints";
+import {
+  backend_uri,
+  single_elimination_api,
+  event_fighters_api,
+} from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
-import useFighters, { Fighter } from "../../subComponents/useFighters";
+import { Fighter } from "../../subComponents/useFighters";
 import MatchSingleElimFighterManager from "./MatchSingleElimFighterManager";
 import ErrorBoundary from "../../../utility/ErrorBoundary";
 import { safeParseJson, sanitizeFighters } from "../../../utility/dataGuards";
+import { useRefresh } from "../../../utility/RefreshContext";
 
 interface MatchSingleElimGeneratorProps {
   eventId: number;
@@ -20,6 +25,7 @@ interface MatchSingleElimGeneratorProps {
 }
 
 const eliminationApi = `${backend_uri}/${single_elimination_api}`;
+const EVENT_FIGHTERS_API = `${backend_uri}/${event_fighters_api}`;
 
 const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   eventId,
@@ -28,7 +34,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   tournamentId,
 }) => {
   const addToast = useToast();
-  const { fighters: fetchedFighters, fetchFighterData } = useFighters();
+  const { triggerRefresh } = useRefresh();
   const [loading, setLoading] = useState(false);
   const [withBronze, setWithBronze] = useState(true);
   const [localMaxRings, setLocalMaxRings] = useState<number>(
@@ -37,24 +43,33 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   const [showManager, setShowManager] = useState(false);
   const [localFighters, setLocalFighters] = useState<Fighter[]>([]);
 
-  // Load fighters whenever eventId changes
-  useEffect(() => {
-    setLocalFighters([]); // clear stale
-    (async () => {
-      try {
-        await fetchFighterData(eventId);
-      } catch (err: any) {
-        addToast(`Error fetching fighters: ${err.message || err}`);
-      }
-    })();
-  }, [eventId, fetchFighterData, addToast]);
+  // Extracted fetcher for reuse
+  const loadFighters = useCallback(async () => {
+    setLocalFighters([]);
+    try {
+      const res = await fetch(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
+      const data = await res.json().catch(() => null);
 
-  // Sync fetched fighters into local state
-  useEffect(() => {
-    if (Array.isArray(fetchedFighters)) {
-      setLocalFighters(sanitizeFighters(fetchedFighters));
+      if (res.ok && data?.status === "success" && Array.isArray(data.fighters)) {
+        setLocalFighters(sanitizeFighters(data.fighters));
+      } else {
+        setLocalFighters([]);
+        addToast(`No fighters found for event ${eventId}`);
+      }
+    } catch (err: any) {
+      addToast(`Error fetching fighters: ${err.message || err}`);
     }
-  }, [fetchedFighters]);
+  }, [eventId, addToast]);
+
+  // Load fighters on mount and when eventId changes
+  useEffect(() => {
+    loadFighters();
+  }, [eventId, loadFighters]);
+
+  // Reload fighters when global refresh is triggered 
+  useEffect(() => {
+    loadFighters();
+  }, [triggerRefresh, loadFighters]);
 
   const fighterIds = useMemo<number[]>(
     () =>
@@ -65,8 +80,8 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   );
 
   const handleCreate = useCallback(async () => {
-    if (fighterIds.length < 1) {
-      addToast("Add at least 1 fighter to create a bracket.");
+    if (fighterIds.length < 2) {
+      addToast("Add at least 2 fighter to create a bracket.");
       return;
     }
     setLoading(true);
@@ -86,6 +101,8 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      console.log(res)
 
       const bodyText = await res.text().catch(() => null);
       const data = safeParseJson(bodyText);
@@ -120,6 +137,8 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
       }
     } catch (err: any) {
       addToast(`Error: ${err.message || err}`);
+
+      console.log(err.message || err)
     } finally {
       setLoading(false);
     }
@@ -152,7 +171,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
                 marginBottom: 6,
               }}
             >
-              <span style={{ fontWeight: 600 }}>Fighters in Event</span>
+              <span style={{ fontWeight: 600 }}>{localFighters.length} Fighters in Event</span>
               <button
                 onClick={() => setShowManager(true)}
                 style={{

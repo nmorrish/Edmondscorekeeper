@@ -15,6 +15,7 @@ import {
   normalizeBracketFormat,
   sanitizeBracketRounds,
 } from "../../../utility/dataGuards";
+import MatchSingleElimEditor from "./MatchSingleElimEditor";
 
 // --- Types aligned with backend JSON ---
 export interface BracketFighter {
@@ -206,13 +207,14 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
     return { standardTotalRounds, finalRoundNo, bronzeRoundNo };
   }, [sortedRoundKeys]);
 
-  const renderRoundTitle = (roundNo: number) => {
-    const { standardTotalRounds, finalRoundNo, bronzeRoundNo } = labeling;
-    if (roundNo === finalRoundNo) return "Final";
-    if (roundNo === bronzeRoundNo && bronzeRoundNo > 0) return "Bronze";
-    if (standardTotalRounds > 0) return `${roundNo}/${standardTotalRounds} Finals`;
-    return `Round ${roundNo}`;
-  };
+const renderRoundTitle = (roundNo: number) => {
+  const { standardTotalRounds } = labeling;
+  if (roundNo === standardTotalRounds) return "Final";
+  if (standardTotalRounds > 0) {
+    return `${roundNo}/${standardTotalRounds} Finals`;
+  }
+  return `Round ${roundNo}`;
+};
 
   return (
     <ErrorBoundary>
@@ -259,29 +261,12 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
 
         {/* Display bracket columns when data exists */}
         {!loading && !error && Object.keys(rounds).length > 0 && (
-          <div
-            className="single-elim-grid"
-            style={{
-              display: "grid",
-              gridAutoFlow: "column",
-              gap: 16,
-              alignItems: "start",
-            }}
-          >
-            {sortedRoundKeys.map((roundNo) => (
-              <div key={roundNo} className="se-column" style={{ minWidth: 280 }}>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  {renderRoundTitle(roundNo)}
-                </div>
-                {(rounds[String(roundNo)] || []).map((m) => (
-                  <BracketMatchBox
-                    key={m.matchId ? String(m.matchId) : `${roundNo}-x`}
-                    match={m}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+          <MatchSingleElimEditor
+            rounds={rounds}
+            maxRings={maxRings}
+            interactive={true}
+            onChange={(id, fighters) => console.log("Changed", id, fighters)}
+          />
         )}
 
         {/* Empty state */}

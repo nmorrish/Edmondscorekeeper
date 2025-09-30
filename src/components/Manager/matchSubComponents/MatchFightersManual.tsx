@@ -24,7 +24,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
   const addToast = useToast();
 
   // NEW: hold isActive in a local variable for potential use
-  const active = isActive;
+  // const active = isActive;
 
   const [selectedFighter1, setSelectedFighter1] = useState(
     fighters[0]?.FighterId ?? 0

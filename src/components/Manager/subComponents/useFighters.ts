@@ -46,7 +46,6 @@ const useFighters = () => {
       }
 
       if (res.ok && data.status === "success" && Array.isArray(data.fighters)) {
-        console.log("RAW fighters from API:", data.fighters);
 
         const mapped: Fighter[] = data.fighters.map((f: any) => ({
           FighterId: f.FighterId ?? f.fighterId,

@@ -24,7 +24,6 @@ interface JudgeScoresProps {
 }
 
 const JudgeScores: React.FC<JudgeScoresProps> = ({
-  fighterId,
   exchanges,
   readonly = false,
   onExchangesUpdate,
