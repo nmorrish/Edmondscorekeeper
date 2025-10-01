@@ -196,7 +196,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
               <button
                 onClick={() => {
                   const ok = window.confirm(
-                    "!WARNING!\n\nRe-creating the bracket will erase the current bracket and all its matches for this event.\nTHIS CANNOT BE UNDONE!\nContinue?"
+                    "!!!DANGER WARNING!!!\n\nRe-creating the bracket will erase the current bracket and all its matches for this event.\nTHIS CANNOT BE UNDONE!\nContinue?"
                   );
                   if (!ok) return;
 

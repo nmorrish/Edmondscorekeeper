@@ -80,8 +80,8 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   );
 
   const handleCreate = useCallback(async () => {
-    if (fighterIds.length < 2) {
-      addToast("Add at least 2 fighter to create a bracket.");
+    if (fighterIds.length < 3) {
+      addToast("Add at least 3 fighter to create a bracket.");
       return;
     }
     setLoading(true);
@@ -92,9 +92,11 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
         tournamentId,
         bracketFormat: "S",
         fighters: fighterIds,
-        maxPools: Math.max(1, localMaxRings),
+        maxRings: Math.max(1, localMaxRings),
         withBronze: !!withBronze,
       };
+
+      console.log(payload)
 
       const res = await fetch(eliminationApi, {
         method: "POST",

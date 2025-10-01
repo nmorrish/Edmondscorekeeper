@@ -355,7 +355,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                 <span
                   className={`score ${isWinner ? "winner" : ""}`}
                 >
-                  {f.FinalScore !== null && f.FinalScore !== undefined ? f.FinalScore : ""}
+                  {f.FinalScore !== null && f.FinalScore !== undefined ? Number(f.FinalScore).toFixed(2) : ""}
                 </span>
               </div>
             );

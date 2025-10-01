@@ -199,7 +199,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
 
   const handleSave = useCallback(async () => {
     const confirmed = window.confirm(
-      `WARNING!\nSaving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${eventName} — including completed and in-progress matches.\nAre you sure you want to continue?\n\nYou are safe to continue if there are no matches currently in ${eventName}.`
+      `!!!DANGER WARNING!!!\n\nSaving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${eventName} — including completed and in-progress matches.\nAre you sure you want to continue?\n\nYou are safe to continue if there are no matches currently in ${eventName}.`
     );
     if (!confirmed) return;
 

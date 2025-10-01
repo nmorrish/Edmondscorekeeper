@@ -41,8 +41,9 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
 
   const renderRoundTitle = (roundNo: number) => {
     const finalRoundNo = Math.max(...sortedRoundKeys);
-    if (roundNo === finalRoundNo) return "Final";
-    return `${roundNo}/${finalRoundNo} Finals`;
+    if (roundNo === finalRoundNo) return "Gold | Silver";
+    if (roundNo === finalRoundNo - 1) return "Bronze";
+    return `${roundNo}/${finalRoundNo - 2} Finals`;
   };
 
   return (
