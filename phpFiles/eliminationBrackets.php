@@ -215,13 +215,39 @@ try {
 
                 $insBM->execute([$bracketId, $byeMatchId, $colNo, 'W']);
 
+                // Seat/wire the leftover into the BYE match
                 if ($left['kind'] === 'fighter') {
                     $insMF->execute([$byeMatchId, $left['fighterId'], 'Red']);
                 } else {
+                    // prior winner flows into the BYE slot
                     $updNextWin->execute([$byeMatchId, $bracketId, $left['fromMatch']]);
                 }
 
-                // BYE champion as winner token
+                /* =========================
+                 * PATCH: Inline BYE wiring
+                 * - Choose one donor from the current pairs column (first match).
+                 * - Wire that donor's NextMatchWin → $byeMatchId.
+                 * - Remove the donor's token from $nextTokens to avoid double-advancing.
+                 * - Advance BYE match as the token for the next stage.
+                 * ========================= */
+                if (!empty($pairMatchIds)) {
+                    $donorMatchId = $pairMatchIds[0]; // policy: first pair of this stage
+
+                    // Wire donor -> BYE match
+                    $updNextWin->execute([$byeMatchId, $bracketId, $donorMatchId]);
+
+                    // Remove donor token from nextTokens
+                    foreach ($nextTokens as $i => $tok) {
+                        if ($tok['kind'] === 'winner' && $tok['fromMatch'] === $donorMatchId) {
+                            unset($nextTokens[$i]);
+                            break;
+                        }
+                    }
+                    // reindex after unset
+                    $nextTokens = array_values($nextTokens);
+                }
+
+                // BYE match advances as a single token to the next stage
                 $nextTokens[] = ['kind' => 'winner', 'fromMatch' => $byeMatchId];
 
                 $colNo++;
@@ -246,8 +272,9 @@ try {
                 $bronzeId = (int)$pdo->lastInsertId();
                 $queueCounter++;
 
+                $colNo++; 
                 $insBM->execute([$bracketId, $bronzeId, $colNo, 'W']);
-                $colNo++;
+
 
                 // Semifinal losers → Bronze
                 foreach ($semiCol['matches'] as $sfMatchId) {

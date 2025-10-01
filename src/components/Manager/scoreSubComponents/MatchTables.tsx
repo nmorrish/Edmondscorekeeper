@@ -1,5 +1,5 @@
 /**
- * src/components/Manager/subComponents/MatchTables.tsx
+ * src/components/Manager/scoreSubComponents/MatchTables.tsx
  *
  * === Match Tables ===
  * Displays matches for the selected Event + Ring.
@@ -287,7 +287,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                 )}
 
                 {poolMatches.map((match) => {
-                  if (!match.fighters?.length) return null;
+                  if (!match.fighters || match.fighters.length < 2) return null;
                   const [f1, f2] = match.fighters;
 
                   const f1Total = parseFloat(
@@ -475,7 +475,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
           });
         })() : (
           matches.map((match) => {
-            if (!match.fighters?.length) return null;
+            if (!match.fighters || match.fighters.length < 2) return null;
             const [f1, f2] = match.fighters;
 
             const f1Total = parseFloat(

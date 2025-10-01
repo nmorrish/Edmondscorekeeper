@@ -1,5 +1,5 @@
 /**
- * src/components/Manager/subComponents/ScoreDisplayComponent.tsx
+ * src/components/Manager/scoreSubComponents/ScoreDisplayComponent.tsx
  *
  * === Score Display Component ===
  * Shows per-exchange averages (one row per exchange), column totals, and grand total.

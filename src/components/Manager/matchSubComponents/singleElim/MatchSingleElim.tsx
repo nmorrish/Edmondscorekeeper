@@ -16,6 +16,7 @@ import {
   sanitizeBracketRounds,
 } from "../../../utility/dataGuards";
 import MatchSingleElimEditor from "./MatchSingleElimEditor";
+import MatchSingleElimFighterList from "./MatchSingleElimFighterList";
 
 // --- Types aligned with backend JSON ---
 export interface BracketFighter {
@@ -74,6 +75,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   const [format, setFormat] = useState<"S" | "D" | undefined>("S");
   const [bracketId, setBracketId] = useState<number | undefined>(undefined);
   const [hasBronze, setHasBronze] = useState<boolean | undefined>(undefined);
+  const [locallyActive, setLocallyActive] = useState<boolean>(false);
 
   const fetchBracket = useCallback(async () => {
     setLoading(true);
@@ -138,6 +140,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
         setFormat(normalizeBracketFormat(payload.format));
         setHasBronze(payload.hasBronze);
         setError(null);
+        setLocallyActive(true); // ✅ activate editor immediately
         addToast("Single-elimination bracket created.");
       } else {
         setError(payload.message || "Failed to create bracket.");
@@ -158,30 +161,14 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
           }}
         >
           <h2 style={{ margin: 0 }}>Single Elimination — {eventName}</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={fetchBracket}
-              disabled={loading}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid #666",
-                background: "transparent",
-                cursor: "pointer",
-              }}
-              title="Fetch latest bracket from server"
-            >
-              Refresh
-            </button>
-          </div>
         </div>
 
         {/* Loading / error states */}
         {loading && <div style={{ opacity: 0.7 }}>Loading bracket…</div>}
         {error && <div style={{ color: "red", fontSize: 14 }}>Error: {error}</div>}
 
-        {/* Generator: strictly show only if not active */}
-        {!isActive && !loading && (
+        {/* Generator: only if not active OR if user reset */}
+        {(!isActive && !locallyActive) && !loading && (
           <MatchSingleElimGenerator
             eventId={eventId}
             maxRings={maxRings}
@@ -190,18 +177,58 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
           />
         )}
 
-        {/* Display bracket columns when data exists */}
-        {!loading && !error && Object.keys(rounds).length > 0 && (
-          <MatchSingleElimEditor
-            rounds={rounds}
-            maxRings={maxRings}
-            interactive={true}
-            onChange={(id, fighters) => console.log("Changed", id, fighters)}
-          />
+        {/* Editor: when data exists */}
+        {!loading && !error && (locallyActive || Object.keys(rounds).length > 0) && (
+          <>
+            <MatchSingleElimFighterList
+              eventId={eventId}
+              tournamentId={tournamentId}
+              showManage={false}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                margin: "8px 0",
+              }}
+            >
+              <button
+                onClick={() => {
+                  const ok = window.confirm(
+                    "!WARNING!\n\nRe-creating the bracket will erase the current bracket and all its matches for this event.\nTHIS CANNOT BE UNDONE!\nContinue?"
+                  );
+                  if (!ok) return;
+
+                  setRounds({});
+                  setBracketId(undefined);
+                  setHasBronze(undefined);
+                  setError(null);
+                  setLocallyActive(false);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #666",
+                  cursor: "pointer",
+                  background: "#1b1b1b",
+                }}
+              >
+                Re-create Bracket
+              </button>
+            </div>
+
+            <MatchSingleElimEditor
+              rounds={rounds}
+              maxRings={maxRings}
+              interactive={true}
+              onChange={(id, fighters) => console.log("Changed", id, fighters)}
+            />
+          </>
         )}
 
         {/* Empty state */}
-        {!loading && !error && isActive && Object.keys(rounds).length === 0 && (
+        {!loading && !error && isActive && !locallyActive && Object.keys(rounds).length === 0 && (
           <div style={{ opacity: 0.7 }}>No bracket data available.</div>
         )}
 

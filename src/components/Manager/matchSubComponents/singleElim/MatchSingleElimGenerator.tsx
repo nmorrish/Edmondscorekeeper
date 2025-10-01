@@ -256,7 +256,13 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
             </label>
 
             <button
-              onClick={handleCreate}
+              onClick={()=>{
+                const ok = window.confirm(
+                  "    !!!DANGER WARNING!!!\n\n   Creating a bracket will erase the current brackets, pools, and all matches for this event.\nTHIS CANNOT BE UNDONE!\n If no matches have been created yet. It is safe to continue."
+                );
+                if (!ok) return;
+                handleCreate();
+              }}
               disabled={loading || fighterIds.length === 0}
               style={{
                 padding: "8px 12px",

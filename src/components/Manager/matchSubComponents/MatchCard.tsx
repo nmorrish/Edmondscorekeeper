@@ -26,9 +26,9 @@ export interface MatchFighterRow {
 
 interface MatchCardProps {
   matchId: number;
-  fighters: MatchFighterRow[];   // callers can still pass these (recommended when available, if not, pass in [])
+  fighters: MatchFighterRow[];   // callers can still pass these to populate fighters in match (recommended when available, if not, pass in [])
   status: MatchStatus;
-  allFighters: Fighter[];        // callers can still pass these (recommended when available, if not, pass in [])
+  allFighters: Fighter[];        // callers can still pass these populate fighter swap dropdowns (recommended when available, if not, pass in [])
   ringNo: number;
   matchNumber: number;
   maxRings: number;
@@ -112,7 +112,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
               FighterName: f.FighterName ?? `#${f.FighterId}`,
               ClubAcronym: f.ClubAcronym ?? null,
               FighterColor: f.FighterColor,
-              FinalScore: typeof f.FinalScore === "number" ? f.FinalScore : 0,
+              FinalScore: f.FinalScore !== null && f.FinalScore !== undefined ? Number(f.FinalScore) : null,
             }))
           );
           if (m.PendingActiveDone) setLocalStatus(m.PendingActiveDone as MatchStatus);
@@ -163,7 +163,11 @@ const MatchCard: React.FC<MatchCardProps> = ({
     };
   }, [eventId, localAllFighters.length, addToast]);
 
-  const maxScore = Math.max(...localFighters.map((f) => f.FinalScore ?? 0));
+  const maxScore = Math.max(
+    ...localFighters.map((f) => (f.FinalScore !== null && f.FinalScore !== undefined ? f.FinalScore : -Infinity))
+  );
+  const hasScores = localFighters.some((f) => typeof f.FinalScore === "number" && f.FinalScore > 0);
+
 
   // === API ACTIONS ===
   const handleUpdateFighter = async (fighterColor: string, fighterId: number) => {
@@ -336,18 +340,22 @@ const MatchCard: React.FC<MatchCardProps> = ({
       ) : (
         <div className="fighters">
           {localFighters.map((f) => {
-            const isWinner = f.FinalScore !== undefined && f.FinalScore === (isFinite(maxScore) ? maxScore : 0);
+            const isWinner = hasScores && f.FinalScore === maxScore;
+
             return (
               <div key={`${matchId}-${f.FighterColor}`} className={`fighter-row ${f.FighterColor}`}>
                 <FighterDropdown
                   fighter={f}
-                  allFighters={localAllFighters}   
+                  allFighters={localAllFighters}
                   localFighters={localFighters}
                   onUpdate={handleUpdateFighter}
                   interactive={interactive}
+                  isWinner={isWinner}   // 🔹 now passed down
                 />
-                <span className={`score ${isWinner ? "winner" : ""}`}>
-                  {f.FinalScore ?? 0}
+                <span
+                  className={`score ${isWinner ? "winner" : ""}`}
+                >
+                  {f.FinalScore !== null && f.FinalScore !== undefined ? f.FinalScore : ""}
                 </span>
               </div>
             );

@@ -398,6 +398,26 @@ BEGIN
           AND mf2.FighterId = mf.FighterId
       );
 
+    /* 4) Advance Losers if using brackets */
+    INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
+    SELECT bm.NextMatchLoss, mf.FighterId,
+           CASE
+             WHEN NOT EXISTS (
+               SELECT 1 FROM MatchFighters WHERE MatchId = bm.NextMatchLoss AND FighterColor = 'Red'
+             ) THEN 'Red'
+             ELSE 'Blue'
+           END
+    FROM BracketMatches bm
+    JOIN MatchFighters mf ON mf.MatchId = NEW.MatchId
+    WHERE bm.MatchId = NEW.MatchId
+      AND bm.NextMatchLoss IS NOT NULL
+      AND mf.WinLossDraw = 'L'
+      AND NOT EXISTS (
+        SELECT 1 FROM MatchFighters mf2
+        WHERE mf2.MatchId = bm.NextMatchLoss
+          AND mf2.FighterId = mf.FighterId
+      );
+
   END IF;
 END$$
 

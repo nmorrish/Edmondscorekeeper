@@ -1,5 +1,5 @@
 /**
- * src/components/Navigation/FloatingNav.tsx
+ * src/components/utility/FloatingNav.tsx
  *
  * Floating Navigation with styled header/footer
  */
