@@ -5,9 +5,10 @@
  * Renders bracket rounds using MatchCard for each match.
  * - Portable: consumes backend `BracketRounds` structure.
  * - Editing enabled when `interactive=true`.
+ * - Supports grab-scroll with inertia for large brackets.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import MatchCard, { MatchFighterRow, MatchStatus } from "../MatchCard";
 import { BracketMatch, BracketRounds } from "./MatchSingleElim";
 
@@ -30,6 +31,16 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
   onComplete,
   onChangeRing,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const velocityRef = useRef(0);
+  const lastXRef = useRef(0);
+  const animationRef = useRef<number | null>(null);
+
   // Sort rounds by BracketNo
   const sortedRoundKeys = useMemo(() => {
     const nums = Object.keys(rounds)
@@ -46,30 +57,85 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
     return `${roundNo}/${finalRoundNo - 2} Finals`;
   };
 
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - containerRef.current.offsetLeft);
+    setScrollLeft(containerRef.current.scrollLeft);
+    lastXRef.current = e.pageX;
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - containerRef.current.offsetLeft;
+    const walk = (x - startX) * 1;
+    containerRef.current.scrollLeft = scrollLeft - walk;
+
+    // Track velocity
+    velocityRef.current = e.pageX - lastXRef.current;
+    lastXRef.current = e.pageX;
+  };
+
+  const stopDragging = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // Start inertia animation
+    const inertia = () => {
+      if (!containerRef.current) return;
+      containerRef.current.scrollLeft -= velocityRef.current;
+      velocityRef.current *= 0.95; // friction
+      if (Math.abs(velocityRef.current) > 0.5) {
+        animationRef.current = requestAnimationFrame(inertia);
+      } else {
+        animationRef.current = null;
+      }
+    };
+    inertia();
+  };
+
   return (
     <div
-      className="single-elim-grid"
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      onMouseLeave={stopDragging}
+      onMouseUp={stopDragging}
+      onMouseMove={handleMouseMove}
       style={{
-        display: "grid",
-        gridAutoFlow: "column",
-        gap: 16,
-        alignItems: "start",
+        overflowX: "auto",
+        overflowY: "hidden",
+        maxWidth: "100%",
+        paddingBottom: 8,
+        cursor: isDragging ? "grabbing" : "grab",
       }}
     >
-      {sortedRoundKeys.map((roundNo) => (
-        <div key={roundNo} className="se-column" style={{ minWidth: 280 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>
-            {renderRoundTitle(roundNo)}
-          </div>
-          {(rounds[String(roundNo)] || []).map((m: BracketMatch, idx: number) => {
-
-            return (
+      <div
+        className="single-elim-grid"
+        style={{
+          display: "grid",
+          gridAutoFlow: "column",
+          gap: 16,
+          alignItems: "start",
+          justifyContent: "flex-start",
+          minWidth: "fit-content",
+          userSelect: "none",
+        }}
+      >
+        {sortedRoundKeys.map((roundNo) => (
+          <div key={roundNo} className="se-column" style={{ minWidth: 280 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>
+              {renderRoundTitle(roundNo)}
+            </div>
+            {(rounds[String(roundNo)] || []).map((m: BracketMatch, idx: number) => (
               <MatchCard
                 key={m.matchId}
                 matchId={m.matchId}
                 fighters={[]}
-                status={"P" as MatchStatus} 
-                allFighters={[]} 
+                status={"P" as MatchStatus}
+                allFighters={[]}
                 ringNo={m.matchRing ?? 1}
                 matchNumber={m.matchQueue ?? idx + 1}
                 maxRings={maxRings}
@@ -79,10 +145,10 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
                 onComplete={onComplete}
                 onChangeRing={onChangeRing}
               />
-            );
-          })}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

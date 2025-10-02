@@ -316,7 +316,6 @@ function reshufflePoolMatches(PDO $db, int $eventId, int $poolId, int $ring): ar
  *   • reshuffle both pools
  */
 function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array {
-    // Get pools of each fighter and detect A/D presence
     $stmt = $db->prepare("
         SELECT pf.FighterId, pf.PoolId, m.PendingActiveDone
         FROM PoolFighters pf
@@ -339,31 +338,27 @@ function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array
 
     $p1 = $poolByFighter[$f1] ?? null;
     $p2 = $poolByFighter[$f2] ?? null;
-    if (!$p1 || !$p2) {
-        throw new Exception("Both fighters must be in pools.");
-    }
+    if (!$p1 || !$p2) throw new Exception("Both fighters must be in pools.");
 
     if (!$hasDoneOrActive) {
         // === SIMPLE SWAP ===
-        // 1) swap PoolFighters membership
         $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p1, $f1]);
         $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p2, $f2]);
         ensureInPool($p1, $f2);
         ensureInPool($p2, $f1);
 
-        // 2) update PENDING matches to rename fighterIds
-        $stmt = $db->prepare("
-            UPDATE MatchFighters SET FighterId = :newId
-            WHERE FighterId = :oldId AND MatchId IN (
-                SELECT m.MatchId
-                FROM Matches m
-                WHERE m.EventId = :eventId AND m.PendingActiveDone = 'P'
-            )
+        // FIXED: use JOIN so MySQL reliably updates pending matches
+        $update = $db->prepare("
+            UPDATE MatchFighters mf
+            JOIN Matches m ON mf.MatchId = m.MatchId
+            SET mf.FighterId = :newId
+            WHERE mf.FighterId = :oldId
+              AND m.EventId = :eventId
+              AND m.PendingActiveDone = 'P'
         ");
-        $stmt->execute(['newId' => $f2, 'oldId' => $f1, 'eventId' => $eventId]);
-        $stmt->execute(['newId' => $f1, 'oldId' => $f2, 'eventId' => $eventId]);
+        $update->execute(['newId' => $f2, 'oldId' => $f1, 'eventId' => $eventId]);
+        $update->execute(['newId' => $f1, 'oldId' => $f2, 'eventId' => $eventId]);
 
-        // No reshuffle needed; PENDING matches still complete after rename.
         return [
             'mode'  => 'simple',
             'pools' => [
@@ -374,17 +369,14 @@ function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array
     }
 
     // === BALANCED SWAP ===
-    // swap membership
     $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p1, $f1]);
     $db->prepare("DELETE FROM PoolFighters WHERE PoolId=? AND FighterId=?")->execute([$p2, $f2]);
     ensureInPool($p1, $f2);
     ensureInPool($p2, $f1);
 
-    // delete all pending involving either fighter
     deletePendingMatchesForFighterInEvent($eventId, $f1);
     deletePendingMatchesForFighterInEvent($eventId, $f2);
 
-    // reshuffle both pools
     $ring1    = getPoolRing($p1);
     $ring2    = getPoolRing($p2);
     $matches1 = reshufflePoolMatches($db, $eventId, $p1, $ring1);
@@ -398,6 +390,7 @@ function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array
         ]
     ];
 }
+
 
 /* ------------------------------
    GET: candidates (roster + available)

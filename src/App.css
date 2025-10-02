@@ -315,6 +315,7 @@ h2 {
   text-align: center;
   z-index: 1000;
   width: 100%;
+  background-color: #272727;
 }
 
 .ring-selection-buttons {
@@ -1127,4 +1128,9 @@ button.strike-button{
 
 .display-field>label{
    font-size: 1.4rem; 
+}
+
+
+.hide-caret {
+  caret-color: transparent;
 }

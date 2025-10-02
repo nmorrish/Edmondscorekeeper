@@ -15,6 +15,7 @@ import TournamentManagementWithProvider from "./components/Manager/TournamentMan
 import FighterManagementWithProvider from "./components/Manager/FighterManagement";
 import MatchManagementWithProvider from "./components/Manager/MatchManagement";
 import EventStandings from './components/Viewer/Standings';
+import SchedulesWithProvider from './components/Viewer/Schedules';
 
 const App: React.FC = () => {
   return (
@@ -26,7 +27,8 @@ const App: React.FC = () => {
         <Route path="/manager/fighters/:tournamentId" element={<FighterManagementWithProvider />} />
         <Route path="/manager/matching/:tournamentId" element={<MatchManagementWithProvider />} />
         <Route path="/viewer/standings/:tournamentId" element={<EventStandings />} />
-        <Route path="/viewer/match-schedule/:tournamentId" element={<ScoreManagementWithProvider />} />
+        <Route path="/viewer/schedules/:tournamentId" element={<SchedulesWithProvider />} />
+        <Route path="/viewer/scores/:tournamentId" element={<SchedulesWithProvider />} />
         <Route path="/" element={<ScoreManagementWithProvider />} />
       </Routes>
     </Router>

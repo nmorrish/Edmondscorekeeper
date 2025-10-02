@@ -4,6 +4,7 @@
  *
  * Public API – Returns per-fighter standings for a given Event.
  * Uses only completed matches (PendingActiveDone = 'D').
+ * Provides: Wins, Losses, Draws, Avg Score per Exchange, Avg Score per Match
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -37,7 +38,17 @@ try {
             SUM(CASE WHEN mf.WinLossDraw = 'W' THEN 1 ELSE 0 END) AS wins,
             SUM(CASE WHEN mf.WinLossDraw = 'L' THEN 1 ELSE 0 END) AS losses,
             SUM(CASE WHEN mf.WinLossDraw = 'D' THEN 1 ELSE 0 END) AS draws,
-            COALESCE(SUM(mf.FinalScore), 0) AS points
+            COUNT(DISTINCT m.MatchId) AS matchesPlayed,
+            COALESCE(SUM(mf.FinalScore), 0) AS totalScore,
+            (
+                SELECT COUNT(*)
+                FROM Exchanges e
+                INNER JOIN MatchFighters mf2 ON e.MatchFighterId = mf2.MatchFighterId
+                INNER JOIN Matches m2 ON mf2.MatchId = m2.MatchId
+                WHERE mf2.FighterId = f.FighterId
+                  AND m2.EventId = :eventId
+                  AND m2.PendingActiveDone = 'D'
+            ) AS totalExchanges
         FROM MatchFighters mf
         INNER JOIN Matches m ON mf.MatchId = m.MatchId
         INNER JOIN Fighters f ON mf.FighterId = f.FighterId
@@ -45,19 +56,30 @@ try {
         WHERE m.EventId = :eventId
           AND m.PendingActiveDone = 'D'
         GROUP BY f.FighterId, f.FighterName, c.ClubName
-        ORDER BY points DESC, wins DESC, name ASC
+        ORDER BY wins DESC, name ASC
     ");
     $stmt->execute([':eventId' => $eventId]);
 
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Cast numeric fields
     foreach ($rows as &$r) {
-        $r['fighterId'] = (int)$r['fighterId'];
-        $r['wins']      = (int)$r['wins'];
-        $r['losses']    = (int)$r['losses'];
-        $r['draws']     = (int)$r['draws'];
-        $r['points']    = (float)$r['points'];
+        $r['fighterId']      = (int)$r['fighterId'];
+        $r['wins']           = (int)$r['wins'];
+        $r['losses']         = (int)$r['losses'];
+        $r['draws']          = (int)$r['draws'];
+        $r['matchesPlayed']  = (int)$r['matchesPlayed'];
+        $r['totalScore']     = (float)$r['totalScore'];
+        $r['totalExchanges'] = (int)$r['totalExchanges'];
+
+        $r['avgScorePerMatch'] = $r['matchesPlayed'] > 0
+            ? round($r['totalScore'] / $r['matchesPlayed'], 2)
+            : 0.0;
+
+        $r['avgScorePerExchange'] = $r['totalExchanges'] > 0
+            ? round($r['totalScore'] / $r['totalExchanges'], 2)
+            : 0.0;
+
+        unset($r['totalScore'], $r['totalExchanges']);
     }
 
     echo json_encode(['status' => 'success', 'standings' => $rows]);

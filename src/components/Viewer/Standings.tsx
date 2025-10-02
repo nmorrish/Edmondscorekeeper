@@ -4,14 +4,17 @@
  * === Public Event Standings Viewer ===
  * Read-only view of tournament standings per event.
  * - TournamentId pulled from URL
- * - Fetches tournament + events list
- * - Event selector buttons across the top (styled same as FighterManagement)
+ * - Fixed top bar with event selector (matching ScoreManagement style)
  * - Standings table for selected event
+ * - Columns order changes to match multi-key ranking buttons
+ * - Blank/null clubs sort to the bottom
+ * - Adds Rank column (hidden if sorting by fighter/club)
  */
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { backend_uri, tournament_api, event_api } from "../utility/endpoints";
+import FloatingNav from "../utility/FloatingNav";
 
 interface EventSummary {
   EventId: number;
@@ -25,10 +28,12 @@ interface StandingRow {
   wins: number;
   losses: number;
   draws: number;
-  points: number;
+  avgScorePerExchange: number;
+  avgScorePerMatch: number;
 }
 
 type SortKey = keyof StandingRow;
+type CustomSortMode = "none" | "winsFirst" | "exchangeFirst";
 
 const EventStandings: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -37,9 +42,10 @@ const EventStandings: React.FC = () => {
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [standings, setStandings] = useState<StandingRow[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>("points");
-  const [sortAsc, setSortAsc] = useState<boolean>(false); // default: highest points first
+  const [sortKey, setSortKey] = useState<SortKey>("wins");
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [customSortMode, setCustomSortMode] = useState<CustomSortMode>("none");
 
   // ---------- Fetch Tournament ----------
   const fetchTournament = useCallback(async () => {
@@ -64,7 +70,7 @@ const EventStandings: React.FC = () => {
       if (data.status === "success" && Array.isArray(data.events)) {
         setEvents(data.events);
         if (data.events.length > 0) {
-          setSelectedEventId(data.events[0].EventId); // default to first event
+          setSelectedEventId(data.events[0].EventId);
         }
       } else {
         setEvents([]);
@@ -75,7 +81,7 @@ const EventStandings: React.FC = () => {
     }
   }, [tournamentId]);
 
-  // ---------- Fetch Standings for Event ----------
+  // ---------- Fetch Standings ----------
   const fetchStandings = useCallback(
     async (eventId: number) => {
       if (!tournamentId || !eventId) return;
@@ -100,7 +106,6 @@ const EventStandings: React.FC = () => {
     [tournamentId]
   );
 
-  // ---------- Effects ----------
   useEffect(() => {
     fetchTournament();
     fetchEvents();
@@ -114,6 +119,7 @@ const EventStandings: React.FC = () => {
 
   // ---------- Sorting ----------
   const handleSort = (key: SortKey) => {
+    setCustomSortMode("none");
     if (sortKey === key) {
       setSortAsc(!sortAsc);
     } else {
@@ -123,9 +129,38 @@ const EventStandings: React.FC = () => {
   };
 
   const sortedStandings = [...standings].sort((a, b) => {
+    if (customSortMode === "winsFirst") {
+      if (a.wins !== b.wins) return b.wins - a.wins;
+      if (a.losses !== b.losses) return a.losses - b.losses;
+      if (a.avgScorePerExchange !== b.avgScorePerExchange) {
+        return b.avgScorePerExchange - a.avgScorePerExchange;
+      }
+      if (a.avgScorePerMatch !== b.avgScorePerMatch) {
+        return b.avgScorePerMatch - a.avgScorePerMatch;
+      }
+      return a.name.localeCompare(b.name);
+    }
+
+    if (customSortMode === "exchangeFirst") {
+      if (a.avgScorePerExchange !== b.avgScorePerExchange) {
+        return b.avgScorePerExchange - a.avgScorePerExchange;
+      }
+      if (a.avgScorePerMatch !== b.avgScorePerMatch) {
+        return b.avgScorePerMatch - a.avgScorePerMatch;
+      }
+      if (a.wins !== b.wins) return b.wins - a.wins;
+      if (a.losses !== b.losses) return a.losses - b.losses;
+      return a.name.localeCompare(b.name);
+    }
+
+    if (sortKey === "club") {
+      const aClub = a.club ? a.club : "zzzzzz";
+      const bClub = b.club ? b.club : "zzzzzz";
+      return sortAsc ? aClub.localeCompare(bClub) : bClub.localeCompare(aClub);
+    }
+
     const aVal = a[sortKey];
     const bVal = b[sortKey];
-
     if (typeof aVal === "string" && typeof bVal === "string") {
       return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     }
@@ -135,112 +170,167 @@ const EventStandings: React.FC = () => {
     return 0;
   });
 
+  // ---------- Column Ordering ----------
+  const getColumns = () => {
+    if (customSortMode === "winsFirst") {
+      return ["wins", "losses", "avgScorePerExchange", "avgScorePerMatch", "draws"];
+    }
+    if (customSortMode === "exchangeFirst") {
+      return ["avgScorePerExchange", "avgScorePerMatch", "wins", "losses", "draws"];
+    }
+    return ["wins", "losses", "draws", "avgScorePerExchange", "avgScorePerMatch"];
+  };
+
+  const columns = getColumns();
+
+  // ---------- Rank Column Logic ----------
+  const showRank =
+    customSortMode !== "none" || (sortKey !== "name" && sortKey !== "club");
+
   // ---------- Render ----------
   return (
-    <div style={{ padding: "1.5rem" }}>
-      <h1 style={{ marginBottom: "1rem" }}>
-        {tournamentName || "Tournament"} – Standings
-      </h1>
+    <div className="App hide-caret">
+      <div className="event-selection-buttons" style={{marginTop: "0"}}>
+        {events.map((ev) => (
+          <button
+            key={ev.EventId}
+            onClick={() => setSelectedEventId(ev.EventId)}
+            className={selectedEventId === ev.EventId ? "active-event" : ""}
+          >
+            {ev.EventName}
+          </button>
+        ))}
+      </div>
 
-      {/* Event Selector */}
-      {events.length > 0 && (
-        <div
-          className="event-selector"
-          style={{
-            display: "flex",
-            gap: "1rem",
-            justifyContent: "center",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {events.map((ev) => (
-            <button
-              key={ev.EventId}
-              onClick={() => setSelectedEventId(ev.EventId)}
-              style={{
-                padding: "1.2rem 2rem",
-                fontSize: "1.5rem",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                backgroundColor:
-                  ev.EventId === selectedEventId ? "#2563eb" : "#f3f4f6",
-                color: ev.EventId === selectedEventId ? "white" : "black",
-                fontWeight: ev.EventId === selectedEventId ? 600 : 400,
-                cursor: "pointer",
-              }}
-            >
-              {ev.EventName}
-            </button>
-          ))}
+      <div style={{ margin: "0 auto", padding: "1.5rem", maxWidth: "1100px" }}>
+        <h1 style={{ marginBottom: "1rem", textAlign: "center" }}>
+          {tournamentName || "Tournament"} – Standings
+        </h1>
+
+        <div style={{ marginBottom: "1rem", textAlign: "center" }}>
+          <button
+            onClick={() => {
+              setCustomSortMode("winsFirst");
+              setSortKey("wins");
+              setSortAsc(false); // ensure descending by default for ranking
+            }}
+            style={{
+              padding: "0.5rem 1rem",
+              marginRight: "0.5rem",
+              backgroundColor: customSortMode === "winsFirst" ? "#2563eb" : "#f3f4f6",
+              color: customSortMode === "winsFirst" ? "#fff" : "#000",
+              border: "1px solid #e5e7eb",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            Ranking: Wins → Losses → Avg/Exchange → Avg/Match → Draws
+          </button>
+          <button
+            onClick={() => {
+              setCustomSortMode("exchangeFirst");
+              setSortKey("avgScorePerExchange");
+              setSortAsc(false);
+            }}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: customSortMode === "exchangeFirst" ? "#2563eb" : "#f3f4f6",
+              color: customSortMode === "exchangeFirst" ? "#fff" : "#000",
+              border: "1px solid #e5e7eb",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            Ranking: Avg/Exchange → Avg/Match → Wins → Losses → Draws
+          </button>
         </div>
-      )}
 
-      {/* Standings Table */}
-      {loading ? (
-        <div>Loading standings…</div>
-      ) : standings.length === 0 ? (
-        <div>No standings available for this event.</div>
-      ) : (
-        <table
-          style={{
-            borderCollapse: "collapse",
-            width: "100%",
-            marginTop: "1rem",
-          }}
-        >
-          <thead>
-            <tr>
-              <th
-                style={{ textAlign: "left", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("name")}
-              >
-                Fighter {sortKey === "name" && (sortAsc ? "▲" : "▼")}
-              </th>
-              <th
-                style={{ textAlign: "left", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("club")}
-              >
-                Club {sortKey === "club" && (sortAsc ? "▲" : "▼")}
-              </th>
-              <th
-                style={{ textAlign: "center", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("wins")}
-              >
-                Wins {sortKey === "wins" && (sortAsc ? "▲" : "▼")}
-              </th>
-              <th
-                style={{ textAlign: "center", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("losses")}
-              >
-                Losses {sortKey === "losses" && (sortAsc ? "▲" : "▼")}
-              </th>
-              <th
-                style={{ textAlign: "center", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("draws")}
-              >
-                Draws {sortKey === "draws" && (sortAsc ? "▲" : "▼")}
-              </th>
-              <th
-                style={{ textAlign: "center", padding: "0.5rem", cursor: "pointer" }}
-                onClick={() => handleSort("points")}
-              >
-                Points {sortKey === "points" && (sortAsc ? "▲" : "▼")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedStandings.map((row) => (
-              <tr key={row.fighterId} style={{ borderTop: "1px solid #e5e7eb" }}>
-                <td style={{ padding: "0.5rem" }}>{row.name}</td>
-                <td style={{ padding: "0.5rem" }}>{row.club || "-"}</td>
-                <td style={{ textAlign: "center" }}>{row.wins}</td>
-                <td style={{ textAlign: "center" }}>{row.losses}</td>
-                <td style={{ textAlign: "center" }}>{row.draws}</td>
-                <td style={{ textAlign: "center" }}>{row.points}</td>
+        {loading ? (
+          <div>Loading standings…</div>
+        ) : standings.length === 0 ? (
+          <div>No standings available for this event.</div>
+        ) : (
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                {showRank && <th style={{ textAlign: "center", padding: "0.5rem" }}>#</th>}
+                <th
+                  style={{ textAlign: "left", padding: "0.5rem", cursor: "pointer" }}
+                  onClick={() => handleSort("name")}
+                >
+                  Fighter{" "}
+                  {customSortMode === "none" && sortKey === "name" && (sortAsc ? "▲" : "▼")}
+                </th>
+                <th
+                  style={{ textAlign: "left", padding: "0.5rem", cursor: "pointer" }}
+                  onClick={() => handleSort("club")}
+                >
+                  Club{" "}
+                  {customSortMode === "none" && sortKey === "club" && (sortAsc ? "▲" : "▼")}
+                </th>
+                {columns.map((col) => (
+                  <th
+                    key={col}
+                    style={{ textAlign: "center", padding: "0.5rem", cursor: "pointer" }}
+                    onClick={() => handleSort(col as SortKey)}
+                  >
+                    {col === "wins" && "Wins"}
+                    {col === "losses" && "Losses"}
+                    {col === "draws" && "Draws"}
+                    {col === "avgScorePerExchange" && "Avg / Exchange"}
+                    {col === "avgScorePerMatch" && "Avg / Match"}
+                    {customSortMode === "none" &&
+                      sortKey === (col as SortKey) &&
+                      (sortAsc ? " ▲" : " ▼")}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedStandings.map((row, index) => {
+                let rank: number | null = null;
+                if (showRank) {
+                  if (sortAsc) {
+                    // ascending: last row = highest rank
+                    rank = sortedStandings.length - index;
+                  } else {
+                    // descending: first row = highest rank
+                    rank = index + 1;
+                  }
+                }
+                return (
+                  <tr key={row.fighterId} style={{ borderTop: "1px solid #e5e7eb" }}>
+                    {showRank && <td style={{ textAlign: "center" }}>{rank}</td>}
+                    <td style={{ padding: "0.5rem" }}>{row.name}</td>
+                    <td style={{ padding: "0.5rem" }}>{row.club || "-"}</td>
+                    {columns.map((col) => (
+                      <td key={col} style={{ textAlign: "center" }}>
+                        {col === "wins" && row.wins}
+                        {col === "losses" && row.losses}
+                        {col === "draws" && row.draws}
+                        {col === "avgScorePerExchange" &&
+                          (row.avgScorePerExchange ?? 0).toFixed(2)}
+                        {col === "avgScorePerMatch" &&
+                          (row.avgScorePerMatch ?? 0).toFixed(2)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {tournamentId && (
+        <FloatingNav
+          tournamentId={parseInt(tournamentId, 10)}
+          backUrl="/"
+          links={[
+            { text: "Event Schedules", to: `/manager/fighters/${tournamentId}` },
+            { text: "Event Scores", to: `/manager/matching/${tournamentId}` },
+          ]}
+        />
       )}
     </div>
   );
