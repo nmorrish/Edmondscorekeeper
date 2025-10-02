@@ -347,17 +347,20 @@ function swapFightersWithBalance(PDO $db, int $eventId, int $f1, int $f2): array
         ensureInPool($p1, $f2);
         ensureInPool($p2, $f1);
 
-        // FIXED: use JOIN so MySQL reliably updates pending matches
-        $update = $db->prepare("
+        // Atomic swap across all pending matches in this event
+        $swap = $db->prepare("
             UPDATE MatchFighters mf
             JOIN Matches m ON mf.MatchId = m.MatchId
-            SET mf.FighterId = :newId
-            WHERE mf.FighterId = :oldId
-              AND m.EventId = :eventId
-              AND m.PendingActiveDone = 'P'
+            SET mf.FighterId = CASE
+                WHEN mf.FighterId = :f1 THEN :f2
+                WHEN mf.FighterId = :f2 THEN :f1
+                ELSE mf.FighterId
+            END
+            WHERE m.EventId = :eventId
+            AND m.PendingActiveDone = 'P'
+            AND mf.FighterId IN (:f1, :f2)
         ");
-        $update->execute(['newId' => $f2, 'oldId' => $f1, 'eventId' => $eventId]);
-        $update->execute(['newId' => $f1, 'oldId' => $f2, 'eventId' => $eventId]);
+        $swap->execute(['f1' => $f1, 'f2' => $f2, 'eventId' => $eventId]);
 
         return [
             'mode'  => 'simple',

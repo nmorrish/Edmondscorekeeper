@@ -124,7 +124,7 @@ const Schedules: React.FC = () => {
       {/* Body */}
       <div style={{ marginTop: "3rem", textAlign: "center", width: "100%" }}>
         {!selectedEventObj ? (
-          <h2>Please select an event for {tournamentName}</h2>
+          <h2 style={{ fontSize:"1.5rem" }}>↑↑↑ Please select an event for {tournamentName} from above ↑↑↑</h2>
         ) : (
           <>
             <h1>
@@ -148,7 +148,7 @@ const Schedules: React.FC = () => {
                   eventName={selectedEventObj.EventName}
                   maxRings={maxRings}
                   isActive={true}
-                  // readOnly={true}
+                  readOnly={true}
                 />
               )}
 

@@ -282,6 +282,7 @@ const MatchManagement: React.FC = () => {
               eventId={Number(selectedEvent.EventId)}
               maxRings={selectedEvent.MaxRings || 1}
               isActive={matchType === "manual"}
+              readOnly={false} 
             />
           )}
 
@@ -291,6 +292,7 @@ const MatchManagement: React.FC = () => {
               eventName={selectedEvent.EventName}
               maxRings={selectedEvent.MaxRings || 1}
               isActive={matchType === "roundRobinPools"}
+              readOnly={false} 
             />
           )}
 
@@ -301,6 +303,7 @@ const MatchManagement: React.FC = () => {
               maxRings={selectedEvent.MaxRings || 1}
               isActive={matchType === "singleElimination"}
               tournamentId={numericTournamentId}
+              readOnly={false} 
             />
           )}
 

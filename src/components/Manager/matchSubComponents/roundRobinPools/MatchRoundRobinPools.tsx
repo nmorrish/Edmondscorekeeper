@@ -17,6 +17,7 @@ interface MatchRoundRobinPoolsProps {
   maxRings?: number;
   fighters?: Fighter[];
   isActive: boolean; // true if Pools table has entries for this event
+  readOnly?: boolean; // new: disables editing if true
 }
 
 const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
@@ -24,6 +25,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   eventName,
   maxRings = 1,
   isActive,
+  readOnly = false,
 }) => {
   const [savedPools, setSavedPools] = useState<any[] | null>(null);
 
@@ -60,14 +62,16 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   }, [fetchPools]);
 
   const handleRegenerateClick = () => {
-      setSavedPools(null); // hide editor, show generator
-      setActiveMenu("regenerate");
+    setSavedPools(null); // hide editor, show generator
+    setActiveMenu("regenerate");
   };
 
   const handleRefreshClick = () => {
     fetchPools(); // just reload pools data
     setActiveMenu("refresh");
   };
+
+  console.log(readOnly)
 
   return (
     <div style={{ textAlign: "left", margin: "0 auto", maxWidth: 1200 }}>
@@ -77,22 +81,21 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
         </h2>
 
         <div style={{ display: "flex", gap: 8 }}>
-          {savedPools && (
+          <button
+            onClick={handleRefreshClick}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
+              background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            Refresh View
+          </button>
+          {savedPools && !readOnly && (
             <>
-              <button
-                onClick={handleRefreshClick}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
-                  background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
-                  color: "white",
-                  cursor: "pointer",
-                }}
-              >
-                Refresh View
-              </button>
-
               <button
                 onClick={handleRegenerateClick}
                 style={{
@@ -123,8 +126,9 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
         <MatchRoundRobinPoolsEditor
           pools={savedPools}
           maxRings={maxRings}
-          interactive={true}
+          interactive={!readOnly}
           eventId={eventId}
+          readOnly={readOnly}
         />
       )}
     </div>

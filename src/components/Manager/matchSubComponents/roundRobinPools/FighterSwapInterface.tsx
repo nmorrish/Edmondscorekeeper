@@ -5,10 +5,8 @@
  * - Fighter→Fighter across pools = swap
  * - Fighter→Empty area of another pool = move
  *
- * Notes / Fixes:
- * - Robust click handling so clicking on headers/buttons doesn't trigger a move.
- * - Stop propagation on fighter <li> clicks to avoid container "move" handler.
- * - Defensive checks around indices and data shape.
+ * Supports readOnly mode:
+ * - Pools render but all interactivity (swap/move/manage) disabled.
  */
 
 import React, { useCallback, useState } from "react";
@@ -35,6 +33,7 @@ interface FighterSwapInterfaceProps {
       | { movedFighterId: number; toPoolNo: number }
   ) => void;
   onManagePool?: (poolNo: number) => void;
+  readOnly?: boolean;
 }
 
 const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
@@ -42,6 +41,7 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
   pools,
   onSwap,
   onManagePool,
+  readOnly = false,
 }) => {
   const addToast = useToast();
 
@@ -62,25 +62,23 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
   /** Selects a fighter for swapping; second click on a different pool's fighter triggers swap */
   const handleSelectForSwap = useCallback(
     (poolNo: number, fighterId: number) => {
-      // First click -> select
+      if (readOnly) return; // disabled
+
       if (!swapSelection) {
         setSwapSelection({ poolNo, fighterId });
         return;
       }
 
-      // Clicking the same fighter toggles off
       if (swapSelection.poolNo === poolNo && swapSelection.fighterId === fighterId) {
         setSwapSelection(null);
         return;
       }
 
-      // Must pick a fighter in a different pool to swap
       if (swapSelection.poolNo === poolNo) {
         addToast("Pick a fighter from a different pool to swap.");
         return;
       }
 
-      // Perform swap (optimistic via parent)
       const next = pools.map((p) => ({ ...p, fighterIds: [...p.fighterIds] }));
       const poolA = next.find((p) => p.poolNo === swapSelection.poolNo);
       const poolB = next.find((p) => p.poolNo === poolNo);
@@ -111,16 +109,16 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
       });
       setSwapSelection(null);
     },
-    [addToast, onSwap, pools, swapSelection]
+    [addToast, onSwap, pools, swapSelection, readOnly]
   );
 
-  /** Moves selected fighter to another pool when user clicks pool background/empty area */
+  /** Moves selected fighter to another pool */
   const handleMoveToPool = useCallback(
     (targetPoolNo: number) => {
+      if (readOnly) return; // disabled
       if (!swapSelection) return;
 
       if (swapSelection.poolNo === targetPoolNo) {
-        // Clicking same pool background just clears selection
         setSwapSelection(null);
         return;
       }
@@ -151,42 +149,39 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
       });
       setSwapSelection(null);
     },
-    [addToast, onSwap, pools, swapSelection]
+    [addToast, onSwap, pools, swapSelection, readOnly]
   );
 
-  /** Container click: only treat as "move to pool" when:
-   *  - a fighter is selected
-   *  - the click was NOT on a fighter list item or a button inside the pool card
-   */
+  /** Handle background click for moving fighters */
   const onPoolCardClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>, poolNo: number) => {
+      if (readOnly) return; // disabled
       if (!swapSelection) return;
 
       const target = e.target as HTMLElement;
-      // if user clicked on a fighter <li>, do nothing (li handler will run)
       if (target.closest('li[data-fighter="true"]')) return;
-      // if user clicked on a button (e.g. Manage Pool Fighters), do nothing
       if (target.closest("button")) return;
 
-      // Otherwise treat as dropping into this pool
       handleMoveToPool(poolNo);
     },
-    [handleMoveToPool, swapSelection]
+    [handleMoveToPool, swapSelection, readOnly]
   );
 
   return (
     <div style={{ marginBottom: "1rem" }}>
-      <div style={{ color: "#bbb", marginBottom: 8 }}>
-        Swap mode: click one fighter, then another in a different pool to swap. <br />
-        Move mode: click one fighter, then click the empty area of another pool to move.
-        {swapSelection && (
-          <span style={{ marginLeft: 8, color: "#ddd" }}>
-            Selected:&nbsp;
-            <strong>{fighterLabel(swapSelection.fighterId)}</strong>
-            &nbsp;(Pool {swapSelection.poolNo})
-          </span>
-        )}
-      </div>
+      {!readOnly && (
+        <div style={{ color: "#bbb", marginBottom: 8 }}>
+          Swap mode: click one fighter, then another in a different pool to swap. <br />
+          Move mode: click one fighter, then click the empty area of another pool to move.
+          {swapSelection && (
+            <span style={{ marginLeft: 8, color: "#ddd" }}>
+              Selected:&nbsp;
+              <strong>{fighterLabel(swapSelection.fighterId)}</strong>
+              &nbsp;(Pool {swapSelection.poolNo})
+            </span>
+          )}
+        </div>
+      )}
 
       <div
         style={{
@@ -207,7 +202,7 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              cursor: swapSelection ? "pointer" : "default",
+              cursor: !readOnly && swapSelection ? "pointer" : "default",
               userSelect: "none",
             }}
             aria-label={`Pool ${p.poolNo}`}
@@ -236,7 +231,8 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
                       key={`pool-${p.poolNo}-f-${fid}`}
                       data-fighter="true"
                       onClick={(e) => {
-                        e.stopPropagation(); // prevent container click from treating this as a "move"
+                        if (readOnly) return;
+                        e.stopPropagation();
                         handleSelectForSwap(p.poolNo, fid);
                       }}
                       style={{
@@ -247,9 +243,9 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
                           : "1px solid #333",
                         borderRadius: 6,
                         background: selected ? "#0d1b2a" : "#222",
-                        cursor: "pointer",
+                        cursor: readOnly ? "default" : "pointer",
                       }}
-                      title="Click to select for swap"
+                      title={readOnly ? undefined : "Click to select for swap"}
                     >
                       {fighterLabel(fid)}
                     </li>
@@ -258,10 +254,10 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
               </ul>
             </div>
 
-            {onManagePool && (
+            {!readOnly && onManagePool && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // don't trigger move on container
+                  e.stopPropagation();
                   onManagePool(p.poolNo);
                 }}
                 style={{
