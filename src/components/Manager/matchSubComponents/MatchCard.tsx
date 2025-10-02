@@ -321,7 +321,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   return (
     <div className={getMatchCardClass(localStatus)}>
       <div className="match-header">
-        Match No. {matchNumber} –
+        Match No. {matchNumber} –&nbsp;
         <RingDropdown
           matchId={matchId}
           currentRing={localRing}

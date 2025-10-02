@@ -610,7 +610,6 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       {/* Pool match sections */}
       {displayPools.map((pool) => {
         const isOpen = !!openPools[pool.poolId];
-        // hide orphan pending matches if any
         const visibleMatches = (pool.matches || []).filter(
           (m) => !(m.status === "P" && (!m.fighters || m.fighters.length < 2))
         );
@@ -633,9 +632,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                 alignItems: "center",
                 background: "#222",
                 padding: "0.5rem 1rem",
-                cursor: "pointer",
               }}
-              onClick={() => togglePool(pool.poolId)}
             >
               <span style={{ fontWeight: "bold", color: "#fff" }}>
                 Pool {pool.poolNo} – Ring {pool.ringAssigned ?? "-"}{" "}
@@ -643,17 +640,36 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   ({visibleMatches.length} matches)
                 </span>
               </span>
-              <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#fff",
-                  fontSize: "1.2rem",
-                  cursor: "pointer",
-                }}
-              >
-                {isOpen ? "Stop Editing" : "Edit"}
-              </button>
+
+              {/* Right side buttons */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  onClick={reloadPools}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #666",
+                    background: "#1b1b1b",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  Refresh View
+                </button>
+                <button
+                  onClick={() => togglePool(pool.poolId)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#fff",
+                    fontSize: "1rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  {isOpen ? "Stop Editing" : "Edit"}
+                </button>
+              </div>
             </div>
 
             {isOpen && (
@@ -671,7 +687,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                       maxRings={maxRings}
                       interactive={interactive}
                       onDelete={(deletedId) => {
-                        // Optimistic removal from displayPools
+                        // Optimistic removal
                         setDisplayPools((prev) =>
                           prev.map((p) =>
                             p.poolId === pool.poolId
@@ -693,6 +709,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           </div>
         );
       })}
+
     </div>
   );
 };

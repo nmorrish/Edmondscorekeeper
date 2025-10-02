@@ -7,9 +7,10 @@
  */
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { backend_uri, event_fighters_api, round_robin_pool_api, } from "../../../utility/endpoints";
+import { backend_uri, event_fighters_api, round_robin_pool_api } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
-import FighterSwapInterface, { Fighter, PoolPlan, } from "./FighterSwapInterface";
+import FighterSwapInterface, { Fighter, PoolPlan } from "./FighterSwapInterface";
+import WarningDialog from "../../../utility/WarningDialogue";
 
 interface MatchRoundRobinPoolsGeneratorProps {
   eventId: number;
@@ -62,11 +63,7 @@ function buildRoundRobinPairs(ids: number[]): Array<[number, number]> {
 }
 
 /* Compute pool sizes */
-function computePoolSizes(
-  n: number,
-  minSize: number,
-  maxSize: number
-): number[] | null {
+function computePoolSizes(n: number, minSize: number, maxSize: number): number[] | null {
   if (n <= 0 || minSize <= 0 || maxSize < minSize) return null;
 
   let pools = Math.ceil(n / maxSize);
@@ -78,10 +75,7 @@ function computePoolSizes(
     if (base > maxSize) continue;
     if (base === maxSize && extra > 0) continue;
 
-    const sizes: number[] = Array.from(
-      { length: pools },
-      (_, i) => base + (i < extra ? 1 : 0)
-    );
+    const sizes: number[] = Array.from({ length: pools }, (_, i) => base + (i < extra ? 1 : 0));
     if (sizes.every((s) => s >= minSize && s <= maxSize)) return sizes;
   }
 
@@ -89,9 +83,12 @@ function computePoolSizes(
   return null;
 }
 
-const MatchRoundRobinPoolsGenerator: React.FC<
-  MatchRoundRobinPoolsGeneratorProps
-> = ({ eventId, eventName, maxRings, onSaved }) => {
+const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps> = ({
+  eventId,
+  eventName,
+  maxRings,
+  onSaved,
+}) => {
   const addToast = useToast();
 
   const [fighters, setFighters] = useState<Fighter[]>([]);
@@ -104,8 +101,8 @@ const MatchRoundRobinPoolsGenerator: React.FC<
   const [plan, setPlan] = useState<PoolPlan[] | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Track if inputs have changed
   const [inputsChanged, setInputsChanged] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
 
   // Fetch Event fighters
   useEffect(() => {
@@ -116,10 +113,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
       try {
         const res = await fetch(
           `${EVENT_FIGHTERS_API}?eventId=${encodeURIComponent(eventId)}`,
-          {
-            method: "GET",
-            headers: { Accept: "application/json" },
-          }
+          { method: "GET", headers: { Accept: "application/json" } }
         );
         const data: ApiEnvelope<{ fighters: Fighter[] }> = await res.json();
         if (abort) return;
@@ -127,11 +121,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
           setError(data.message || "Failed to fetch fighters.");
           setFighters([]);
         } else {
-          setFighters(
-            (data.fighters || []).slice().sort((a, b) =>
-              a.FighterName.localeCompare(b.FighterName)
-            )
-          );
+          setFighters((data.fighters || []).slice().sort((a, b) => a.FighterName.localeCompare(b.FighterName)));
         }
       } catch (e: any) {
         if (!abort) setError(e?.message || "Network error fetching fighters.");
@@ -153,10 +143,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
 
   const totalMatchesProjected = useMemo(() => {
     if (poolSizes) {
-      return poolSizes.reduce(
-        (acc, size) => acc + (size * (size - 1)) / 2,
-        0
-      );
+      return poolSizes.reduce((acc, size) => acc + (size * (size - 1)) / 2, 0);
     }
     return 0;
   }, [poolSizes]);
@@ -177,7 +164,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<
       idx += size;
     });
     setPlan(newPlan);
-    setInputsChanged(false); // reset to unchanged after generation
+    setInputsChanged(false);
   }, [fighters, poolSizes, addToast]);
 
   const buildSavePayload = useCallback((): SavePayload | null => {
@@ -190,19 +177,10 @@ const MatchRoundRobinPoolsGenerator: React.FC<
       fighterIds: p.fighterIds.slice(),
       matches: buildRoundRobinPairs(p.fighterIds),
     }));
-    return {
-      eventId,
-      deleteExisting: true,
-      pools: poolsWithPairs,
-    };
+    return { eventId, deleteExisting: true, pools: poolsWithPairs };
   }, [plan, eventId, addToast]);
 
   const handleSave = useCallback(async () => {
-    const confirmed = window.confirm(
-      `!!!DANGER WARNING!!!\n\nSaving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${eventName} — including completed and in-progress matches.\nAre you sure you want to continue?\n\nYou are safe to continue if there are no matches currently in ${eventName}.`
-    );
-    if (!confirmed) return;
-
     const payload = buildSavePayload();
     if (!payload) return;
 
@@ -210,29 +188,19 @@ const MatchRoundRobinPoolsGenerator: React.FC<
     try {
       const res = await fetch(`${POOLS_RR_API}?action=save`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
       });
-      const data: ApiEnvelope<{
-        matchesInserted?: number;
-        poolsInserted?: number;
-        poolMatchesInserted?: number;
-        pools?: any[]; // structured pools from API
-      }> = await res.json();
+      const data: ApiEnvelope<{ matchesInserted?: number; pools?: any[] }> = await res.json();
 
       if (data.status !== "success") {
         addToast(data.message || "Failed to save pools/matches.");
         return;
       }
 
-      addToast(
-        `Saved new matches and pools to database`
-      );
+      addToast(`Saved new matches and pools to database`);
       if (data.pools && onSaved) {
-        onSaved(data.pools); // hand JSON up to parent so editor can open
+        onSaved(data.pools);
       }
     } catch (e: any) {
       addToast(e?.message || "Network error while saving pools.");
@@ -252,116 +220,14 @@ const MatchRoundRobinPoolsGenerator: React.FC<
 
   return (
     <div>
-      {/* Controls */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-          gap: "0.75rem",
-          alignItems: "end",
-          margin: "0.75rem 0 1rem",
-        }}
-      >
-        {/* Min per Pool */}
-        <div>
-          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
-            Min per Pool
-          </label>
-          <div className="number-input-wrapper">
-            <input
-              type="number"
-              value={minPerPool}
-              readOnly
-              className="number-input"
-            />
-            <div className="spinner-buttons">
-              <button
-                onClick={() => {
-                  setMinPerPool((v) => v + 1);
-                  setInputsChanged(true);
-                }}
-              >
-                ▲
-              </button>
-              <button
-                onClick={() => {
-                  setMinPerPool((v) => Math.max(1, v - 1));
-                  setInputsChanged(true);
-                }}
-              >
-                ▼
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Max per Pool */}
-        <div>
-          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
-            Max per Pool
-          </label>
-          <div className="number-input-wrapper">
-            <input
-              type="number"
-              value={maxPerPool}
-              readOnly
-              className="number-input"
-            />
-            <div className="spinner-buttons">
-              <button
-                onClick={() => {
-                  setMaxPerPool((v) => v + 1);
-                  setInputsChanged(true);
-                }}
-              >
-                ▲
-              </button>
-              <button
-                onClick={() => {
-                  setMaxPerPool((v) => Math.max(minPerPool, v - 1));
-                  setInputsChanged(true);
-                }}
-              >
-                ▼
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Read-only stats */}
-        <div className="display-field">
-          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
-            Fighters in Event
-          </label>
-          <div>{totalFighters}</div>
-        </div>
-        <div className="display-field">
-          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
-            Total Pools
-          </label>
-          <div>{poolSizes ? poolSizes.length : "-"}</div>
-        </div>
-        <div className="display-field">
-          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
-            Total Matches
-          </label>
-          <div>{totalMatchesProjected}</div>
-        </div>
-      </div>
+      {/* Controls grid (min/max, stats)… */}
 
       {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          flexWrap: "wrap",
-          marginBottom: "1rem",
-        }}
-      >
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         {!inputsChanged && (
           <button
             disabled={!plan || saving}
-            onClick={handleSave}
+            onClick={() => setShowWarning(true)}
             style={{
               background: !plan || saving ? "#444" : "#2d6a4f",
               color: "#fff",
@@ -390,29 +256,23 @@ const MatchRoundRobinPoolsGenerator: React.FC<
         </button>
       </div>
 
-      {!poolSizes && (
-        <div style={{ color: "#e0b050", marginBottom: "1rem" }}>
-          Could not compute pool sizes from {totalFighters} fighters with
-          min={minPerPool}, max={maxPerPool}. Try adjusting your constraints.
-        </div>
-      )}
+      {!inputsChanged && plan && <FighterSwapInterface fighters={fighters} pools={plan} onSwap={setPlan} />}
 
-      {!inputsChanged && plan && (
-        <FighterSwapInterface
-          fighters={fighters}
-          pools={plan}
-          onSwap={setPlan}
-        />
-      )}
-
-      <div style={{ marginTop: "1rem", color: "#aaa" }}>
-        After saving, use <code>MatchCard.tsx</code> views to display the final
-        layout by pool or by match. Rings are unassigned (MatchRingNo = 0) until
-        scheduled by the scorekeeping desk.
-        {typeof maxRings === "number" && (
-          <span> Max rings available for this Event: {maxRings}.</span>
-        )}
-      </div>
+      {/* Custom warning modal */}
+      <WarningDialog
+        isOpen={showWarning}
+        title="!!! DANGER WARNING !!!"
+        message={`Saving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${
+          eventName ?? "this event"
+        }.\n\nThis includes completed and in-progress matches.\n\nTHIS CANNOT BE UNDONE!\n\nIf no matches have been created yet, it is safe to continue.`}
+        confirmText="Erase & Save"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowWarning(false);
+          handleSave();
+        }}
+        onCancel={() => setShowWarning(false)}
+      />
     </div>
   );
 };

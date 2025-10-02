@@ -18,7 +18,6 @@ import {
 import MatchSingleElimEditor from "./MatchSingleElimEditor";
 import MatchSingleElimFighterList from "./MatchSingleElimFighterList";
 
-// --- Types aligned with backend JSON ---
 export interface BracketFighter {
   fighterId: number;
   fighterName: string | null;
@@ -77,6 +76,16 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   const [hasBronze, setHasBronze] = useState<boolean | undefined>(undefined);
   const [locallyActive, setLocallyActive] = useState<boolean>(false);
 
+  // --- New: remember menu selection ---
+  const [activeMenu, setActiveMenu] = useState<string>(() => {
+    return localStorage.getItem(`elimMenu-${eventId}`) || "editor";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`elimMenu-${eventId}`, activeMenu);
+  }, [activeMenu, eventId]);
+  // -----------------------------------
+
   const fetchBracket = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -119,7 +128,6 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
     }
   }, [eventId, addToast]);
 
-  // On mount: if SE is already active, fetch it
   useEffect(() => {
     if (isActive) {
       fetchBracket();
@@ -131,7 +139,6 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
     }
   }, [isActive, fetchBracket]);
 
-  // After create callback: accept the exact payload from backend, no refetch needed
   const handleCreated = useCallback(
     (payload: FetchResponse) => {
       if (payload.status === "success") {
@@ -140,8 +147,9 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
         setFormat(normalizeBracketFormat(payload.format));
         setHasBronze(payload.hasBronze);
         setError(null);
-        setLocallyActive(true); // ✅ activate editor immediately
+        setLocallyActive(true);
         addToast("Single-elimination bracket created.");
+        setActiveMenu("editor"); // when created, default to editor
       } else {
         setError(payload.message || "Failed to create bracket.");
         addToast(payload.message || "Failed to create bracket.");
@@ -163,12 +171,11 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
           <h2 style={{ margin: 0 }}>Single Elimination — {eventName}</h2>
         </div>
 
-        {/* Loading / error states */}
         {loading && <div style={{ opacity: 0.7 }}>Loading bracket…</div>}
         {error && <div style={{ color: "red", fontSize: 14 }}>Error: {error}</div>}
 
-        {/* Generator: only if not active OR if user reset */}
-        {(!isActive && !locallyActive) && !loading && (
+        {/* Generator: only if no active bracket OR explicitly reset */}
+        {(((!isActive && Object.keys(rounds).length === 0) || (!locallyActive && Object.keys(rounds).length === 0)) && !loading) && (
           <MatchSingleElimGenerator
             eventId={eventId}
             maxRings={maxRings}
@@ -176,6 +183,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
             tournamentId={tournamentId}
           />
         )}
+
 
         {/* Editor: when data exists */}
         {!loading && !error && (locallyActive || Object.keys(rounds).length > 0) && (
@@ -186,35 +194,43 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
               showManage={false}
             />
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                margin: "8px 0",
-              }}
-            >
+            {/* Top Buttons with active state */}
+            <div style={{ display: "flex", gap: 8, margin: "8px 0", justifyContent: "flex-end" }}>
               <button
                 onClick={() => {
-                  const ok = window.confirm(
-                    "!!!DANGER WARNING!!!\n\nRe-creating the bracket will erase the current bracket and all its matches for this event.\nTHIS CANNOT BE UNDONE!\nContinue?"
-                  );
-                  if (!ok) return;
+                  setActiveMenu("refresh");
+                  fetchBracket();
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
+                  background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
+                  cursor: "pointer",
+                }}
+              >
+                Refresh View
+              </button>
 
+              <button
+                onClick={() => {
                   setRounds({});
                   setBracketId(undefined);
                   setHasBronze(undefined);
                   setError(null);
                   setLocallyActive(false);
+                  setActiveMenu("recreate");
                 }}
                 style={{
                   padding: "6px 12px",
+                  background: "#840000ff",
+                  color: "white",
+                  border: "none",
                   borderRadius: 6,
-                  border: "1px solid #666",
-                  cursor: "pointer",
-                  background: "#1b1b1b",
+                  fontWeight: "bold",
                 }}
               >
-                Re-create Bracket
+                Regenerate Brackets
               </button>
             </div>
 
@@ -227,12 +243,10 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
           </>
         )}
 
-        {/* Empty state */}
         {!loading && !error && isActive && !locallyActive && Object.keys(rounds).length === 0 && (
           <div style={{ opacity: 0.7 }}>No bracket data available.</div>
         )}
 
-        {/* Optional debug/footer */}
         <div style={{ fontSize: 12, opacity: 0.65 }}>
           {format === "S"
             ? "Format: Single Elimination"

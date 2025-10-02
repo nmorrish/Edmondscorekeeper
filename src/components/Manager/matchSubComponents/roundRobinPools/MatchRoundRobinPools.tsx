@@ -5,7 +5,7 @@
  * Coordinates generator + editor
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import MatchRoundRobinPoolsGenerator from "./RoundRobinPoolGenerator";
 import MatchRoundRobinPoolsEditor from "./MatchRoundRobinPoolsEditor";
 import { Fighter } from "../../subComponents/useFighters";
@@ -23,37 +23,50 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   eventId,
   eventName,
   maxRings = 1,
-  // fighters = [],
   isActive,
 }) => {
   const [savedPools, setSavedPools] = useState<any[] | null>(null);
 
-  // If pools are active, fetch them immediately
+  // NEW: track which menu button was last clicked
+  const [activeMenu, setActiveMenu] = useState<string>(() => {
+    return localStorage.getItem(`poolsMenu-${eventId}`) || "";
+  });
+
   useEffect(() => {
-    if (isActive) {
-      (async () => {
-        try {
-          const res = await fetch(
-            `${backend_uri}/poolsRoundRobinApi.php?action=get&eventId=${eventId}`
-          );
-          const data = await res.json();
-          if (data.status === "success" && data.pools) {
-            setSavedPools(data.pools);
-          }
-        } catch (err) {
-          console.error("Failed to fetch existing pools", err);
-        }
-      })();
+    if (activeMenu) {
+      localStorage.setItem(`poolsMenu-${eventId}`, activeMenu);
+    }
+  }, [activeMenu, eventId]);
+
+  // Reusable fetch function
+  const fetchPools = useCallback(async () => {
+    if (!isActive) return;
+    try {
+      const res = await fetch(
+        `${backend_uri}/poolsRoundRobinApi.php?action=get&eventId=${eventId}`
+      );
+      const data = await res.json();
+      if (data.status === "success" && data.pools) {
+        setSavedPools(data.pools);
+      }
+    } catch (err) {
+      console.error("Failed to fetch existing pools", err);
     }
   }, [isActive, eventId]);
 
+  // On mount
+  useEffect(() => {
+    fetchPools();
+  }, [fetchPools]);
+
   const handleRegenerateClick = () => {
-    const confirmed = window.confirm(
-      `!!!DANGER WARNING!!!\n\nAre you sure? Regenerating pools will delete all current pools, matches, and scores for in progress and completed matches in ${eventName}.\n\nREPEAT: THIS DELETES ALL SCORES FOR IN PROGRESS AND COMPLETED MATCHES IN ${eventName == undefined ? "THIS EVENT" : eventName.toUpperCase()}!`
-    );
-    if (confirmed) {
       setSavedPools(null); // hide editor, show generator
-    }
+      setActiveMenu("regenerate");
+  };
+
+  const handleRefreshClick = () => {
+    fetchPools(); // just reload pools data
+    setActiveMenu("refresh");
   };
 
   return (
@@ -63,22 +76,40 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           Round Robin Pools {eventName ? `— ${eventName}` : ""}
         </h2>
 
-        {savedPools && (
-          <button
-            onClick={handleRegenerateClick}
-            style={{
-              padding: "6px 12px",
-              background: "#840000ff",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-          >
-            Regenerate Pools
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {savedPools && (
+            <>
+              <button
+                onClick={handleRefreshClick}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
+                  background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                Refresh View
+              </button>
+
+              <button
+                onClick={handleRegenerateClick}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: activeMenu === "regenerate" ? "2px solid #0af" : "1px solid transparent",
+                  background: "#840000ff",
+                  color: "white",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                }}
+              >
+                Regenerate Pools
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {!savedPools ? (

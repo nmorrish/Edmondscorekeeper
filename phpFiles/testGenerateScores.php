@@ -113,12 +113,12 @@ try {
     $getLastJudgeRow = function(PDO $db, int $matchId) {
         // Last judge row inserted for this match (both fighters)
         $sql = "
-            SELECT es.ExchangeScoreId, es.Contact, es.Target, es.Control, ex.ExchangeId, ex.MatchFighterId
+            SELECT es.ExchangeId, es.Contact, es.Target, es.Control, ex.ExchangeId, ex.MatchFighterId
             FROM ExchangeScores es
             JOIN Exchanges ex ON ex.ExchangeId = es.ExchangeId
             JOIN MatchFighters mf ON mf.MatchFighterId = ex.MatchFighterId
             WHERE mf.MatchId = ?
-            ORDER BY es.ExchangeScoreId DESC
+            ORDER BY es.ExchangeId DESC
             LIMIT 1
         ";
         $st = $db->prepare($sql);
@@ -129,7 +129,7 @@ try {
     $adjustJudgeRowMinimal = function(PDO $db, array $row) {
         // Minimal adjustment to last assigned scoring criteria:
         // Preference to ADD a point (0->1). If fully saturated, REMOVE one point (1->0) on Control.
-        $id = (int)$row['ExchangeScoreId'];
+        $id = (int)$row['ExchangeId'];
         $c  = (int)$row['Contact'];
         $t  = (int)$row['Target'];
         $k  = (int)$row['Control'];
@@ -145,7 +145,7 @@ try {
             $k = 0;
         }
 
-        $upd = $db->prepare("UPDATE ExchangeScores SET Contact=?, Target=?, Control=? WHERE ExchangeScoreId=?");
+        $upd = $db->prepare("UPDATE ExchangeScores SET Contact=?, Target=?, Control=? WHERE ExchangeId=?");
         $upd->execute([$c, $t, $k, $id]);
     };
 
@@ -231,8 +231,8 @@ try {
                 // As a final fallback (extremely unlikely), flip Control on the same last row again
                 $lastRow2 = $getLastJudgeRow($db, $matchId);
                 if ($lastRow2) {
-                    $upd = $db->prepare("UPDATE ExchangeScores SET Control = CASE WHEN Control=1 THEN 0 ELSE 1 END WHERE ExchangeScoreId = ?");
-                    $upd->execute([(int)$lastRow2['ExchangeScoreId']]);
+                    $upd = $db->prepare("UPDATE ExchangeScores SET Control = CASE WHEN Control=1 THEN 0 ELSE 1 END WHERE ExchangeId = ?");
+                    $upd->execute([(int)$lastRow2['ExchangeId']]);
                 }
             }
         }

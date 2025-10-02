@@ -16,6 +16,7 @@ import MatchSingleElimFighterManager from "./MatchSingleElimFighterManager";
 import ErrorBoundary from "../../../utility/ErrorBoundary";
 import { safeParseJson, sanitizeFighters } from "../../../utility/dataGuards";
 import { useRefresh } from "../../../utility/RefreshContext";
+import WarningDialog from "../../../utility/WarningDialogue";
 
 interface MatchSingleElimGeneratorProps {
   eventId: number;
@@ -42,6 +43,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   );
   const [showManager, setShowManager] = useState(false);
   const [localFighters, setLocalFighters] = useState<Fighter[]>([]);
+  const [showWarning, setShowWarning] = useState(false);
 
   // Extracted fetcher for reuse
   const loadFighters = useCallback(async () => {
@@ -61,12 +63,10 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
     }
   }, [eventId, addToast]);
 
-  // Load fighters on mount and when eventId changes
   useEffect(() => {
     loadFighters();
   }, [eventId, loadFighters]);
 
-  // Reload fighters when global refresh is triggered 
   useEffect(() => {
     loadFighters();
   }, [triggerRefresh, loadFighters]);
@@ -96,15 +96,11 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
         withBronze: !!withBronze,
       };
 
-      console.log(payload)
-
       const res = await fetch(eliminationApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      console.log(res)
 
       const bodyText = await res.text().catch(() => null);
       const data = safeParseJson(bodyText);
@@ -121,8 +117,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
       }
 
       const totalMatches = Object.values<any>(data.rounds || {}).reduce(
-        (acc: number, arr: any) =>
-          acc + (Array.isArray(arr) ? arr.length : 0),
+        (acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0),
         0
       );
 
@@ -139,8 +134,6 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
       }
     } catch (err: any) {
       addToast(`Error: ${err.message || err}`);
-
-      console.log(err.message || err)
     } finally {
       setLoading(false);
     }
@@ -258,13 +251,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
             </label>
 
             <button
-              onClick={()=>{
-                const ok = window.confirm(
-                  "    !!!DANGER WARNING!!!\n\n   Creating a bracket will erase the current brackets, pools, and all matches for this event.\nTHIS CANNOT BE UNDONE!\n If no matches have been created yet. It is safe to continue."
-                );
-                if (!ok) return;
-                handleCreate();
-              }}
+              onClick={() => setShowWarning(true)}
               disabled={loading || fighterIds.length === 0}
               style={{
                 padding: "8px 12px",
@@ -273,16 +260,14 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
                 cursor: "pointer",
                 background: "#1b1b1b",
               }}
-              title={
-                fighterIds.length === 0 ? "Add fighters first" : "Create bracket"
-              }
+              title={fighterIds.length === 0 ? "Add fighters first" : "Create bracket"}
             >
               {loading ? "Creating..." : "Create Bracket"}
             </button>
           </div>
         </div>
 
-        {/* Modal */}
+        {/* Fighter Manager Modal */}
         {showManager && (
           <MatchSingleElimFighterManager
             eventId={eventId}
@@ -290,6 +275,22 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
             onClose={() => setShowManager(false)}
           />
         )}
+
+        {/* Warning Dialog */}
+        <WarningDialog
+          isOpen={showWarning}
+          title="!!! DANGER WARNING !!!"
+          message={
+            "Creating a bracket will erase the current brackets, pools, and all matches for this event.\n\nTHIS CANNOT BE UNDONE!\n\nIf no matches have been created yet, it is safe to continue."
+          }
+          confirmText="Erase & Create"
+          cancelText="Cancel"
+          onConfirm={() => {
+            setShowWarning(false);
+            handleCreate();
+          }}
+          onCancel={() => setShowWarning(false)}
+        />
       </div>
     </ErrorBoundary>
   );
