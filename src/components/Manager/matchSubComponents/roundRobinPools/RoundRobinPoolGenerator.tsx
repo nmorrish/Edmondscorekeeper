@@ -95,8 +95,8 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [minPerPool] = useState<number>(DEFAULT_MIN);
-  const [maxPerPool] = useState<number>(DEFAULT_MAX);
+  const [minPerPool, setMinPerPool] = useState<number>(DEFAULT_MIN);
+  const [maxPerPool, setMaxPerPool] = useState<number>(DEFAULT_MAX);
 
   const [plan, setPlan] = useState<PoolPlan[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -140,6 +140,13 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
     if (totalFighters === 0) return null;
     return computePoolSizes(totalFighters, minPerPool, maxPerPool);
   }, [totalFighters, minPerPool, maxPerPool]);
+
+  const totalMatchesProjected = useMemo(() => {
+    if (poolSizes) {
+      return poolSizes.reduce((acc, size) => acc + (size * (size - 1)) / 2, 0);
+    }
+    return 0;
+  }, [poolSizes]);
 
   const generatePlan = useCallback(() => {
     if (!poolSizes) {
@@ -213,7 +220,102 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
 
   return (
     <div>
-      {/* Controls grid (min/max, stats)… */}
+      {/* Controls grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+          gap: "0.75rem",
+          alignItems: "end",
+          margin: "0.75rem 0 1rem",
+        }}
+      >
+        {/* Min per Pool */}
+        <div>
+          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
+            Min per Pool
+          </label>
+          <div className="number-input-wrapper">
+            <input
+              type="number"
+              value={minPerPool}
+              readOnly
+              className="number-input"
+            />
+            <div className="spinner-buttons">
+              <button
+                onClick={() => {
+                  setMinPerPool((v) => v + 1);
+                  setInputsChanged(true);
+                }}
+              >
+                ▲
+              </button>
+              <button
+                onClick={() => {
+                  setMinPerPool((v) => Math.max(1, v - 1));
+                  setInputsChanged(true);
+                }}
+              >
+                ▼
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Max per Pool */}
+        <div>
+          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
+            Max per Pool
+          </label>
+          <div className="number-input-wrapper">
+            <input
+              type="number"
+              value={maxPerPool}
+              readOnly
+              className="number-input"
+            />
+            <div className="spinner-buttons">
+              <button
+                onClick={() => {
+                  setMaxPerPool((v) => v + 1);
+                  setInputsChanged(true);
+                }}
+              >
+                ▲
+              </button>
+              <button
+                onClick={() => {
+                  setMaxPerPool((v) => Math.max(minPerPool, v - 1));
+                  setInputsChanged(true);
+                }}
+              >
+                ▼
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="display-field">
+          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
+            Fighters in Event
+          </label>
+          <div>{totalFighters}</div>
+        </div>
+        <div className="display-field">
+          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
+            Total Pools
+          </label>
+          <div>{poolSizes ? poolSizes.length : "-"}</div>
+        </div>
+        <div className="display-field">
+          <label style={{ display: "block", color: "#ddd", marginBottom: 4 }}>
+            Total Matches
+          </label>
+          <div>{totalMatchesProjected}</div>
+        </div>
+      </div>
 
       {/* Actions */}
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
@@ -229,7 +331,6 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
               borderRadius: 6,
               cursor: !plan || saving ? "not-allowed" : "pointer",
             }}
-            title="Deletes all existing matches for this Event, then inserts Pools + Matches + PoolMatches"
           >
             {saving ? "Saving…" : "Save Pools & Matches"}
           </button>
@@ -251,13 +352,12 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
 
       {!inputsChanged && plan && <FighterSwapInterface fighters={fighters} pools={plan} onSwap={setPlan} />}
 
-      {/* Custom warning modal */}
       <WarningDialog
         isOpen={showWarning}
         title="!!! DANGER WARNING !!!"
         message={`Saving Pools & Matches will DELETE ALL existing pools, matches, AND SCORES for ${
           eventName ?? "this event"
-        }.\n\nThis includes completed and in-progress matches.\n\nTHIS CANNOT BE UNDONE!\n\nIf no matches have been created yet, it is safe to continue.`}
+        }.\n\nThis includes completed and in-progress matches.\n\nTHIS CANNOT BE UNDONE!`}
         confirmText="Erase & Save"
         cancelText="Cancel"
         onConfirm={() => {
