@@ -1,6 +1,11 @@
 /**
  * src/components/Manager/matchSubComponents/MatchFightersManual.tsx
+ *
+ * === Manual Fighter Matching ===
+ * Allows manual pairing of fighters into matches.
+ * Honors `readOnly`: hides form + disables editing if true.
  */
+
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { backend_uri, match_fighters_manual_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
@@ -12,19 +17,17 @@ interface MatchFightersProps {
   fighters: Fighter[];
   eventId: number;
   maxRings: number;
-  isActive: boolean; // NEW
+  isActive: boolean;
+  readOnly: boolean;
 }
 
 const MatchFightersManual: React.FC<MatchFightersProps> = ({
   fighters,
   eventId,
   maxRings,
-  // isActive,
+  readOnly,
 }) => {
   const addToast = useToast();
-
-  // NEW: hold isActive in a local variable for potential use
-  // const active = isActive;
 
   const [selectedFighter1, setSelectedFighter1] = useState(
     fighters[0]?.FighterId ?? 0
@@ -79,6 +82,8 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
 
   // Submit new match
   const handleSubmit = async () => {
+    if (readOnly) return;
+
     const matchData = {
       fighter1: selectedFighter1,
       fighter2: selectedFighter2,
@@ -143,11 +148,13 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
 
   // Delete handler
   const handleDelete = (matchId: number) => {
+    if (readOnly) return;
     setLocalMatches((prev) => prev.filter((m) => m.MatchId !== matchId));
   };
 
   // Ring change handler for existing matches
   const handleRingChangeMatch = (matchId: number, newRing: number) => {
+    if (readOnly) return;
     setLocalMatches((prev) =>
       prev.map((m) =>
         m.MatchId === matchId ? { ...m, MatchRingNo: newRing } : m
@@ -159,85 +166,87 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
     <div className="container" style={{ margin: "0 auto" }}>
       <h2>Manual Fighter Matching</h2>
 
-      {/* Form */}
-      <div className="match-form">
-        {/* Fighter 1 */}
-        <div className="form-group">
-          <label>Fighter&nbsp;1:</label>
-          <select
-            value={selectedFighter1}
-            onChange={handleFighter1Change}
-            style={{ width: "250px" }}
-          >
-            {filteredFighter1Options.map((fighter) => (
-              <option key={fighter.FighterId} value={fighter.FighterId}>
-                {fighter.FighterName}
-                {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
-              </option>
-            ))}
-          </select>
-          <div className="radio-group">
-            <label>
-              <input
-                type="radio"
-                checked={colorFighter1 === "Red"}
-                onChange={() => handleColorChange("Red")}
-              />
-              Red
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={colorFighter1 === "Blue"}
-                onChange={() => handleColorChange("Blue")}
-              />
-              Blue
-            </label>
+      {/* Form (hidden in readOnly mode) */}
+      {!readOnly && (
+        <div className="match-form">
+          {/* Fighter 1 */}
+          <div className="form-group">
+            <label>Fighter&nbsp;1:</label>
+            <select
+              value={selectedFighter1}
+              onChange={handleFighter1Change}
+              style={{ width: "250px" }}
+            >
+              {filteredFighter1Options.map((fighter) => (
+                <option key={fighter.FighterId} value={fighter.FighterId}>
+                  {fighter.FighterName}
+                  {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="radio-group">
+              <label>
+                <input
+                  type="radio"
+                  checked={colorFighter1 === "Red"}
+                  onChange={() => handleColorChange("Red")}
+                />
+                Red
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={colorFighter1 === "Blue"}
+                  onChange={() => handleColorChange("Blue")}
+                />
+                Blue
+              </label>
+            </div>
+          </div>
+
+          {/* Fighter 2 */}
+          <div className="form-group">
+            <label>Fighter 2:</label>
+            <select
+              value={selectedFighter2}
+              onChange={handleFighter2Change}
+              style={{ width: "250px" }}
+            >
+              {filteredFighter2Options.map((fighter) => (
+                <option key={fighter.FighterId} value={fighter.FighterId}>
+                  {fighter.FighterName}
+                  {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="color-label">
+              {colorFighter1 === "Red" ? "Blue" : "Red"}
+            </span>
+          </div>
+
+          {/* Ring */}
+          <div className="form-group">
+            <label>Ring:</label>
+            <select
+              value={selectedRing}
+              onChange={handleRingChangeForm}
+              style={{ width: "250px" }}
+            >
+              {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
+                <option key={`ring-${ring}`} value={ring}>
+                  {`Ring ${ring}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group full-width">
+            <button type="button" onClick={handleSubmit}>
+              Submit Match
+            </button>
           </div>
         </div>
-
-        {/* Fighter 2 */}
-        <div className="form-group">
-          <label>Fighter 2:</label>
-          <select
-            value={selectedFighter2}
-            onChange={handleFighter2Change}
-            style={{ width: "250px" }}
-          >
-            {filteredFighter2Options.map((fighter) => (
-              <option key={fighter.FighterId} value={fighter.FighterId}>
-                {fighter.FighterName}
-                {fighter.ClubAcronym ? ` (${fighter.ClubAcronym})` : ""}
-              </option>
-            ))}
-          </select>
-          <span className="color-label">
-            {colorFighter1 === "Red" ? "Blue" : "Red"}
-          </span>
-        </div>
-
-        {/* Ring */}
-        <div className="form-group">
-          <label>Ring:</label>
-          <select
-            value={selectedRing}
-            onChange={handleRingChangeForm}
-            style={{ width: "250px" }}
-          >
-            {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
-              <option key={`ring-${ring}`} value={ring}>
-                {`Ring ${ring}`}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group full-width">
-          <button type="button" onClick={handleSubmit}>
-            Submit Match
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Matches grouped by ring */}
       <div style={{ marginTop: "2rem" }}>
@@ -265,7 +274,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
                     ringNo={m.MatchRingNo}
                     matchNumber={idx + 1}
                     maxRings={maxRings}
-                    interactive
+                    interactive={!readOnly}
                     onDelete={handleDelete}
                     onChangeRing={handleRingChangeMatch}
                   />

@@ -19,13 +19,13 @@ interface JudgeScoresProps {
       opponentSelfCall: boolean;
     }>;
   }>;
-  readonly?: boolean;
+  readOnly: boolean;
   onExchangesUpdate?: (updated: JudgeScoresProps["exchanges"]) => void;
 }
 
 const JudgeScores: React.FC<JudgeScoresProps> = ({
   exchanges,
-  readonly = false,
+  readOnly,
   onExchangesUpdate,
 }) => {
   const addToast = useToast();
@@ -45,7 +45,7 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
     >,
     currentValue: boolean
   ) => {
-    if (readonly) return;
+    if (readOnly) return;
 
     const updated = localExchanges.map((ex) => ({
       ...ex,
@@ -120,7 +120,7 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
                       "doubleHit",
                     ].map((field) => (
                       <td key={`${s.scoreId}-${field}`}>
-                        {readonly ? (
+                        {readOnly ? (
                           // --- readonly mode: show styled span instead of disabled checkbox ---
                           <span
                             className={

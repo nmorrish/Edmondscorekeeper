@@ -138,7 +138,7 @@ const Schedules: React.FC = () => {
                   eventId={selectedEventObj.EventId}
                   maxRings={maxRings}
                   isActive={true}
-                  // readOnly={true}
+                  readOnly={true}
                 />
               )}
 
@@ -159,7 +159,7 @@ const Schedules: React.FC = () => {
                   maxRings={maxRings}
                   isActive={true}
                   tournamentId={numericTournamentId}
-                  // readOnly={true}
+                  readOnly={true}
                 />
               )}
             </div>
@@ -169,10 +169,11 @@ const Schedules: React.FC = () => {
 
       <FloatingNav
         tournamentId={numericTournamentId}
-        backUrl="/viewer/tournament"
+        backUrl="/"
         links={[
           { text: "Standings", to: `/viewer/standings/${numericTournamentId}` },
-          { text: "Info", to: `/viewer/tournament/${numericTournamentId}` },
+          { text: "Event Scores", to: `/viewer/scores/${tournamentId}` },
+          { text: "Tournament Info", to: `/viewer/tournament/${numericTournamentId}` },
         ]}
       />
     </div>

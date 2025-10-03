@@ -6,11 +6,12 @@
  * for matches in a specific ring.
  *
  * Features:
- * - Heartbeat every 15s to keep the connection alive.
+ * - Heartbeat every 5s to keep the connection alive.
  * - Detects when the browser disconnects and terminates the loop.
  * - (Added) 204 for non-GET requests (preflight/HEAD).
  * - (Added) Disable proxy buffering and set retry directive.
  * - (Added) Unlimited execution time to avoid timeouts.
+ * - (Added) judgesSubmitted list (per exchange), so clients know who already sent scores.
  */
 
 // --- short-circuit non-GET requests (preflight/HEAD, etc.) ---
@@ -41,10 +42,9 @@ ob_implicit_flush(1);
 require_once("connect.php");
 
 // --- util: send SSE packet ---
-// NOTE: preserves original shape: only id + data lines (no event:).
 function sendSSEData($data) {
     $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    echo "retry: 5000\n";           // (Added) tell browser to auto-reconnect after 5s
+    echo "retry: 5000\n";           // tell browser to auto-reconnect after 5s
     echo "id: " . time() . "\n";
     echo "data: " . $jsonData . "\n\n";
     @ob_flush();
@@ -52,9 +52,9 @@ function sendSSEData($data) {
 }
 
 // --- util: send heartbeat ---
-// NOTE: preserves original comment-style heartbeat so onmessage doesn't fire.
 function sendHeartbeat() {
-    echo ": heartbeat " . date('H:i:s') . "\n\n";
+    echo "event: heartbeat\n";
+    echo "data: " . json_encode(['time' => date('H:i:s')]) . "\n\n";
     @ob_flush();
     @flush();
 }
@@ -124,18 +124,36 @@ while (true) {
                     WHERE m.MatchId = :mid
                 ");
                 $stmtDetails->execute([':mid' => $matchId]);
+                $row = $stmtDetails->fetch(PDO::FETCH_ASSOC);
 
-                if ($row = $stmtDetails->fetch(PDO::FETCH_ASSOC)) {
+                // --- fetch judges who have submitted scores for the most recent exchange in this match ---
+                $stmtJudges = $db->prepare("
+                    SELECT DISTINCT es.JudgeName
+                    FROM ExchangeScores es
+                    WHERE es.ExchangeId = (
+                        SELECT e.ExchangeId
+                        FROM Exchanges e
+                        JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
+                        WHERE mf.MatchId = :mid
+                        ORDER BY e.ExchangeId DESC
+                        LIMIT 1
+                    )
+                ");
+                $stmtJudges->execute([':mid' => $matchId]);
+                $judges = $stmtJudges->fetchAll(PDO::FETCH_COLUMN);
+
+                if ($row) {
                     $payload = [
-                        'matchId'       => $row['MatchId'],
-                        'matchRing'     => $row['MatchRingNo'],
-                        'fighter1Id'    => $row['fighter1Id'],
-                        'fighter1Name'  => $row['fighter1Name'],
-                        'fighter1Color' => $row['fighter1Color'],
-                        'fighter2Id'    => $row['fighter2Id'],
-                        'fighter2Name'  => $row['fighter2Name'],
-                        'fighter2Color' => $row['fighter2Color'],
-                        'lastJudgement' => $currentJudgement
+                        'matchId'         => $row['MatchId'],
+                        'matchRing'       => $row['MatchRingNo'],
+                        'fighter1Id'      => $row['fighter1Id'],
+                        'fighter1Name'    => $row['fighter1Name'],
+                        'fighter1Color'   => $row['fighter1Color'],
+                        'fighter2Id'      => $row['fighter2Id'],
+                        'fighter2Name'    => $row['fighter2Name'],
+                        'fighter2Color'   => $row['fighter2Color'],
+                        'lastJudgement'   => $currentJudgement,
+                        'judgesSubmitted' => $judges
                     ];
                     sendSSEData($payload);
                     $lastJudgement = $currentJudgement;
@@ -143,7 +161,7 @@ while (true) {
             }
 
             if ($lastJudgement === null) {
-                // signal connection is live (preserved behavior)
+                // signal connection is live (first init)
                 sendSSEData(null);
                 $lastJudgement = $currentJudgement;
             }
@@ -154,8 +172,8 @@ while (true) {
         sendSSEData(['status' => 'error', 'message' => 'Query failed in loop']);
     }
 
-    // --- send heartbeat every 15s ---
-    if (time() - $lastHeartbeat >= 15) {
+    // --- send heartbeat every 5s ---
+    if (time() - $lastHeartbeat >= 5) {
         sendHeartbeat();
         $lastHeartbeat = time();
     }

@@ -86,7 +86,6 @@ function computePoolSizes(n: number, minSize: number, maxSize: number): number[]
 const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps> = ({
   eventId,
   eventName,
-  maxRings,
   onSaved,
 }) => {
   const addToast = useToast();
@@ -95,8 +94,8 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [minPerPool, setMinPerPool] = useState<number>(DEFAULT_MIN);
-  const [maxPerPool, setMaxPerPool] = useState<number>(DEFAULT_MAX);
+  const [minPerPool] = useState<number>(DEFAULT_MIN);
+  const [maxPerPool] = useState<number>(DEFAULT_MAX);
 
   const [plan, setPlan] = useState<PoolPlan[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -140,13 +139,6 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
     if (totalFighters === 0) return null;
     return computePoolSizes(totalFighters, minPerPool, maxPerPool);
   }, [totalFighters, minPerPool, maxPerPool]);
-
-  const totalMatchesProjected = useMemo(() => {
-    if (poolSizes) {
-      return poolSizes.reduce((acc, size) => acc + (size * (size - 1)) / 2, 0);
-    }
-    return 0;
-  }, [poolSizes]);
 
   const generatePlan = useCallback(() => {
     if (!poolSizes) {

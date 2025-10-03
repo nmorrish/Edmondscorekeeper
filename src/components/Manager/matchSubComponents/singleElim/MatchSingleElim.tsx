@@ -1,5 +1,5 @@
 /**
- * src/components/Manager/matchSubComponents/MatchSingleElim.tsx
+ * src/components/Manager/matchSubComponents/singleElim/MatchSingleElim.tsx
  *
  * === Single Elimination (Create + Edit) ===
  * Orchestrates generation + display of a single-elimination bracket for an Event.
@@ -55,6 +55,7 @@ interface MatchSingleElimProps {
   maxRings: number;
   isActive: boolean;
   tournamentId: number;
+  readOnly: boolean; 
 }
 
 const eliminationApi = `${backend_uri}/${single_elimination_api}`;
@@ -65,6 +66,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   maxRings,
   isActive,
   tournamentId,
+  readOnly = false,
 }) => {
   const addToast = useToast();
 
@@ -76,7 +78,6 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   const [hasBronze, setHasBronze] = useState<boolean | undefined>(undefined);
   const [locallyActive, setLocallyActive] = useState<boolean>(false);
 
-  // --- New: remember menu selection ---
   const [activeMenu, setActiveMenu] = useState<string>(() => {
     return localStorage.getItem(`elimMenu-${eventId}`) || "editor";
   });
@@ -84,7 +85,6 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   useEffect(() => {
     localStorage.setItem(`elimMenu-${eventId}`, activeMenu);
   }, [activeMenu, eventId]);
-  // -----------------------------------
 
   const fetchBracket = useCallback(async () => {
     setLoading(true);
@@ -149,7 +149,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
         setError(null);
         setLocallyActive(true);
         addToast("Single-elimination bracket created.");
-        setActiveMenu("editor"); // when created, default to editor
+        setActiveMenu("editor");
       } else {
         setError(payload.message || "Failed to create bracket.");
         addToast(payload.message || "Failed to create bracket.");
@@ -174,18 +174,20 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
         {loading && <div style={{ opacity: 0.7 }}>Loading bracket…</div>}
         {error && <div style={{ color: "red", fontSize: 14 }}>Error: {error}</div>}
 
-        {/* Generator: only if no active bracket OR explicitly reset */}
-        {(((!isActive && Object.keys(rounds).length === 0) || (!locallyActive && Object.keys(rounds).length === 0)) && !loading) && (
-          <MatchSingleElimGenerator
-            eventId={eventId}
-            maxRings={maxRings}
-            onCreated={handleCreated}
-            tournamentId={tournamentId}
-          />
-        )}
+        {/* Generator */}
+        {((!isActive && Object.keys(rounds).length === 0) ||
+          (!locallyActive && Object.keys(rounds).length === 0)) &&
+          !loading &&
+          !readOnly && (
+            <MatchSingleElimGenerator
+              eventId={eventId}
+              maxRings={maxRings}
+              onCreated={handleCreated}
+              tournamentId={tournamentId}
+            />
+          )}
 
-
-        {/* Editor: when data exists */}
+        {/* Editor */}
         {!loading && !error && (locallyActive || Object.keys(rounds).length > 0) && (
           <>
             <MatchSingleElimFighterList
@@ -194,8 +196,14 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
               showManage={false}
             />
 
-            {/* Top Buttons with active state */}
-            <div style={{ display: "flex", gap: 8, margin: "8px 0", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                margin: "8px 0",
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 onClick={() => {
                   setActiveMenu("refresh");
@@ -204,48 +212,53 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
                 style={{
                   padding: "6px 12px",
                   borderRadius: 6,
-                  border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
-                  background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
-                  cursor: "pointer",
+                  border: "2px solid #0af",
+                  background: "#222",
                 }}
               >
                 Refresh View
               </button>
 
-              <button
-                onClick={() => {
-                  setRounds({});
-                  setBracketId(undefined);
-                  setHasBronze(undefined);
-                  setError(null);
-                  setLocallyActive(false);
-                  setActiveMenu("recreate");
-                }}
-                style={{
-                  padding: "6px 12px",
-                  background: "#840000ff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  fontWeight: "bold",
-                }}
-              >
-                Regenerate Brackets
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => {
+                    setRounds({});
+                    setBracketId(undefined);
+                    setHasBronze(undefined);
+                    setError(null);
+                    setLocallyActive(false);
+                    setActiveMenu("recreate");
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#840000ff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    fontWeight: "bold",
+                  }}
+                >
+                  Regenerate Brackets
+                </button>
+              )}
             </div>
 
             <MatchSingleElimEditor
               rounds={rounds}
               maxRings={maxRings}
-              interactive={true}
+              interactive={!readOnly}
               onChange={(id, fighters) => console.log("Changed", id, fighters)}
             />
           </>
         )}
 
-        {!loading && !error && isActive && !locallyActive && Object.keys(rounds).length === 0 && (
-          <div style={{ opacity: 0.7 }}>No bracket data available.</div>
-        )}
+        {!loading &&
+          !error &&
+          isActive &&
+          !locallyActive &&
+          Object.keys(rounds).length === 0 && (
+            <div style={{ opacity: 0.7 }}>No bracket data available.</div>
+          )}
 
         <div style={{ fontSize: 12, opacity: 0.65 }}>
           {format === "S"

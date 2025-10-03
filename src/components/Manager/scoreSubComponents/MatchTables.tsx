@@ -65,6 +65,7 @@ interface MatchTablesProps {
   fighters: Fighter[];
   maxRings: number;
   onStrikeUpdate: (fighterId: number, newStrikes: number) => void;
+  readOnly: boolean; // viewer mode flag (defaults to false)
 }
 
 const MatchTables: React.FC<MatchTablesProps> = ({
@@ -74,6 +75,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   fighters,
   maxRings,
   onStrikeUpdate,
+  readOnly,
 }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [visibleMatches, setVisibleMatches] = useState<Record<number, boolean>>({});
@@ -149,9 +151,10 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   }, [fetchMatches, addToast]);
 
   useEffect(() => {
+    if (readOnly) return; // skip SSE entirely in viewer mode
     const eventSource = connectToSSE();
     return () => eventSource.close();
-  }, [connectToSSE]);
+  }, [connectToSSE, readOnly]);
 
   useEffect(() => {
     fetchMatches();
@@ -163,7 +166,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
       const method = action === "delete" ? "DELETE" : "PUT";
       const body = method === "PUT" ? JSON.stringify({ action, ...payload }) : undefined;
 
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+    const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body,
@@ -309,59 +312,67 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                         <div>
                           <span className={getHighlightClass(f1Total, f2Total, true)}>
                             ({f1Total.toFixed(2)})
-                            <FighterDropdown
-                              key={`dropdown-${f1.fighterId}`}
-                              fighter={{
-                                FighterId: f1.fighterId,
-                                FighterName: f1.fighterName,
-                                FighterColor: f1.fighterColor,
-                                ClubAcronym: null,
-                              }}
-                              allFighters={fighters}
-                              localFighters={[
-                                {
-                                  FighterId: f2.fighterId,
-                                  FighterName: f2.fighterName,
-                                  FighterColor: f2.fighterColor,
-                                  ClubAcronym: null,
-                                },
-                              ]}
-                              interactive={true}
-                              onUpdate={(color, id) =>
-                                performAction(match.matchId, "updateFighter", {
-                                  fighterId: id,
-                                  fighterColor: color,
-                                })
-                              }
-                            />
-                          </span>{" "}
-                          vs.{" "}
-                          <span className={getHighlightClass(f1Total, f2Total, false)}>
-                            <FighterDropdown
-                              key={`dropdown-${f2.fighterId}`}
-                              fighter={{
-                                FighterId: f2.fighterId,
-                                FighterName: f2.fighterName,
-                                FighterColor: f2.fighterColor,
-                                ClubAcronym: null,
-                              }}
-                              allFighters={fighters}
-                              localFighters={[
-                                {
+                            {readOnly ? (
+                              <span>{f1.fighterName}</span>
+                            ) : (
+                              <FighterDropdown
+                                key={`dropdown-${f1.fighterId}`}
+                                fighter={{
                                   FighterId: f1.fighterId,
                                   FighterName: f1.fighterName,
                                   FighterColor: f1.fighterColor,
                                   ClubAcronym: null,
-                                },
-                              ]}
-                              interactive={true}
-                              onUpdate={(color, id) =>
-                                performAction(match.matchId, "updateFighter", {
-                                  fighterId: id,
-                                  fighterColor: color,
-                                })
-                              }
-                            />{" "}
+                                }}
+                                allFighters={fighters}
+                                localFighters={[
+                                  {
+                                    FighterId: f2.fighterId,
+                                    FighterName: f2.fighterName,
+                                    FighterColor: f2.fighterColor,
+                                    ClubAcronym: null,
+                                  },
+                                ]}
+                                interactive={true}
+                                onUpdate={(color, id) =>
+                                  performAction(match.matchId, "updateFighter", {
+                                    fighterId: id,
+                                    fighterColor: color,
+                                  })
+                                }
+                              />
+                            )}
+                          </span>{" "}
+                          vs.{" "}
+                          <span className={getHighlightClass(f1Total, f2Total, false)}>
+                            {readOnly ? (
+                              <span>{f2.fighterName}</span>
+                            ) : (
+                              <FighterDropdown
+                                key={`dropdown-${f2.fighterId}`}
+                                fighter={{
+                                  FighterId: f2.fighterId,
+                                  FighterName: f2.fighterName,
+                                  FighterColor: f2.fighterColor,
+                                  ClubAcronym: null,
+                                }}
+                                allFighters={fighters}
+                                localFighters={[
+                                  {
+                                    FighterId: f1.fighterId,
+                                    FighterName: f1.fighterName,
+                                    FighterColor: f1.fighterColor,
+                                    ClubAcronym: null,
+                                  },
+                                ]}
+                                interactive={true}
+                                onUpdate={(color, id) =>
+                                  performAction(match.matchId, "updateFighter", {
+                                    fighterId: id,
+                                    fighterColor: color,
+                                  })
+                                }
+                              />
+                            )}{" "}
                             ({f2Total.toFixed(2)})
                           </span>
                         </div>
@@ -381,16 +392,18 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                         )}
 
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <RingDropdown
-                            matchId={match.matchId}
-                            currentRing={match.matchRing}
-                            maxRings={maxRings}
-                            interactive={true}
-                            onChangeRing={(id, newRing) => {
-                              handleChangeRing(id, newRing);
-                              addToast(`Match ${id} moved to Ring ${newRing}`);
-                            }}
-                          />
+                          {!readOnly && (
+                            <RingDropdown
+                              matchId={match.matchId}
+                              currentRing={match.matchRing}
+                              maxRings={maxRings}
+                              interactive={true}
+                              onChangeRing={(id, newRing) => {
+                                handleChangeRing(id, newRing);
+                                addToast(`Match ${id} moved to Ring ${newRing}`);
+                              }}
+                            />
+                          )}
 
                           <button
                             className="toggle-button"
@@ -408,41 +421,49 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                               key={`score-${match.matchId}-${f1.fighterId}`}
                               fighter={f1}
                               tournamentId={tournamentId}
-                              onStrikeUpdate={handleStrikeUpdate}
+                              onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
                               onGrandTotalChange={(fighterId, grandTotal) =>
                                 handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                               }
                               isWinner={f1Total > f2Total && f1Total > 0}
                               showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
+                              readOnly={readOnly}
+                              matchStatus={match.pendingActiveDone}
                             />
 
                             <ScoreDisplayComponent
                               key={`score-${match.matchId}-${f2.fighterId}`}
                               fighter={f2}
                               tournamentId={tournamentId}
-                              onStrikeUpdate={handleStrikeUpdate}
+                              onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
                               onGrandTotalChange={(fighterId, grandTotal) =>
                                 handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                               }
                               isWinner={f2Total > f1Total && f2Total > 0}
                               showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
+                              readOnly={readOnly}
+                              matchStatus={match.pendingActiveDone}
                             />
                           </div>
 
-                          <TriggerJudgement
-                            key={`trigger1-${match.matchId}`}
-                            matchId={match.matchId}
-                            refresh={false}
-                            onActivate={() => performAction(match.matchId, "activate")}
-                            isActive={match.pendingActiveDone === "A"}
-                          />
-                          <TriggerJudgement
-                            key={`trigger2-${match.matchId}`}
-                            matchId={match.matchId}
-                            refresh={true}
-                            onActivate={() => performAction(match.matchId, "activate")}
-                            isActive={match.pendingActiveDone === "A"}
-                          />
+                          {!readOnly && (
+                            <>
+                              <TriggerJudgement
+                                key={`trigger1-${match.matchId}`}
+                                matchId={match.matchId}
+                                refresh={false}
+                                onActivate={() => performAction(match.matchId, "activate")}
+                                isActive={match.pendingActiveDone === "A"}
+                              />
+                              <TriggerJudgement
+                                key={`trigger2-${match.matchId}`}
+                                matchId={match.matchId}
+                                refresh={true}
+                                onActivate={() => performAction(match.matchId, "activate")}
+                                isActive={match.pendingActiveDone === "A"}
+                              />
+                            </>
+                          )}
 
                           {visibleMatches[match.matchId] && (
                             <button
@@ -455,16 +476,18 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                             </button>
                           )}
 
-                          <div style={{ textAlign: "center", marginTop: "10px" }}>
-                            <MatchActions
-                              key={`actions-${match.matchId}`}
-                              localStatus={match.pendingActiveDone || "P"}
-                              onSwap={() => performAction(match.matchId, "swap")}
-                              onComplete={() => performAction(match.matchId, "complete")}
-                              onPending={() => performAction(match.matchId, "pending")}
-                              onDelete={() => performAction(match.matchId, "delete")}
-                            />
-                          </div>
+                          {!readOnly && (
+                            <div style={{ textAlign: "center", marginTop: "10px" }}>
+                              <MatchActions
+                                key={`actions-${match.matchId}`}
+                                localStatus={match.pendingActiveDone || "P"}
+                                onSwap={() => performAction(match.matchId, "swap")}
+                                onComplete={() => performAction(match.matchId, "complete")}
+                                onPending={() => performAction(match.matchId, "pending")}
+                                onDelete={() => performAction(match.matchId, "delete")}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -494,74 +517,84 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                   <div>
                     <span className={getHighlightClass(f1Total, f2Total, true)}>
                       ({f1Total.toFixed(2)})
-                      <FighterDropdown
-                        key={`dropdown-${f1.fighterId}`}
-                        fighter={{
-                          FighterId: f1.fighterId,
-                          FighterName: f1.fighterName,
-                          FighterColor: f1.fighterColor,
-                          ClubAcronym: null,
-                        }}
-                        allFighters={fighters}
-                        localFighters={[
-                          {
-                            FighterId: f2.fighterId,
-                            FighterName: f2.fighterName,
-                            FighterColor: f2.fighterColor,
-                            ClubAcronym: null,
-                          },
-                        ]}
-                        interactive={true}
-                        onUpdate={(color, id) =>
-                          performAction(match.matchId, "updateFighter", {
-                            fighterId: id,
-                            fighterColor: color,
-                          })
-                        }
-                      />
-                    </span>{" "}
-                    vs.{" "}
-                    <span className={getHighlightClass(f1Total, f2Total, false)}>
-                      <FighterDropdown
-                        key={`dropdown-${f2.fighterId}`}
-                        fighter={{
-                          FighterId: f2.fighterId,
-                          FighterName: f2.fighterName,
-                          FighterColor: f2.fighterColor,
-                          ClubAcronym: null,
-                        }}
-                        allFighters={fighters}
-                        localFighters={[
-                          {
+                      {readOnly ? (
+                        <span>{f1.fighterName}</span>
+                      ) : (
+                        <FighterDropdown
+                          key={`dropdown-${f1.fighterId}`}
+                          fighter={{
                             FighterId: f1.fighterId,
                             FighterName: f1.fighterName,
                             FighterColor: f1.fighterColor,
                             ClubAcronym: null,
-                          },
-                        ]}
-                        interactive={true}
-                        onUpdate={(color, id) =>
-                          performAction(match.matchId, "updateFighter", {
-                            fighterId: id,
-                            fighterColor: color,
-                          })
-                        }
-                      />{" "}
+                          }}
+                          allFighters={fighters}
+                          localFighters={[
+                            {
+                              FighterId: f2.fighterId,
+                              FighterName: f2.fighterName,
+                              FighterColor: f2.fighterColor,
+                              ClubAcronym: null,
+                            },
+                          ]}
+                          interactive={true}
+                          onUpdate={(color, id) =>
+                            performAction(match.matchId, "updateFighter", {
+                              fighterId: id,
+                              fighterColor: color,
+                            })
+                          }
+                        />
+                      )}
+                    </span>{" "}
+                    vs.{" "}
+                    <span className={getHighlightClass(f1Total, f2Total, false)}>
+                      {readOnly ? (
+                        <span>{f2.fighterName}</span>
+                      ) : (
+                        <FighterDropdown
+                          key={`dropdown-${f2.fighterId}`}
+                          fighter={{
+                            FighterId: f2.fighterId,
+                            FighterName: f2.fighterName,
+                            FighterColor: f2.fighterColor,
+                            ClubAcronym: null,
+                          }}
+                          allFighters={fighters}
+                          localFighters={[
+                            {
+                              FighterId: f1.fighterId,
+                              FighterName: f1.fighterName,
+                              FighterColor: f1.fighterColor,
+                              ClubAcronym: null,
+                            },
+                          ]}
+                          interactive={true}
+                          onUpdate={(color, id) =>
+                            performAction(match.matchId, "updateFighter", {
+                              fighterId: id,
+                              fighterColor: color,
+                            })
+                          }
+                        />
+                      )}{" "}
                       ({f2Total.toFixed(2)})
                     </span>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <RingDropdown
-                      matchId={match.matchId}
-                      currentRing={match.matchRing}
-                      maxRings={maxRings}
-                      interactive={true}
-                      onChangeRing={(id, newRing) => {
-                        handleChangeRing(id, newRing);
-                        addToast(`Match ${id} moved to Ring ${newRing}`);
-                      }}
-                    />
+                    {!readOnly && (
+                      <RingDropdown
+                        matchId={match.matchId}
+                        currentRing={match.matchId ? match.matchRing : 0}
+                        maxRings={maxRings}
+                        interactive={true}
+                        onChangeRing={(id, newRing) => {
+                          handleChangeRing(id, newRing);
+                          addToast(`Match ${id} moved to Ring ${newRing}`);
+                        }}
+                      />
+                    )}
 
                     <button
                       className="toggle-button"
@@ -579,41 +612,49 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                         key={`score-${match.matchId}-${f1.fighterId}`}
                         fighter={f1}
                         tournamentId={tournamentId}
-                        onStrikeUpdate={handleStrikeUpdate}
+                        onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
                         onGrandTotalChange={(fighterId, grandTotal) =>
                           handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                         }
                         isWinner={f1Total > f2Total && f1Total > 0}
                         showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
+                        readOnly={readOnly}
+                        matchStatus={match.pendingActiveDone}
                       />
 
                       <ScoreDisplayComponent
                         key={`score-${match.matchId}-${f2.fighterId}`}
                         fighter={f2}
                         tournamentId={tournamentId}
-                        onStrikeUpdate={handleStrikeUpdate}
+                        onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
                         onGrandTotalChange={(fighterId, grandTotal) =>
                           handleGrandTotalChange(match.matchId, fighterId, grandTotal)
                         }
                         isWinner={f2Total > f1Total && f2Total > 0}
                         showJudgeDrilldown={!!openJudgeDrilldown[match.matchId]}
+                        readOnly={readOnly}
+                        matchStatus={match.pendingActiveDone}
                       />
                     </div>
 
-                    <TriggerJudgement
-                      key={`trigger1-${match.matchId}`}
-                      matchId={match.matchId}
-                      refresh={false}
-                      onActivate={() => performAction(match.matchId, "activate")}
-                      isActive={match.pendingActiveDone === "A"}
-                    />
-                    <TriggerJudgement
-                      key={`trigger2-${match.matchId}`}
-                      matchId={match.matchId}
-                      refresh={true}
-                      onActivate={() => performAction(match.matchId, "activate")}
-                      isActive={match.pendingActiveDone === "A"}
-                    />
+                    {!readOnly && (
+                      <>
+                        <TriggerJudgement
+                          key={`trigger1-${match.matchId}`}
+                          matchId={match.matchId}
+                          refresh={false}
+                          onActivate={() => performAction(match.matchId, "activate")}
+                          isActive={match.pendingActiveDone === "A"}
+                        />
+                        <TriggerJudgement
+                          key={`trigger2-${match.matchId}`}
+                          matchId={match.matchId}
+                          refresh={true}
+                          onActivate={() => performAction(match.matchId, "activate")}
+                          isActive={match.pendingActiveDone === "A"}
+                        />
+                      </>
+                    )}
 
                     {visibleMatches[match.matchId] && (
                       <button
@@ -626,16 +667,18 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                       </button>
                     )}
 
-                    <div style={{ textAlign: "center", marginTop: "10px" }}>
-                      <MatchActions
-                        key={`actions-${match.matchId}`}
-                        localStatus={match.pendingActiveDone || "P"}
-                        onSwap={() => performAction(match.matchId, "swap")}
-                        onComplete={() => performAction(match.matchId, "complete")}
-                        onPending={() => performAction(match.matchId, "pending")}
-                        onDelete={() => performAction(match.matchId, "delete")}
-                      />
-                    </div>
+                    {!readOnly && (
+                      <div style={{ textAlign: "center", marginTop: "10px" }}>
+                        <MatchActions
+                          key={`actions-${match.matchId}`}
+                          localStatus={match.pendingActiveDone || "P"}
+                          onSwap={() => performAction(match.matchId, "swap")}
+                          onComplete={() => performAction(match.matchId, "complete")}
+                          onPending={() => performAction(match.matchId, "pending")}
+                          onDelete={() => performAction(match.matchId, "delete")}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </div>

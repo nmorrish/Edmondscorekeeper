@@ -27,6 +27,8 @@ interface ScoreDisplayComponentProps {
   isWinner?: boolean;
   showJudgeDrilldown?: boolean;
   onToggleView?: (mode: "averages" | "judges") => void;
+  readOnly: boolean;
+  matchStatus?: "P" | "A" | "D";
 }
 
 const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
@@ -36,6 +38,8 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
   onGrandTotalChange,
   isWinner = false,
   showJudgeDrilldown = false,
+  readOnly,
+  matchStatus,
 }) => {
   const [localExchanges, setLocalExchanges] = useState<Exchange[]>([]);
 
@@ -48,19 +52,21 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
         scores: ex.scores || [],
       }))
     );
-  }, [fighter.exchanges]); // ← re-run when SSE pushes new exchanges
+  }, [fighter.exchanges]);
 
   const [totals, setTotals] = useState<any>(null);
 
   const handleTotalsCalculated = (t: any) => {
     setTotals(t);
+
+    console.log(matchStatus)
     if (onGrandTotalChange) {
       onGrandTotalChange(fighter.fighterId, t.grandTotal);
     }
   };
 
   return (
-    <div style={{marginTop: "15px"}}>
+    <div style={{ marginTop: "15px" }}>
       <TotalsCalculator
         fighter={{ ...fighter, exchanges: localExchanges }}
         onTotalsCalculated={handleTotalsCalculated}
@@ -70,12 +76,14 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
           <tr>
             <th colSpan={7} className={`${fighter.fighterColor} ${isWinner ? "winner" : ""}`}>
               {fighter.fighterName} ({fighter.fighterColor})
-              <IncrementFighterStrikeButton
-                fighterId={fighter.fighterId}
-                tournamentId={tournamentId}
-                initialStrikes={fighter.strikes ?? 0}
-                onStrikeUpdate={onStrikeUpdate}
-              />
+              {!readOnly && (
+                <IncrementFighterStrikeButton
+                  fighterId={fighter.fighterId}
+                  tournamentId={tournamentId}
+                  initialStrikes={fighter.strikes ?? 0}
+                  onStrikeUpdate={onStrikeUpdate}
+                />
+              )}
             </th>
           </tr>
           {!showJudgeDrilldown && (
@@ -91,56 +99,66 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
           )}
         </thead>
         <tbody>
-          {!showJudgeDrilldown &&
-            (totals?.exchangeAverages || []).map((row: any, idx: number) => (
-              <tr key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
-                <td>{row.judgeCount}</td>
-                <td>{row.avgContact.toFixed(1)}</td>
-                <td>{row.avgTarget.toFixed(1)}</td>
-                <td>{row.avgControl.toFixed(1)}</td>
-                <td>{row.avgAfterBlow.toFixed(1)}</td>
-                <td>{row.avgSelfCall.toFixed(1)}</td>
-                <td>{row.avgDoubleHit.toFixed(1)}</td>
-              </tr>
-            ))}
-
-          {showJudgeDrilldown && (
+          {readOnly && matchStatus === "A" ? (
             <tr>
-              <td colSpan={7}>
-                <JudgeScores
-                  fighterId={fighter.fighterId}
-                  exchanges={localExchanges}
-                  readonly={false}
-                  onExchangesUpdate={(updated: LooseExchange[]) =>
-                    setLocalExchanges(
-                      (updated || []).map((ex, idx) => ({
-                        exchangeId: ex.exchangeId ?? ex.ExchangeId ?? idx,
-                        exchangeTimeStamp: ex.exchangeTimeStamp ?? "",
-                        scores: ex.scores || [],
-                      }))
-                    )
-                  }
-                />
+              <td colSpan={7} style={{ textAlign: "center", fontStyle: "italic" }}>
+                Match in progress
               </td>
             </tr>
-          )}
-
-          {totals && (
+          ) : (
             <>
-              <tr className="subtotal-row">
-                <td>Totals</td>
-                <td>{totals.overallTotals.contact.toFixed(1)}</td>
-                <td>{totals.overallTotals.target.toFixed(1)}</td>
-                <td>{totals.overallTotals.control.toFixed(1)}</td>
-                <td>{totals.overallTotals.afterBlow.toFixed(1)}</td>
-                <td>{totals.overallTotals.opponentSelfCall.toFixed(1)}</td>
-                <td>({totals.overallTotals.doubleHit.toFixed(1)})</td>
-              </tr>
-              <tr>
-                <td colSpan={7} className={isWinner ? "winner" : ""}>
-                  Grand Total: {totals.grandTotal}
-                </td>
-              </tr>
+              {!showJudgeDrilldown &&
+                (totals?.exchangeAverages || []).map((row: any, idx: number) => (
+                  <tr key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
+                    <td>{row.judgeCount}</td>
+                    <td>{row.avgContact.toFixed(1)}</td>
+                    <td>{row.avgTarget.toFixed(1)}</td>
+                    <td>{row.avgControl.toFixed(1)}</td>
+                    <td>{row.avgAfterBlow.toFixed(1)}</td>
+                    <td>{row.avgSelfCall.toFixed(1)}</td>
+                    <td>{row.avgDoubleHit.toFixed(1)}</td>
+                  </tr>
+                ))}
+
+              {showJudgeDrilldown && (
+                <tr>
+                  <td colSpan={7}>
+                    <JudgeScores
+                      fighterId={fighter.fighterId}
+                      exchanges={localExchanges}
+                      readOnly={readOnly}
+                      onExchangesUpdate={(updated: LooseExchange[]) =>
+                        setLocalExchanges(
+                          (updated || []).map((ex, idx) => ({
+                            exchangeId: ex.exchangeId ?? ex.ExchangeId ?? idx,
+                            exchangeTimeStamp: ex.exchangeTimeStamp ?? "",
+                            scores: ex.scores || [],
+                          }))
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {totals && (
+                <>
+                  <tr className="subtotal-row">
+                    <td>Totals</td>
+                    <td>{totals.overallTotals.contact.toFixed(1)}</td>
+                    <td>{totals.overallTotals.target.toFixed(1)}</td>
+                    <td>{totals.overallTotals.control.toFixed(1)}</td>
+                    <td>{totals.overallTotals.afterBlow.toFixed(1)}</td>
+                    <td>{totals.overallTotals.opponentSelfCall.toFixed(1)}</td>
+                    <td>({totals.overallTotals.doubleHit.toFixed(1)})</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={7} className={isWinner ? "winner" : ""}>
+                      Grand Total: {totals.grandTotal}
+                    </td>
+                  </tr>
+                </>
+              )}
             </>
           )}
         </tbody>

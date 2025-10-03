@@ -20,8 +20,8 @@ import FighterSwapInterface, {
 } from "./FighterSwapInterface";
 import { Fighter as FullFighter } from "../../subComponents/useFighters";
 import { backend_uri, round_robin_pool_api } from "../../../utility/endpoints";
+import { apiQuery } from "../../../utility/apiClient";
 import { useToast } from "../../../utility/ToastProvider";
-import { useRefresh } from "../../../utility/RefreshContext";
 
 type MatchFighter = SwapFighter & {
   FighterColor: string;
@@ -61,11 +61,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   pools,
   maxRings,
   interactive = true,
-  allFighters = [],
   readOnly = false,
 }) => {
   const addToast = useToast();
-  const { triggerRefresh } = useRefresh();
 
   // Local copy for optimistic UI updates
   const [displayPools, setDisplayPools] = useState<PoolBlock[]>(pools);
@@ -104,17 +102,6 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       (a.FighterName ?? "").localeCompare(b.FighterName ?? "")
     );
   }, [displayPools]);
-
-  const fighterById = useMemo(() => {
-    const map = new Map<number, FullFighter>();
-    for (const f of allFighters ?? []) {
-      if (f?.FighterId) map.set(f.FighterId, f);
-    }
-    for (const f of swapFighterDirectory) {
-      map.set(f.FighterId, f);
-    }
-    return map;
-  }, [swapFighterDirectory, allFighters]);
 
   // Build PoolPlans from roster
   const buildEditableFromPools = useMemo<PoolPlan[]>(

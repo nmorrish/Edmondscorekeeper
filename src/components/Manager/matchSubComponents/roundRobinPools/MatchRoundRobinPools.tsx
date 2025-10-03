@@ -17,7 +17,7 @@ interface MatchRoundRobinPoolsProps {
   maxRings?: number;
   fighters?: Fighter[];
   isActive: boolean; // true if Pools table has entries for this event
-  readOnly?: boolean; // new: disables editing if true
+  readOnly: boolean; // disables editing if true
 }
 
 const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({

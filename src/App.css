@@ -115,8 +115,8 @@ body {
 
 .scoreTables{
   display: flex;
-  justify-content: space-between; /* This will create space between the tables */
-  align-items: flex-start; /* Aligns the tables to the top */
+  justify-content: center; 
+  align-items: center;
 }
 
 .match th,

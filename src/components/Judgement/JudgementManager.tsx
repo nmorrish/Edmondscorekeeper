@@ -8,6 +8,7 @@
  * - Explicit event listeners
  * - Manual reconnect button
  * - Change Ring button (fetches max rings from backend)
+ * - Connection status indicator (✅ on heartbeat pulse, ⚠️ if stale)
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -31,13 +32,15 @@ const setCookie = (name: string, value: string, days: number) => {
 interface JudgementData {
   matchId: number;
   matchRing: number;
-  boutId: number;
+  boutId?: number;
   fighter1Id: number;
   fighter1Name: string;
   fighter1Color: string;
   fighter2Id: number;
   fighter2Name: string;
   fighter2Color: string;
+  lastJudgement: string;
+  judgesSubmitted?: string[];
 }
 
 const JudgementManager: React.FC = () => {
@@ -49,12 +52,31 @@ const JudgementManager: React.FC = () => {
   const [judgeName, setJudgeName] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
   const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
-  const [esInstance, setEsInstance] = useState<EventSource | null>(null);
+  const [_, setEsInstance] = useState<EventSource | null>(null);
   const [lastSeenJudgement, setLastSeenJudgement] = useState<string | null>(null);
 
-  // New: rings state
+  // rings
   const [availableRings, setAvailableRings] = useState<number[]>([]);
   const [showRingSelect, setShowRingSelect] = useState(false);
+
+  // connection status
+  const [connectionStatus, setConnectionStatus] = useState<"ok" | "warn">("ok");
+  const [showPulse, setShowPulse] = useState(false);
+
+  // shared button style
+  const buttonStyle: React.CSSProperties = {
+    backgroundColor: "#222",
+    color: "#fff",
+    border: "1px solid #444",
+    padding: "0.6rem 1.2rem",
+    margin: "0.4rem",
+    borderRadius: "6px",
+    fontWeight: 600,
+    cursor: "pointer",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    appearance: "none",
+  };
 
   // retrieve judge name
   useEffect(() => {
@@ -71,7 +93,7 @@ const JudgementManager: React.FC = () => {
     }
   }, [nameInput]);
 
-  // Fetch max rings from backend
+  // Fetch max rings
   useEffect(() => {
     async function fetchRings() {
       try {
@@ -82,8 +104,7 @@ const JudgementManager: React.FC = () => {
         } else {
           setAvailableRings([1]);
         }
-      } catch (err) {
-        console.error("Error fetching rings:", err);
+      } catch {
         setAvailableRings([1]);
       }
     }
@@ -91,7 +112,7 @@ const JudgementManager: React.FC = () => {
   }, []);
 
   /**
-   * SSE connection with exponential backoff
+   * SSE connection
    */
   const connectToSSE = useCallback((retry = 0) => {
     if (!ringNumber) return;
@@ -105,14 +126,16 @@ const JudgementManager: React.FC = () => {
         const data: any = JSON.parse(event.data);
         if (data && data.lastJudgement) {
           if (data.lastJudgement !== lastSeenJudgement) {
-            setJudgementData(data);
-            setScores({
-              [data.fighter1Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
-              [data.fighter2Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false }
-            });
+            if (judgeName && data.judgesSubmitted?.includes(judgeName)) {
+              setJudgementData(null);
+            } else {
+              setJudgementData(data);
+              setScores({
+                [data.fighter1Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
+                [data.fighter2Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false }
+              });
+            }
             setLastSeenJudgement(data.lastJudgement);
-          } else {
-            console.log("Duplicate lastJudgement ignored:", data.lastJudgement);
           }
         }
       } catch (err) {
@@ -122,41 +145,42 @@ const JudgementManager: React.FC = () => {
 
     es.addEventListener("heartbeat", () => {
       setLastHeartbeat(Date.now());
+      setConnectionStatus("ok");
+      setShowPulse(true);
+      setTimeout(() => setShowPulse(false), 600);
     });
 
     es.onopen = () => {
-      console.log("SSE connected.");
       setLastHeartbeat(Date.now());
+      setConnectionStatus("ok");
       setEsInstance(es);
     };
 
     es.onerror = () => {
-      console.warn("SSE error, closing.");
       es.close();
       setEsInstance(null);
+      setConnectionStatus("warn");
       const delay = Math.min(30000, 1000 * Math.pow(2, retry)) + Math.random() * 500;
       setTimeout(() => connectToSSE(retry + 1), delay);
     };
 
     return es;
-  }, [ringNumber, lastSeenJudgement]);
+  }, [ringNumber, lastSeenJudgement, judgeName]);
 
   useEffect(() => {
     const es = connectToSSE(0);
     return () => es && es.close();
   }, [connectToSSE]);
 
+  // check for stale heartbeats
   useEffect(() => {
     const interval = setInterval(() => {
-      if (Date.now() - lastHeartbeat > 30000) {
-        console.warn("Heartbeat stale, reconnecting SSE...");
-        esInstance?.close();
-        setEsInstance(null);
-        connectToSSE(0);
+      if (Date.now() - lastHeartbeat > 10000) {
+        setConnectionStatus("warn");
       }
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
-  }, [lastHeartbeat, esInstance, connectToSSE]);
+  }, [lastHeartbeat]);
 
   // scoring
   const handleCheckboxChange = useCallback((fighterId: number, criteria: string) => {
@@ -221,8 +245,7 @@ const JudgementManager: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
-        const result = await response.json();
-        console.log('Judgement submitted:', result);
+        await response.json();
         setJudgementData(null);
         setScores({});
       }
@@ -242,6 +265,39 @@ const JudgementManager: React.FC = () => {
     fighterColor: judgementData.fighter2Color,
   } : null, [judgementData]);
 
+  // ===================== Connection Indicator =====================
+  const ConnectionIndicator = () => {
+    if (connectionStatus === "warn") {
+      return (
+        <div style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          fontSize: "1.5rem"
+        }}>
+          ⚠️
+        </div>
+      );
+    }
+    if (showPulse) {
+      return (
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            fontSize: "1.5rem",
+            animation: "pulse 0.6s ease"
+          }}
+        >
+          ✅
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // ===================== UI =====================
   if (!judgeName) {
     return (
       <div>
@@ -253,8 +309,18 @@ const JudgementManager: React.FC = () => {
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
           />
-          <button type="submit">Submit</button>
+          <button type="submit" style={buttonStyle}>Submit</button>
         </form>
+        <ConnectionIndicator />
+        <style>
+          {`
+            @keyframes pulse {
+              0% { transform: scale(1); opacity: 0; }
+              50% { transform: scale(1.4); opacity: 1; }
+              100% { transform: scale(1); opacity: 0; }
+            }
+          `}
+        </style>
       </div>
     );
   }
@@ -272,11 +338,13 @@ const JudgementManager: React.FC = () => {
                 setShowRingSelect(false);
               }
             }}
+            style={buttonStyle}
           >
             Ring {r}
           </button>
         ))}
-        <button onClick={() => setShowRingSelect(false)}>Cancel</button>
+        <button onClick={() => setShowRingSelect(false)} style={buttonStyle}>Cancel</button>
+        <ConnectionIndicator />
       </div>
     );
   }
@@ -286,17 +354,17 @@ const JudgementManager: React.FC = () => {
       <div>
         <h1>Judgement Wait</h1>
         <p>You are judging ring {ringNumber} as {judgeName}</p>
-        <button
-          onClick={() => {
-            if (window.confirm("Pounding refresh like a jackhammer will cause you to miss updates. Click 'OK' if you promise to be patient and refresh sparingly after waiting 10 seconds.")) {
-              esInstance?.close();
-              connectToSSE(0);
+        <button onClick={() => setShowRingSelect(true)} style={buttonStyle}>Change Ring</button>
+        <ConnectionIndicator />
+        <style>
+          {`
+            @keyframes pulse {
+              0% { transform: scale(1); opacity: 0; }
+              50% { transform: scale(1.4); opacity: 1; }
+              100% { transform: scale(1); opacity: 0; }
             }
-          }}
-        >
-          Refresh Connection
-        </button>
-        <button onClick={() => setShowRingSelect(true)}>Change Ring</button>
+          `}
+        </style>
       </div>
     );
   }
@@ -327,15 +395,27 @@ const JudgementManager: React.FC = () => {
       <button
         className="judgement-submit"
         onClick={() => handleConfirmation('Confirm Judgement?', () => handleSubmit({}))}
+        style={buttonStyle}
       >
         {hasCheckedValues() ? 'Submit Judgement' : 'Report No Exchange'}
       </button>
       <button
         className="judgement-submit double"
         onClick={() => handleConfirmation('Confirm Double Hit?', () => handleSubmit({ doubleHit: true }))}
+        style={buttonStyle}
       >
         Double Hit
       </button>
+      <ConnectionIndicator />
+      <style>
+        {`
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 0; }
+            50% { transform: scale(1.4); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+          }
+        `}
+      </style>
     </div>
   );
 };
