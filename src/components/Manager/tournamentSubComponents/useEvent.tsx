@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { backend_uri, event_api } from "../../utility/endpoints";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Event {
   id: number;
@@ -26,7 +27,7 @@ const useEvents = (refreshKey: number = 0, tournamentId?: number) => {
       try {
         setLoading(true);
         const qs = tournamentId ? `?tournamentId=${tournamentId}` : "";
-        const res = await fetch(`${backend_uri}/${event_api}${qs}`);
+        const res = await apiQuery(`${backend_uri}/${event_api}${qs}`);
         const text = await res.text();
         let data: any;
         try { data = JSON.parse(text); } catch { throw new Error(text || "Invalid JSON"); }

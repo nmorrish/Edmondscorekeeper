@@ -8,6 +8,7 @@
 
 import { useState, useCallback } from "react";
 import { backend_uri, fighter_api } from "../../utility/endpoints";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Fighter {
   FighterId: number;
@@ -35,7 +36,7 @@ const useFighters = () => {
     try {
       setLoading(true);
       const qs = `?tournamentId=${tournamentId}`;
-      const res = await fetch(`${backend_uri}/${fighter_api}${qs}`);
+      const res = await apiQuery(`${backend_uri}/${fighter_api}${qs}`);
       const text = await res.text();
 
       let data: any;

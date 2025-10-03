@@ -21,6 +21,7 @@ import FloatingNav from "../utility/FloatingNav";
 import { RefreshProvider, useRefresh } from "../utility/RefreshContext";
 import { backend_uri, event_api } from "../utility/endpoints";
 import { safeParseJson, normalizeMatchFormat } from "../utility/dataGuards";
+import { apiQuery } from "../utility/apiClient";
 
 type MatchType =
   | "manual"
@@ -65,7 +66,7 @@ const Schedules: React.FC = () => {
     const fetchFormat = async () => {
       try {
         const url = `${backend_uri}/${event_api}?eventId=${selectedEvent}&format=1`;
-        const res = await fetch(url, { signal }).catch(() => null);
+        const res = await apiQuery(url, { signal }).catch(() => null);
         if (!res) return;
 
         const bodyText = await res.text().catch(() => null);

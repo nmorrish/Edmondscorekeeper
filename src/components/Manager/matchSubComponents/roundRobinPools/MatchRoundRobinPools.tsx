@@ -10,6 +10,7 @@ import MatchRoundRobinPoolsGenerator from "./RoundRobinPoolGenerator";
 import MatchRoundRobinPoolsEditor from "./MatchRoundRobinPoolsEditor";
 import { Fighter } from "../../subComponents/useFighters";
 import { backend_uri } from "../../../utility/endpoints";
+import { apiQuery } from "../../../utility/apiClient";
 
 interface MatchRoundRobinPoolsProps {
   eventId: number;
@@ -44,7 +45,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   const fetchPools = useCallback(async () => {
     if (!isActive) return;
     try {
-      const res = await fetch(
+      const res = await apiQuery(
         `${backend_uri}/poolsRoundRobinApi.php?action=get&eventId=${eventId}`
       );
       const data = await res.json();

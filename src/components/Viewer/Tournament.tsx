@@ -12,6 +12,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { backend_uri, tournament_view_api } from "../utility/endpoints";
 import FloatingNav from "../utility/FloatingNav";
+import { apiQuery } from "../utility/apiClient";
 
 // --- Types ---
 interface Tournament {
@@ -48,7 +49,7 @@ const Tournament: React.FC = () => {
   useEffect(() => {
     if (!tournamentId) return;
 
-    fetch(`${backend_uri}/${tournament_view_api}?tournamentId=${tournamentId}`)
+    apiQuery(`${backend_uri}/${tournament_view_api}?tournamentId=${tournamentId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.status === "success") {

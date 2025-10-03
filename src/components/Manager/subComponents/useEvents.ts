@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { backend_uri, event_api } from "../../utility/endpoints";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Event {
   EventId: number;
@@ -31,7 +32,7 @@ const useEvents = (refreshKey: number = 0, tournamentId?: number) => {
       try {
         setLoading(true);
         const qs = tournamentId ? `?tournamentId=${tournamentId}` : "";
-        const response = await fetch(`${backend_uri}/${event_api}${qs}`);
+        const response = await apiQuery(`${backend_uri}/${event_api}${qs}`);
         const data = await response.json();
 
         if (response.ok && data.status === "success") {

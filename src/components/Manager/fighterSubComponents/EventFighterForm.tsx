@@ -19,6 +19,7 @@ import {
 import { useToast } from "../../utility/ToastProvider";
 import { useRefresh } from "../../utility/RefreshContext";
 import FighterEntryForm from "./FighterEntryForm";
+import { apiQuery } from "../../utility/apiClient";
 
 interface FighterUpper {
   FighterId: number;
@@ -74,7 +75,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
   // ---------- Load Data ----------
   const fetchClubsAndFighters = async () => {
     try {
-      const res = await fetch(`${backend_uri}/${club_api}`);
+      const res = await apiQuery(`${backend_uri}/${club_api}`);
       const data = await res.json();
       if (data.status === "success" && Array.isArray(data.clubs)) {
         setClubs(data.clubs);
@@ -85,7 +86,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
       );
 
       // Tournament fighters
-      const resTF = await fetch(
+      const resTF = await apiQuery(
         `${backend_uri}/${tournament_fighters_api}?tournamentId=${tournamentId}`
       );
       const dataTF = await resTF.json();
@@ -97,7 +98,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
       );
 
       // Event fighters
-      const resIn = await fetch(`${backend_uri}/${event_fighters_api}?eventId=${eventId}`);
+      const resIn = await apiQuery(`${backend_uri}/${event_fighters_api}?eventId=${eventId}`);
       const dataIn = await resIn.json();
       if (dataIn.status !== "success" || !Array.isArray(dataIn.fighters)) {
         throw new Error(dataIn.message || "Failed to load event fighters");
@@ -117,7 +118,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
 
   useEffect(() => {
     fetchClubsAndFighters();
-  }, [eventId, tournamentId, refreshKey]); // ✅ safe deps
+  }, [eventId, tournamentId, refreshKey]); 
 
   // ---------- Mutators (Optimistic + triggerRefresh) ----------
   const addToEvent = async (fighterId: number) => {
@@ -128,7 +129,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
     setInFighters((prev) => [...prev, fighter]);
 
     try {
-      const res = await fetch(`${backend_uri}/${event_fighters_api}`, {
+      const res = await apiQuery(`${backend_uri}/${event_fighters_api}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, fighterId }),
@@ -153,7 +154,7 @@ const EventFighterForm: React.FC<EventFighterFormProps> = ({
     setOutFighters((prev) => [...prev, fighter]);
 
     try {
-      const res = await fetch(`${backend_uri}/${event_fighters_api}`, {
+      const res = await apiQuery(`${backend_uri}/${event_fighters_api}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, fighterId }),

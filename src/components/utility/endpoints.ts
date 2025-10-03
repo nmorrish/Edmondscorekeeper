@@ -15,8 +15,8 @@
 /* the domain path containing the server side execution scripts is declared here. Comment/uncomment whichever host is being used. */
 // export const backend_uri = "https://ec-reciever.m-is.net";
 // export const backend_uri = "https://ec2-receiver.m-is.net";
-// export const backend_uri = "http://localhost/Edmondscorekeeper/phpFiles";
-export const backend_uri = "http://68.149.96.12:25565/ec-receiver";
+export const backend_uri = "http://localhost/Edmondscorekeeper/phpFiles";
+// export const backend_uri = "http://68.149.96.12:25565/ec-receiver";
 export const backup_server_uri = "http://174.3.211.213:25566/ec-receiver"
 
 export const event_api = "eventApi.php"

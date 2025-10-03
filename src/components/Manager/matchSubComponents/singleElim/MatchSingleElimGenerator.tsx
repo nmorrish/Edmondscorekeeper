@@ -17,6 +17,7 @@ import ErrorBoundary from "../../../utility/ErrorBoundary";
 import { safeParseJson, sanitizeFighters } from "../../../utility/dataGuards";
 import { useRefresh } from "../../../utility/RefreshContext";
 import WarningDialog from "../../../utility/WarningDialogue";
+import { apiQuery } from "../../../utility/apiClient";
 
 interface MatchSingleElimGeneratorProps {
   eventId: number;
@@ -49,7 +50,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
   const loadFighters = useCallback(async () => {
     setLocalFighters([]);
     try {
-      const res = await fetch(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
+      const res = await apiQuery(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.status === "success" && Array.isArray(data.fighters)) {
@@ -96,7 +97,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
         withBronze: !!withBronze,
       };
 
-      const res = await fetch(eliminationApi, {
+      const res = await apiQuery(eliminationApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -9,6 +9,7 @@
 import React, { useState } from "react";
 import { backend_uri, weapon_api } from "../../utility/endpoints";
 import { Weapon } from "./useWeapons";
+import { apiQuery } from "../../utility/apiClient";
 
 interface Props {
   weapon: Weapon | null;  // null → add new
@@ -40,7 +41,7 @@ const WeaponForm: React.FC<Props> = ({ weapon, onClose, onSaved }) => {
         ? `${backend_uri}/${weapon_api}?id=${weapon.WeaponId}`
         : `${backend_uri}/${weapon_api}`;
 
-      const res = await fetch(url, {
+      const res = await apiQuery(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -63,7 +64,7 @@ const WeaponForm: React.FC<Props> = ({ weapon, onClose, onSaved }) => {
     if (!window.confirm("Delete this weapon?")) return;
 
     try {
-      const res = await fetch(
+      const res = await apiQuery(
         `${backend_uri}/${weapon_api}?id=${weapon.WeaponId}`,
         { method: "DELETE" }
       );

@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { backend_uri } from "../utility/endpoints";
+import { apiQuery } from "./apiClient";
 
 interface FloatingNavProps {
   tournamentId: number;
@@ -23,7 +24,7 @@ const FloatingNav: React.FC<FloatingNavProps> = ({ tournamentId, links, backUrl 
 
     const fetchTournamentName = async () => {
       try {
-        const res = await fetch(`${backend_uri}/tournamentApi.php?id=${tournamentId}`);
+        const res = await apiQuery(`${backend_uri}/tournamentApi.php?id=${tournamentId}`);
         const data = await res.json();
         if (data.status === "success" && data.tournament) {
           setTournamentName(data.tournament.TournamentName);

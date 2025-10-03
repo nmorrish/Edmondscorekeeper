@@ -13,6 +13,7 @@ import { useToast } from "../../utility/ToastProvider";
 import FighterDropdown from "./fighterDropdown";
 import MatchActions from "./matchActions";
 import RingDropdown from "./ringDropdown";
+import { apiQuery } from "../../utility/apiClient";
 
 export type MatchStatus = "P" | "A" | "D";
 
@@ -97,7 +98,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     (async () => {
       if (!needsMatchFetch) return;
       try {
-        const res = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+        const res = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
           headers: { Accept: "application/json" },
         });
         const data = await res.json();
@@ -137,7 +138,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
       if (localAllFighters.length > 0) return;       // caller provided fighters list
       if (!eventId) return;                          // need event context to fetch fighters
       try {
-        const res = await fetch(`${EVENT_FIGHTERS_API}?eventId=${encodeURIComponent(eventId)}`, {
+        const res = await apiQuery(`${EVENT_FIGHTERS_API}?eventId=${encodeURIComponent(eventId)}`, {
           method: "GET",
           headers: { Accept: "application/json" },
         });
@@ -172,7 +173,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   // === API ACTIONS ===
   const handleUpdateFighter = async (fighterColor: string, fighterId: number) => {
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fighterId, fighterColor }),
@@ -204,7 +205,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
   const handleSwap = async () => {
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "swap" }),
@@ -242,7 +243,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
   const handleComplete = async () => {
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete" }),
@@ -262,7 +263,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
   const handlePending = async () => {
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "pending" }),
@@ -284,7 +285,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     onDelete?.(matchId);
 
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "DELETE",
       });
       const data = await response.json();

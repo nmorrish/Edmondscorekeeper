@@ -19,6 +19,7 @@ import {
 } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
 import { useRefresh } from "../../../utility/RefreshContext";
+import { apiQuery } from "../../../utility/apiClient";
 
 interface FighterUpper {
   FighterId: number;
@@ -86,7 +87,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
       setLoading(true);
       try {
         // Load clubs (for acronyms)
-        const clubsRes = await fetch(`${backend_uri}/${club_api}`);
+        const clubsRes = await apiQuery(`${backend_uri}/${club_api}`);
         const clubsData = await safeJson(clubsRes);
         const clubList: Club[] =
           clubsRes.ok && clubsData?.status === "success" && Array.isArray(clubsData?.clubs)
@@ -96,7 +97,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
         const clubById = new Map<number, Club>(clubList.map((c: Club) => [c.ClubId, c]));
 
         // Tournament fighters (all)
-        const tfRes = await fetch(
+        const tfRes = await apiQuery(
           `${backend_uri}/${tournament_fighters_api}?tournamentId=${tournamentId}`
         );
         const tfData = await safeJson(tfRes);
@@ -105,7 +106,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
           : [];
 
         // Event fighters (already in event)
-        const efRes = await fetch(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
+        const efRes = await apiQuery(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
         const efData = await safeJson(efRes);
         const eventList: FighterUpper[] = Array.isArray(efData?.fighters)
           ? (efData.fighters as any[]).map((f) => normalizeFighter(f, clubById))
@@ -143,7 +144,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
       prev.filter((f) => f.FighterId !== fighter.FighterId)
     );
 
-    fetch(EVENT_FIGHTERS_API, {
+    apiQuery(EVENT_FIGHTERS_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId, fighterId: fighter.FighterId }),
@@ -173,7 +174,7 @@ const MatchSingleElimFighterManager: React.FC<FighterManagerProps> = ({
       prev.filter((f) => f.FighterId !== fighter.FighterId)
     );
 
-    fetch(EVENT_FIGHTERS_API, {
+    apiQuery(EVENT_FIGHTERS_API, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId, fighterId: fighter.FighterId }),

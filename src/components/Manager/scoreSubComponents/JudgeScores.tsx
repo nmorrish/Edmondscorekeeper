@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { backend_uri } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
+import { apiQuery } from "../../utility/apiClient";
 
 interface JudgeScoresProps {
   fighterId: number;
@@ -57,7 +58,7 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
     if (onExchangesUpdate) onExchangesUpdate(updated);
 
     try {
-      const resp = await fetch(`${backend_uri}/updateJudgeScore.php`, {
+      const resp = await apiQuery(`${backend_uri}/updateJudgeScore.php`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scoreId, field, value: currentValue ? 0 : 1 }),

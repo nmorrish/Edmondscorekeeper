@@ -18,6 +18,7 @@ import {
   normalizeMatchFormat,
   sanitizeArray,
 } from "../utility/dataGuards";
+import { apiQuery } from "../utility/apiClient";
 
 type MatchType =
   | "manual"
@@ -73,7 +74,7 @@ const MatchManagement: React.FC = () => {
       try {
         const url = `${backend_uri}/${event_api}?eventId=${selectedEventId}&format=1`;
 
-        const res = await fetch(url, { signal }).catch((e) => {
+        const res = await apiQuery(url, { signal }).catch((e) => {
           console.error("[format-fetch] network error:", e?.message || e);
           return null;
         });

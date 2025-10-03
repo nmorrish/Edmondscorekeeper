@@ -19,6 +19,7 @@ import {
 import { useToast } from "../../utility/ToastProvider";
 import { useRefresh } from "../../utility/RefreshContext";
 import FighterEntryForm from "./FighterEntryForm";
+import { apiQuery } from "../../utility/apiClient";
 
 interface FighterUpper {
   FighterId: number;
@@ -83,7 +84,7 @@ const TournamentFighterForm: React.FC<TournamentFighterFormProps> = ({
   // ---------- Load Data ----------
   const loadData = useCallback(async () => {
     try {
-      const clubsRes = await fetch(`${backend_uri}/${club_api}`);
+      const clubsRes = await apiQuery(`${backend_uri}/${club_api}`);
       const clubsData = await clubsRes.json();
       if (clubsData.status === "success" && Array.isArray(clubsData.clubs)) {
         setClubs(clubsData.clubs);
@@ -94,7 +95,7 @@ const TournamentFighterForm: React.FC<TournamentFighterFormProps> = ({
       );
 
       // All fighters
-      const allRes = await fetch(`${backend_uri}/${fighter_api}`);
+      const allRes = await apiQuery(`${backend_uri}/${fighter_api}`);
       const allData = await allRes.json();
       if (allData.status !== "success" || !Array.isArray(allData.fighters)) {
         throw new Error(allData.message || "Failed to load fighters");
@@ -104,7 +105,7 @@ const TournamentFighterForm: React.FC<TournamentFighterFormProps> = ({
       );
 
       // Fighters in tournament
-      const inRes = await fetch(
+      const inRes = await apiQuery(
         `${backend_uri}/${tournament_fighters_api}?tournamentId=${tournamentId}`
       );
       const inData = await inRes.json();
@@ -133,7 +134,7 @@ const TournamentFighterForm: React.FC<TournamentFighterFormProps> = ({
     setInFighters((prev) => [...prev, fighter]);
     setOutFighters((prev) => prev.filter((f) => f.FighterId !== fighter.FighterId));
 
-    fetch(`${backend_uri}/tournamentFightersApi.php`, {
+    apiQuery(`${backend_uri}/tournamentFightersApi.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tournamentId, fighterId: fighter.FighterId }),
@@ -158,7 +159,7 @@ const TournamentFighterForm: React.FC<TournamentFighterFormProps> = ({
     setOutFighters((prev) => [...prev, fighter]);
     setInFighters((prev) => prev.filter((f) => f.FighterId !== fighter.FighterId));
 
-    fetch(
+    apiQuery(
       `${backend_uri}/tournamentFightersApi.php?tournamentId=${tournamentId}&fighterId=${fighter.FighterId}`,
       { method: "DELETE" }
     )

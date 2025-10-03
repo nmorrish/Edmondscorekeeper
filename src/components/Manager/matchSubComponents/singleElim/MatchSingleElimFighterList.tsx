@@ -4,6 +4,7 @@ import { Fighter } from "../../subComponents/useFighters";
 import { useToast } from "../../../utility/ToastProvider";
 import { sanitizeFighters } from "../../../utility/dataGuards";
 import MatchSingleElimFighterManager from "./MatchSingleElimFighterManager";
+import { apiQuery } from "../../../utility/apiClient";
 
 interface Props {
   eventId: number;
@@ -24,7 +25,7 @@ const MatchSingleElimFighterList: React.FC<Props> = ({
 
   const loadFighters = useCallback(async () => {
     try {
-      const res = await fetch(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
+      const res = await apiQuery(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
       const data = await res.json().catch(() => null);
       if (res.ok && data?.status === "success" && Array.isArray(data.fighters)) {
         setFighters(sanitizeFighters(data.fighters));

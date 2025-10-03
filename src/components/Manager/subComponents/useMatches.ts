@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { backend_uri, match_api } from "../../utility/endpoints";
 import { useRefresh } from "../../utility/RefreshContext";
+import { apiQuery } from "../../utility/apiClient";
 
 export type MatchStatus = "P" | "A" | "D"; // Pending, Active, Done
 
@@ -45,7 +46,7 @@ const useMatches = (eventId?: number, matchId?: number) => {
     try {
       setLoading(true);
       const qs = matchId ? `?id=${matchId}` : `?eventId=${eventId}`;
-      const response = await fetch(`${backend_uri}/${match_api}${qs}`);
+      const response = await apiQuery(`${backend_uri}/${match_api}${qs}`);
       const data = await response.json();
 
       if (response.ok && data.status === "success") {

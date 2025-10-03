@@ -18,6 +18,7 @@ import RingDropdown from "../matchSubComponents/ringDropdown";
 import { useToast } from "../../utility/ToastProvider";
 import debounce from "lodash/debounce";
 import { Fighter } from "../subComponents/useFighters";
+import { apiQuery } from "../../utility/apiClient";
 
 // --- Types ---
 export interface Score {
@@ -90,7 +91,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
       if (!eventId || !tournamentId || !ringNumber) return;
 
       try {
-        const resp = await fetch(
+        const resp = await apiQuery(
           `${backend_uri}/${score_api}?eventId=${eventId}&ringNo=${ringNumber}`
         );
         const baseData = await resp.json();
@@ -166,7 +167,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
       const method = action === "delete" ? "DELETE" : "PUT";
       const body = method === "PUT" ? JSON.stringify({ action, ...payload }) : undefined;
 
-    const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+    const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body,

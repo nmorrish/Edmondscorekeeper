@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { backend_uri, weapon_api } from "../../utility/endpoints";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Weapon {
   WeaponId: number;
@@ -24,7 +25,7 @@ const useWeapons = (refreshKey: number = 0) => {
     const fetchWeapons = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${backend_uri}/${weapon_api}`);
+        const res = await apiQuery(`${backend_uri}/${weapon_api}`);
         const data = await res.json();
 
         if (data.status === "success") {

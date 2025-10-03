@@ -1,54 +1,40 @@
 /**
  * src/components/utility/apiClient.ts
  *
- * == Universal API Client ==
- * Takes a full API path (already built, with query params if needed)
- * and a method string ("GET" | "POST" | "PUT" | "DELETE").
- *
- * - Always attaches X-Api-Key
- * - Always mirrors to backup server (fire-and-forget)
- * - Returns parsed JSON
+ * == Drop-in Fetch Wrapper ==
+ * Behaves like fetch(), but mirrors requests to a backup server.
+ * - Accepts same args as fetch(input, init?)
+ * - Optional toggle for adding X-Api-Key header
  */
 
-import { backup_server_uri, API_KEY } from "../utility/endpoints";
+import { backend_uri, backup_server_uri, API_KEY } from "../utility/endpoints";
 
-/**
- * Universal API query
- * @param method - HTTP method ("GET", "POST", "PUT", "DELETE", etc)
- * @param url - Full API path (e.g. `${event_fighters_api}?eventId=5`)
- * @param payload - Optional payload (for POST/PUT/DELETE)
- */
-export async function apiQuery<T>(
-  method: "GET" | "POST" | "PUT" | "DELETE",
-  url: string,
-  payload?: Record<string, any>
-): Promise<T> {
-  const headers: HeadersInit = { "X-Api-Key": API_KEY };
-  let body: string | undefined;
+// 🔹 flip this to true/false depending on environment
+const USE_API_KEY = false;
 
-  if (method !== "GET" && payload) {
-    headers["Content-Type"] = "application/json";
-    body = JSON.stringify(payload);
+export async function apiQuery(
+  input: RequestInfo | URL,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = new Headers(init.headers || {});
+
+  if (USE_API_KEY) {
+    headers.set("X-Api-Key", API_KEY);
   }
 
-  // Main call
-  const response = await fetch(url, {
-    method,
-    headers,
-    ...(body ? { body } : {}),
-  });
+  const inputStr =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+      ? input.toString()
+      : input.url;
 
-  // Fire-and-forget mirror
-  const mirrorUrl = url.replace(/^(https?:\/\/[^/]+)/, backup_server_uri);
-  fetch(mirrorUrl, {
-    method,
-    headers,
-    ...(body ? { body } : {}),
-  }).catch(() => {});
+  const mainUrl = inputStr;
+  const backupUrl = mainUrl.replace(backend_uri, backup_server_uri);
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+  if (backupUrl !== mainUrl) {
+    fetch(backupUrl, { ...init, headers }).catch(() => {});
   }
 
-  return response.json();
+  return fetch(mainUrl, { ...init, headers });
 }

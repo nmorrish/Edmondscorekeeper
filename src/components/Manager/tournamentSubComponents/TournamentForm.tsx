@@ -3,6 +3,7 @@ import { backend_uri, tournament_api } from "../../utility/endpoints";
 import { Tournament } from "../subComponents/useTournaments";
 import useEvents from "./useEvent";
 import EventForm from "./EventForm";
+import { apiQuery } from "../../utility/apiClient";
 
 interface Props {
   tournament: Tournament | null;  // null → add new
@@ -45,7 +46,7 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
         ? `${backend_uri}/${tournament_api}?id=${tournament.TournamentId}`
         : `${backend_uri}/${tournament_api}`;
 
-      const response = await fetch(url, {
+      const response = await apiQuery(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -69,7 +70,7 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
       return;
     }
     try {
-      const response = await fetch(
+      const response = await apiQuery(
         `${backend_uri}/${tournament_api}?id=${tournament.TournamentId}`,
         { method: "DELETE" }
       );

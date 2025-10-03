@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { backend_uri } from "../../utility/endpoints";
 import { useRefresh } from "../../utility/RefreshContext";
 import { Fighter } from "./useFighters"; // reuse Fighter interface
+import { apiQuery } from "../../utility/apiClient";
 
 const useTournamentFighters = (tournamentId?: number) => {
   const [fighters, setFighters] = useState<Fighter[]>([]);
@@ -26,7 +27,7 @@ const useTournamentFighters = (tournamentId?: number) => {
 
     try {
       setLoading(true);
-      const response = await fetch(
+      const response = await apiQuery(
         `${backend_uri}/tournamentFightersApi.php?tournamentId=${tournamentId}`
       );
       const text = await response.text();

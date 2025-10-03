@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { backend_uri, tournament_api } from "../../utility/endpoints";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Tournament {
   TournamentId: number;
@@ -19,7 +20,7 @@ const useTournaments = (refreshKey: number = 0) => {
     const fetchTournaments = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${backend_uri}/${tournament_api}`);
+        const response = await apiQuery(`${backend_uri}/${tournament_api}`);
         const data = await response.json();
 
         if (data.status === "success") {

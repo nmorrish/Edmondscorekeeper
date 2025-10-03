@@ -19,6 +19,7 @@ const EventFighterForm = lazy(() => import("./fighterSubComponents/EventFighterF
 import ClubEntryForm, { Club } from "./fighterSubComponents/ClubEntryForm";
 import FighterEntryForm from "./fighterSubComponents/FighterEntryForm";
 import FloatingNav from "../utility/FloatingNav";
+import { apiQuery } from "../utility/apiClient";
 
 interface EventSummary {
   EventId: number;
@@ -39,7 +40,7 @@ const FighterManagement: React.FC = () => {
   // ---------- Fetch: Clubs (for Add Fighter / Manage Clubs panes) ----------
   const fetchClubs = useCallback(async () => {
     try {
-      const resp = await fetch(`${backend_uri}/${club_api}`);
+      const resp = await apiQuery(`${backend_uri}/${club_api}`);
       const data = await resp.json();
       if (data.status === "success" && Array.isArray(data.clubs)) {
         setClubs(data.clubs);
@@ -57,13 +58,13 @@ const FighterManagement: React.FC = () => {
 
     const run = async () => {
       try {
-        const tournamentResp = await fetch(`${backend_uri}/${tournament_api}?id=${tournamentId}`);
+        const tournamentResp = await apiQuery(`${backend_uri}/${tournament_api}?id=${tournamentId}`);
         const tournamentData = await tournamentResp.json();
         if (tournamentData.status === "success" && tournamentData.tournament) {
           setTournamentName(tournamentData.tournament.TournamentName);
         }
 
-        const eventsResp = await fetch(`${backend_uri}/${event_api}?tournamentId=${tournamentId}`);
+        const eventsResp = await apiQuery(`${backend_uri}/${event_api}?tournamentId=${tournamentId}`);
         const eventsData = await eventsResp.json();
         if (eventsData.status === "success" && Array.isArray(eventsData.events)) {
           setEvents(eventsData.events);

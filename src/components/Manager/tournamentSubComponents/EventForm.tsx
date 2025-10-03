@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { backend_uri, event_api } from "../../utility/endpoints";
 import useWeapons from "./useWeapons";
 import type { Event } from "./useEvent";
+import { apiQuery } from "../../utility/apiClient";
 
 interface Props {
   event: Event | null;              // null → add new
@@ -55,7 +56,7 @@ const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onC
         ? `${backend_uri}/${event_api}?id=${event.id}`   
         : `${backend_uri}/${event_api}`;
 
-      const res = await fetch(url, {
+      const res = await apiQuery(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -84,7 +85,7 @@ const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onC
     if (!window.confirm("Delete this event?")) return;
 
     try {
-      const res = await fetch(`${backend_uri}/${event_api}?id=${event.id}`, { method: "DELETE" });
+      const res = await apiQuery(`${backend_uri}/${event_api}?id=${event.id}`, { method: "DELETE" });
       const text = await res.text();
       let data: any; try { data = JSON.parse(text); } catch { data = { status: "error", message: text }; }
 

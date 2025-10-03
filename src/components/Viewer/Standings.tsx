@@ -15,6 +15,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { backend_uri, tournament_api, event_api } from "../utility/endpoints";
 import FloatingNav from "../utility/FloatingNav";
+import { apiQuery } from "../utility/apiClient";
 
 interface EventSummary {
   EventId: number;
@@ -51,7 +52,7 @@ const EventStandings: React.FC = () => {
   const fetchTournament = useCallback(async () => {
     if (!tournamentId) return;
     try {
-      const resp = await fetch(`${backend_uri}/${tournament_api}?id=${tournamentId}`);
+      const resp = await apiQuery(`${backend_uri}/${tournament_api}?id=${tournamentId}`);
       const data = await resp.json();
       if (data.status === "success" && data.tournament) {
         setTournamentName(data.tournament.TournamentName);
@@ -65,7 +66,7 @@ const EventStandings: React.FC = () => {
   const fetchEvents = useCallback(async () => {
     if (!tournamentId) return;
     try {
-      const resp = await fetch(`${backend_uri}/${event_api}?tournamentId=${tournamentId}`);
+      const resp = await apiQuery(`${backend_uri}/${event_api}?tournamentId=${tournamentId}`);
       const data = await resp.json();
       if (data.status === "success" && Array.isArray(data.events)) {
         setEvents(data.events);
@@ -85,7 +86,7 @@ const EventStandings: React.FC = () => {
       if (!tournamentId || !eventId) return;
       try {
         setLoading(true);
-        const resp = await fetch(
+        const resp = await apiQuery(
           `${backend_uri}/viewerStandings.php?tournamentId=${tournamentId}&eventId=${eventId}`
         );
         const data = await resp.json();

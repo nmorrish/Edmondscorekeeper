@@ -12,6 +12,7 @@ import { useToast } from "../../utility/ToastProvider";
 import { Fighter } from "../subComponents/useFighters";
 import useMatches, { MatchStatus, Match } from "../subComponents/useMatches";
 import MatchCard from "./MatchCard";
+import { apiQuery } from "../../utility/apiClient";
 
 interface MatchFightersProps {
   fighters: Fighter[];
@@ -94,7 +95,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
     };
 
     try {
-      const response = await fetch(
+      const response = await apiQuery(
         `${backend_uri}/${match_fighters_manual_api}`,
         {
           method: "POST",

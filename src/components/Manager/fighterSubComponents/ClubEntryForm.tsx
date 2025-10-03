@@ -13,6 +13,7 @@
 import React, { useState } from "react";
 import { backend_uri, club_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Club {
   ClubId: number;
@@ -41,7 +42,7 @@ const ClubEntryForm: React.FC<ClubEntryFormProps> = ({ club, onClubsUpdated }) =
     }
     try {
       if (isNew) {
-        const res = await fetch(`${backend_uri}/${club_api}`, {
+        const res = await apiQuery(`${backend_uri}/${club_api}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clubName: name.trim(), clubAcronym: acronym || null }),
@@ -56,7 +57,7 @@ const ClubEntryForm: React.FC<ClubEntryFormProps> = ({ club, onClubsUpdated }) =
           addToast(`Error: ${data.message}`);
         }
       } else {
-        const res = await fetch(`${backend_uri}/${club_api}?id=${club!.ClubId}`, {
+        const res = await apiQuery(`${backend_uri}/${club_api}?id=${club!.ClubId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clubName: name.trim(), clubAcronym: acronym || null }),
@@ -85,7 +86,7 @@ const ClubEntryForm: React.FC<ClubEntryFormProps> = ({ club, onClubsUpdated }) =
     }
     if (!window.confirm("Delete this club?")) return;
     try {
-      const res = await fetch(`${backend_uri}/${club_api}?id=${club!.ClubId}`, {
+      const res = await apiQuery(`${backend_uri}/${club_api}?id=${club!.ClubId}`, {
         method: "DELETE",
       });
       const data = await res.json();

@@ -11,6 +11,7 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { backend_uri, match_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
+import { apiQuery } from "../../utility/apiClient";
 
 interface TriggerJudgementProps {
   matchId: number;
@@ -75,7 +76,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
     async (action: string) => {
       try {
         setLoading(true);
-        const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+        const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),

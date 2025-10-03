@@ -11,6 +11,7 @@ import { backend_uri, event_fighters_api, round_robin_pool_api } from "../../../
 import { useToast } from "../../../utility/ToastProvider";
 import FighterSwapInterface, { Fighter, PoolPlan } from "./FighterSwapInterface";
 import WarningDialog from "../../../utility/WarningDialogue";
+import { apiQuery } from "../../../utility/apiClient";
 
 interface MatchRoundRobinPoolsGeneratorProps {
   eventId: number;
@@ -110,7 +111,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
+        const res = await apiQuery(
           `${EVENT_FIGHTERS_API}?eventId=${encodeURIComponent(eventId)}`,
           { method: "GET", headers: { Accept: "application/json" } }
         );
@@ -178,7 +179,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
 
     setSaving(true);
     try {
-      const res = await fetch(`${POOLS_RR_API}?action=save`, {
+      const res = await apiQuery(`${POOLS_RR_API}?action=save`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),

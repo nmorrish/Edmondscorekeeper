@@ -3,6 +3,7 @@
 import React from "react";
 import { backend_uri, match_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
+import { apiQuery } from "../../utility/apiClient";
 
 interface RingDropdownProps {
   matchId: number;
@@ -24,7 +25,7 @@ const RingDropdown: React.FC<RingDropdownProps> = ({
 
   const handleRingChange = async (newRing: number) => {
     try {
-      const response = await fetch(`${backend_uri}/${match_api}?id=${matchId}`, {
+      const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ringNo: newRing }),

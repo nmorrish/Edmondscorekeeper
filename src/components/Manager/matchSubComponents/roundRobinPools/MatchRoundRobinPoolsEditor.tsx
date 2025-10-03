@@ -78,7 +78,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   // Reload all pools from backend
   const reloadPools = async () => {
     try {
-      const res = await fetch(`${POOLS_RR_API}?action=get&eventId=${encodeURIComponent(eventId)}`);
+      const res = await apiQuery(`${POOLS_RR_API}?action=get&eventId=${encodeURIComponent(eventId)}`);
       const data = await res.json();
       if (res.ok && data.status === "success" && Array.isArray(data.pools)) {
         setDisplayPools(data.pools);

@@ -13,7 +13,7 @@ import { useParams } from "react-router-dom";
 import MatchTables from "../Manager/scoreSubComponents/MatchTables";
 import useFighters from "../Manager/subComponents/useFighters";
 import useEvents from "../Manager/subComponents/useEvents";
-import useTournaments from "../Manager/subComponents/useTournaments"; // <-- add this
+import useTournaments from "../Manager/subComponents/useTournaments"; 
 import FloatingNav from "../utility/FloatingNav";
 import { Fighter } from "../Manager/subComponents/useFighters";
 import { RefreshProvider } from "../utility/RefreshContext";

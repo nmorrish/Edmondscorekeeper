@@ -15,6 +15,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { backend_uri, sse_send_to_to_judge_api, judge_score_submit_api } from '../utility/endpoints';
 import ScoreTable from './ScoreTable';
+import { apiQuery } from '../utility/apiClient';
 
 // Cookie utils
 const getCookie = (name: string) => {
@@ -97,7 +98,7 @@ const JudgementManager: React.FC = () => {
   useEffect(() => {
     async function fetchRings() {
       try {
-        const resp = await fetch(`${backend_uri}/eventApi.php?ringsOnly=1`);
+        const resp = await apiQuery(`${backend_uri}/eventApi.php?ringsOnly=1`);
         const data = await resp.json();
         if (data.status === "success" && data.maxRings > 0) {
           setAvailableRings(Array.from({ length: data.maxRings }, (_, i) => i + 1));
@@ -240,7 +241,7 @@ const JudgementManager: React.FC = () => {
             [judgementData.fighter2Id]: fighter2Scores,
           },
         };
-        const response = await fetch(`${backend_uri}/${judge_score_submit_api}`, {
+        const response = await apiQuery(`${backend_uri}/${judge_score_submit_api}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),

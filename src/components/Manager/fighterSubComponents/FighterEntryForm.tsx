@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { backend_uri, fighter_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
 import { Fighter } from "../subComponents/useFighters";
+import { apiQuery } from "../../utility/apiClient";
 
 export interface Club {
   ClubId: number;
@@ -57,7 +58,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
     try {
       if (isNew) {
         // Create fighter
-        const res = await fetch(`${backend_uri}/${fighter_api}`, {
+        const res = await apiQuery(`${backend_uri}/${fighter_api}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -76,7 +77,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
         }
       } else {
         // Update fighter
-        const res = await fetch(
+        const res = await apiQuery(
           `${backend_uri}/${fighter_api}?id=${fighter!.FighterId}`,
           {
             method: "PUT",
@@ -106,7 +107,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
     if (!window.confirm("Are you sure you want to delete this fighter?")) return;
 
     try {
-      const res = await fetch(`${backend_uri}/${fighter_api}?id=${fighter.FighterId}`, {
+      const res = await apiQuery(`${backend_uri}/${fighter_api}?id=${fighter.FighterId}`, {
         method: "DELETE",
       });
       const data = await res.json();

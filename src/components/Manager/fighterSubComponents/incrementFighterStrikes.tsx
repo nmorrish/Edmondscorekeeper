@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { backend_uri } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
+import { apiQuery } from "../../utility/apiClient";
 
 interface IncrementFighterStrikeButtonProps {
   fighterId: number;
@@ -24,7 +25,7 @@ const IncrementFighterStrikeButton: React.FC<IncrementFighterStrikeButtonProps> 
     setLoading(true);
 
     try {
-      const response = await fetch(`${backend_uri}/tournamentFightersApi.php`, {
+      const response = await apiQuery(`${backend_uri}/tournamentFightersApi.php`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fighterId, tournamentId, action: "incrementStrike" }),

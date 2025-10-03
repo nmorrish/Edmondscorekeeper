@@ -17,6 +17,7 @@ import {
 } from "../../../utility/dataGuards";
 import MatchSingleElimEditor from "./MatchSingleElimEditor";
 import MatchSingleElimFighterList from "./MatchSingleElimFighterList";
+import { apiQuery } from "../../../utility/apiClient";
 
 export interface BracketFighter {
   fighterId: number;
@@ -90,7 +91,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(eliminationApi, {
+      const res = await apiQuery(eliminationApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "fetch", eventId }),
