@@ -88,6 +88,7 @@ const Tournament: React.FC = () => {
       <p>{tournament.TournamentDescription}</p>
 
       <div className="card">
+        <aside><a href="https://docs.google.com/document/d/199Fv7u0r1hDZ2DKqVn2HE3zVmvJ1w4b5/edit#heading=h.1fob9te" target="_blank"><strong>Click Here</strong> to read the rules for our <strong>new scoring system</strong>. Give them a read if you can. We don't want you left in the dark.</a></aside>
         <h2>Tournament Rules</h2>
         <p>{tournament.TournamentRules}</p>
       </div>
