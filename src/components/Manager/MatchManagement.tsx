@@ -284,6 +284,7 @@ const MatchManagement: React.FC = () => {
               maxRings={selectedEvent.MaxRings || 1}
               isActive={matchType === "manual"}
               readOnly={false} 
+              tournamentId={numericTournamentId}
             />
           )}
 
@@ -294,6 +295,7 @@ const MatchManagement: React.FC = () => {
               maxRings={selectedEvent.MaxRings || 1}
               isActive={matchType === "roundRobinPools"}
               readOnly={false} 
+              tournamentId={numericTournamentId}
             />
           )}
 

@@ -9,7 +9,7 @@
  */
 
 import React, { useMemo, useRef, useState } from "react";
-import MatchCard, { MatchFighterRow, MatchStatus } from "../MatchCard";
+import MatchCard, { MatchFighterRow } from "../MatchCard";
 import { BracketMatch, BracketRounds } from "./MatchSingleElim";
 
 interface MatchSingleElimEditorProps {
@@ -20,6 +20,7 @@ interface MatchSingleElimEditorProps {
   onDelete?: (matchId: number) => void;
   onComplete?: (matchId: number) => void;
   onChangeRing?: (matchId: number, newRing: number) => void;
+  tournamentId: number;
 }
 
 const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
@@ -30,6 +31,7 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
   onDelete,
   onComplete,
   onChangeRing,
+  tournamentId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -133,9 +135,6 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
               <MatchCard
                 key={m.matchId}
                 matchId={m.matchId}
-                fighters={[]}
-                status={"P" as MatchStatus}
-                allFighters={[]}
                 ringNo={m.matchRing ?? 1}
                 matchNumber={m.matchQueue ?? idx + 1}
                 maxRings={maxRings}
@@ -144,6 +143,7 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
                 onDelete={onDelete}
                 onComplete={onComplete}
                 onChangeRing={onChangeRing}
+                tournamentId={tournamentId}
               />
             ))}
           </div>

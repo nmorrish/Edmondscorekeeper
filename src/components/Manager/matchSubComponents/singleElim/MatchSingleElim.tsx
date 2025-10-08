@@ -249,6 +249,7 @@ const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
               maxRings={maxRings}
               interactive={!readOnly}
               onChange={(id, fighters) => console.log("Changed", id, fighters)}
+              tournamentId={tournamentId}
             />
           </>
         )}

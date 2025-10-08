@@ -20,6 +20,7 @@ interface MatchFightersProps {
   maxRings: number;
   isActive: boolean;
   readOnly: boolean;
+  tournamentId: number;
 }
 
 const MatchFightersManual: React.FC<MatchFightersProps> = ({
@@ -27,6 +28,7 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
   eventId,
   maxRings,
   readOnly,
+  tournamentId,
 }) => {
   const addToast = useToast();
 
@@ -269,15 +271,13 @@ const MatchFightersManual: React.FC<MatchFightersProps> = ({
                   <MatchCard
                     key={m.MatchId}
                     matchId={m.MatchId}
-                    fighters={m.fighters}
-                    status={m.PendingActiveDone as MatchStatus}
-                    allFighters={fighters}
                     ringNo={m.MatchRingNo}
                     matchNumber={idx + 1}
                     maxRings={maxRings}
                     interactive={!readOnly}
                     onDelete={handleDelete}
                     onChangeRing={handleRingChangeMatch}
+                    tournamentId={tournamentId}
                   />
                 ))}
               </div>

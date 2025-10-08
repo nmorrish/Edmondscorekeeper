@@ -18,7 +18,8 @@ interface MatchRoundRobinPoolsProps {
   maxRings?: number;
   fighters?: Fighter[];
   isActive: boolean; // true if Pools table has entries for this event
-  readOnly: boolean; // disables editing if true
+  readOnly: boolean; 
+  tournamentId: number;
 }
 
 const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
@@ -27,6 +28,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
   maxRings = 1,
   isActive,
   readOnly = false,
+  tournamentId,
 }) => {
   const [savedPools, setSavedPools] = useState<any[] | null>(null);
 
@@ -130,6 +132,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           interactive={!readOnly}
           eventId={eventId}
           readOnly={readOnly}
+          tournamentId={tournamentId}
         />
       )}
     </div>

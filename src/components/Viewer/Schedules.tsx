@@ -140,6 +140,7 @@ const Schedules: React.FC = () => {
                   maxRings={maxRings}
                   isActive={true}
                   readOnly={true}
+                  tournamentId={numericTournamentId}
                 />
               )}
 
@@ -150,6 +151,7 @@ const Schedules: React.FC = () => {
                   maxRings={maxRings}
                   isActive={true}
                   readOnly={true}
+                  tournamentId={numericTournamentId}
                 />
               )}
 

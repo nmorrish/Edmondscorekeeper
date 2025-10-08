@@ -52,6 +52,7 @@ interface MatchRoundRobinPoolsEditorProps {
   interactive?: boolean;
   allFighters?: FullFighter[];
   readOnly?: boolean;
+  tournamentId: number;
 }
 
 const POOLS_RR_API = `${backend_uri}/${round_robin_pool_api}`;
@@ -62,6 +63,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   maxRings,
   interactive = true,
   readOnly = false,
+  tournamentId,
 }) => {
   const addToast = useToast();
 
@@ -224,13 +226,11 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                     <MatchCard
                       key={m.matchId}
                       matchId={m.matchId}
-                      fighters={m.fighters ?? []}
-                      status={m.status}
-                      allFighters={swapFighterDirectory}
                       ringNo={m.ringNo}
                       matchNumber={idx + 1}
                       maxRings={maxRings}
                       interactive={!readOnly && interactive}
+                      tournamentId={tournamentId}
                     />
                   ))}
                 </div>
