@@ -233,8 +233,8 @@ CREATE TABLE `BracketMatches` (
   PRIMARY KEY (`BracketId`, `MatchId`),
   CONSTRAINT `FK_BracketMatches_Brackets` FOREIGN KEY (`BracketId`) REFERENCES `Brackets` (`BracketId`),
   CONSTRAINT `FK_BracketMatches_Matches` FOREIGN KEY (`MatchId`) REFERENCES `Matches` (`MatchId`) ON DELETE CASCADE,
-  CONSTRAINT `FK_BracketMatches_NextWinMatch` FOREIGN KEY (`NextMatchWin`) REFERENCES `Matches` (`MatchId`),
-  CONSTRAINT `FK_BracketMatches_NextLossMatch` FOREIGN KEY (`NextMatchLoss`) REFERENCES `Matches` (`MatchId`)
+  CONSTRAINT `FK_BracketMatches_NextWinMatch` FOREIGN KEY (`NextMatchWin`) REFERENCES `Matches` (`MatchId`) ON DELETE SET NULL,
+  CONSTRAINT `FK_BracketMatches_NextLossMatch` FOREIGN KEY (`NextMatchLoss`) REFERENCES `Matches` (`MatchId`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
 
 -- --------------------------------------------------------

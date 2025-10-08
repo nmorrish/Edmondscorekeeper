@@ -350,7 +350,7 @@ const MatchRoundRobinPoolsGenerator: React.FC<MatchRoundRobinPoolsGeneratorProps
         </button>
       </div>
 
-      {!inputsChanged && plan && <FighterSwapInterface fighters={fighters} pools={plan} onSwap={setPlan} />}
+      {!inputsChanged && plan && <FighterSwapInterface fighters={fighters} pools={plan} onSwap={setPlan} readOnly={false}/>}
 
       <WarningDialog
         isOpen={showWarning}

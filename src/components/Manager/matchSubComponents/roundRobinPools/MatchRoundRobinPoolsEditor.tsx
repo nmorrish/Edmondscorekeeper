@@ -149,7 +149,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     }
   };
 
-  const handleMovePersist = async (movedFighterId: number, toPoolNo: number, fromPoolId: number | null) => {
+  const handleMovePersist = async (movedFighterId: number, toPoolNo: number, _fromPoolId?: number | null) => {
     try {
       const dest = displayPools.find((p) => p.poolNo === toPoolNo);
       if (!dest) throw new Error("Target pool not found");
