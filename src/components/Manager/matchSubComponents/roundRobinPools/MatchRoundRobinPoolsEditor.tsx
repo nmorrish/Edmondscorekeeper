@@ -44,7 +44,7 @@ interface MatchRoundRobinPoolsEditorProps {
   eventId: number;
   pools: PoolBlock[];
   maxRings: number;
-  interactive?: boolean;
+  interactive: boolean;
   allFighters?: FullFighter[];
   tournamentId: number;
 }
@@ -55,7 +55,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   eventId,
   pools,
   maxRings,
-  interactive = true,
+  interactive,
   allFighters = [],
   tournamentId
 }) => {
@@ -187,6 +187,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
   const loadCandidates = async (poolId: number) => {
+    if (!interactive) return; // disable in read-only mode
     setLoadingCandidates(true);
     try {
       const res = await fetch(
@@ -205,6 +206,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   };
 
   const handleAddFighter = async (fighterId: number) => {
+    if (!interactive) return;
     if (!managePoolId) return;
     const fighter = available.find((f) => f.FighterId === fighterId);
     if (!fighter) return;
@@ -240,6 +242,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   };
 
   const handleRemoveFighter = async (fighterId: number) => {
+    if (!interactive) return;
     if (!managePoolId) return;
     const fighter = roster.find((f) => f.FighterId === fighterId);
     if (!fighter) return;
@@ -294,6 +297,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       <FighterSwapInterface
         fighters={swapFighterDirectory}
         pools={editablePools}
+        readOnly={!interactive}
         onSwap={(nextPools, lastSwap) => {
           setEditablePools(nextPools);
           if (!lastSwap) return;
@@ -326,6 +330,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           }
         }}
         onManagePool={(poolNo) => {
+          if (!interactive) return; // disable manage button in read-only mode
           const pool = displayPools.find((p) => p.poolNo === poolNo);
           if (!pool) {
             addToast(`Pool ${poolNo} not found`);

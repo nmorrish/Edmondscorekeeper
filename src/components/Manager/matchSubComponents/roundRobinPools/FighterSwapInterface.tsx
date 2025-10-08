@@ -33,7 +33,7 @@ interface FighterSwapInterfaceProps {
       | { movedFighterId: number; toPoolNo: number }
   ) => void;
   onManagePool?: (poolNo: number) => void;
-  readOnly?: boolean;
+  readOnly: boolean;
 }
 
 const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({

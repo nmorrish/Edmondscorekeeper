@@ -131,7 +131,6 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           maxRings={maxRings}
           interactive={!readOnly}
           eventId={eventId}
-          readOnly={readOnly}
           tournamentId={tournamentId}
         />
       )}
