@@ -252,7 +252,7 @@ const EventStandings: React.FC = () => {
   const baseRows = sortedStandings;
   const grouped = showByPool
     ? baseRows.reduce((acc, row) => {
-        const key = row.PoolNo != null ? `Pool ${row.PoolNo}` : "Unassigned";
+        const key = row.PoolNo != null ? `Pool ${row.PoolNo}` : `See Event Schedule (button in bottom right) for breakdown of eliminations`;
         if (!acc[key]) acc[key] = [];
         acc[key].push(row);
         return acc;

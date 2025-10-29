@@ -452,7 +452,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   cursor: "pointer",
                 }}
               >
-                {isOpen ? "Stop Editing" : "Edit"}
+                {isOpen ? "Hide Pool" : "Show Pool"}
               </button>
             </div>
 
