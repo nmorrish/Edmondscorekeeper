@@ -5,12 +5,39 @@
 SET NAMES utf8mb4;
 SET sql_mode = 'STRICT_ALL_TABLES';
 
+-- ========================================================
+-- Safe teardown so FK dependencies don't explode on DROP
+-- ========================================================
+SET @old_fk_checks = @@FOREIGN_KEY_CHECKS;
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TRIGGER IF EXISTS trg_finalize_match;
+DROP TRIGGER IF EXISTS trg_matches_queue_default;
+
+DROP TABLE IF EXISTS `ExchangeScores`;
+DROP TABLE IF EXISTS `Exchanges`;
+DROP TABLE IF EXISTS `PoolMatches`;
+DROP TABLE IF EXISTS `PoolFighters`;
+DROP TABLE IF EXISTS `BracketMatches`;
+DROP TABLE IF EXISTS `Brackets`;
+DROP TABLE IF EXISTS `MatchFighters`;
+DROP TABLE IF EXISTS `Matches`;
+DROP TABLE IF EXISTS `EventFighters`;
+DROP TABLE IF EXISTS `Pools`;
+DROP TABLE IF EXISTS `Events`;
+DROP TABLE IF EXISTS `TournamentFighters`;
+DROP TABLE IF EXISTS `Fighters`;
+DROP TABLE IF EXISTS `Clubs`;
+DROP TABLE IF EXISTS `Weapons`;
+DROP TABLE IF EXISTS `Tournaments`;
+
+SET FOREIGN_KEY_CHECKS = @old_fk_checks;
+
 -- --------------------------------------------------------
 --
 -- Table structure for table `Tournament`
 -- Table for the tournament. All other aspects of this project are encompased under 'tournament'
 
-DROP TABLE IF EXISTS `Tournaments`;
 CREATE TABLE `Tournaments` (
   `TournamentId` int(11) NOT NULL AUTO_INCREMENT,
   `TournamentName` varchar(50) NOT NULL,
@@ -27,7 +54,6 @@ CREATE TABLE `Tournaments` (
 -- Table structure for table `Club`
 -- Holds info on clubs
 
-DROP TABLE IF EXISTS `Clubs`;
 CREATE TABLE `Clubs` (
   `ClubId` int(11) NOT NULL AUTO_INCREMENT,
   `ClubName` varchar(50) NOT NULL,
@@ -42,7 +68,6 @@ CREATE TABLE `Clubs` (
 -- Table structure for table `Fighter`
 -- Holds fighter data.
 
-DROP TABLE IF EXISTS `Fighters`;
 CREATE TABLE `Fighters` (
   `FighterId` int(11) NOT NULL AUTO_INCREMENT,
   `ClubId` int(11) NULL,
@@ -58,7 +83,6 @@ CREATE TABLE `Fighters` (
 -- Table structure for table `TournamentFighters`
 -- Primarily for holding fighter strikes. Strikes are accumulated tournament-wide, but do not carry over across tournaments.
 
-DROP TABLE IF EXISTS `TournamentFighters`;
 CREATE TABLE `TournamentFighters` (
   `FighterId` int(11) NOT NULL,
   `TournamentId` int(11) NOT NULL,
@@ -74,7 +98,6 @@ CREATE TABLE `TournamentFighters` (
 -- Table structure for table `Weapons`
 -- Table for specifying weapons used in events
 
-DROP TABLE IF EXISTS `Weapons`;
 CREATE TABLE `Weapons` (
   `WeaponId` int(11) NOT NULL AUTO_INCREMENT,
   `WeaponName` varchar(30) NOT NULL,
@@ -83,14 +106,12 @@ CREATE TABLE `Weapons` (
   PRIMARY KEY (`WeaponId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
 
-
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `Events`
 --
 
-DROP TABLE IF EXISTS `Events`;
 CREATE TABLE `Events` (
   `EventId` int(11) NOT NULL AUTO_INCREMENT,
   `EventName` varchar(30) NOT NULL,
@@ -108,7 +129,6 @@ CREATE TABLE `Events` (
 --
 -- Table structure for table `EventFighters`
 
-DROP TABLE IF EXISTS `EventFighters`;
 CREATE TABLE `EventFighters` (
   `EventId` int(11) NOT NULL,
   `FighterId` int(11) NOT NULL,
@@ -117,15 +137,12 @@ CREATE TABLE `EventFighters` (
   CONSTRAINT `FK_EventFighter_Fighter` FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
-
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `Matches`
 -- Statuses are 'Pending', 'Active', 'Done' 
 
-DROP TABLE IF EXISTS `Matches`;
 CREATE TABLE `Matches` (
   `MatchId` int(11) NOT NULL AUTO_INCREMENT,
   `EventId` int(11) NOT NULL,
@@ -145,7 +162,6 @@ CREATE TABLE `Matches` (
 -- Holds derived values for easy access after match. (FinalScore + Win/Loss/Draw)
 -- Score Modifier is for adding/subtracting points to correct mistakes or on order from Referee
 
-DROP TABLE IF EXISTS `MatchFighters`;
 CREATE TABLE `MatchFighters` (
   `MatchFighterId` int(11) NOT NULL AUTO_INCREMENT,
   `MatchId` int(11) NOT NULL,
@@ -158,9 +174,7 @@ CREATE TABLE `MatchFighters` (
   CONSTRAINT `FK_MatchFighter_Match` FOREIGN KEY (`MatchId`) REFERENCES `Matches` (`MatchId`) ON DELETE CASCADE,
   CONSTRAINT `FK_MatchFighter_Fighter` FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`),
   UNIQUE KEY uq_match_color (`MatchId`, `FighterColor`)
-
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 
 -- --------------------------------------------------------
 
@@ -182,7 +196,6 @@ CREATE TABLE `Exchanges` (
 -- Table structure for table `ExchangeScores`
 --
 
-DROP TABLE IF EXISTS `ExchangeScores`;
 CREATE TABLE `ExchangeScores` (
   `ExchangeScoresId` int(11) NOT NULL AUTO_INCREMENT,
   `ExchangeId` int(11) NOT NULL,
@@ -198,14 +211,12 @@ CREATE TABLE `ExchangeScores` (
   CONSTRAINT `FK_ExchangeScores_Exchanges` FOREIGN KEY (`ExchangeId`) REFERENCES `Exchanges` (`ExchangeId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `Brackets`
 -- Bracket table will handle single and double elimination formats (S or D), 
 
-DROP TABLE IF EXISTS `Brackets`;
 CREATE TABLE `Brackets` (
   `BracketId` int(11) NOT NULL AUTO_INCREMENT,
   `EventId` int(11) NOT NULL,
@@ -222,7 +233,6 @@ CREATE TABLE `Brackets` (
 -- NextMatchWin points to the next match where the winners fight
 -- NextMatchLoss points to the next match fought for double elimination
 
-DROP TABLE IF EXISTS `BracketMatches`;
 CREATE TABLE `BracketMatches` (
   `BracketId` int(11) NOT NULL,
   `MatchId` int(11) NOT NULL,
@@ -243,7 +253,6 @@ CREATE TABLE `BracketMatches` (
 -- Table structure for table `Pools`
 -- Table for specifying pools
 
-DROP TABLE IF EXISTS `Pools`;
 CREATE TABLE `Pools` (
   `PoolId` int(11) NOT NULL AUTO_INCREMENT,
   `EventId` int(11) NOT NULL,
@@ -262,7 +271,6 @@ CREATE TABLE `Pools` (
 -- Table structure for table `PoolMatches`
 -- Table for grouping matches inside pools
 
-DROP TABLE IF EXISTS `PoolMatches`;
 CREATE TABLE `PoolMatches` (
   `PoolId` int(11) NOT NULL,
   `MatchId` int(11) NOT NULL,
@@ -277,15 +285,14 @@ CREATE TABLE `PoolMatches` (
 -- Table structure for table `PoolFighters`
 -- Holds an list of fighters in pools separate from matches.
 
-DROP TABLE IF EXISTS `PoolFighters`;
-CREATE TABLE PoolFighters (
+CREATE TABLE `PoolFighters` (
     `PoolFighterId` INT AUTO_INCREMENT PRIMARY KEY,
     `PoolId` INT NOT NULL,
     `FighterId` INT NOT NULL,
     UNIQUE (`PoolId`, `FighterId`),
     FOREIGN KEY (`PoolId`) REFERENCES `Pools` (`PoolId`) ON DELETE CASCADE,
     FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Create FK Indexes
@@ -304,7 +311,6 @@ CREATE INDEX idx_bm_nextwin  ON BracketMatches(NextMatchWin);
 CREATE INDEX idx_bm_nextloss ON BracketMatches(NextMatchLoss);
 
 -- --------------------------------------------------------
-
 --
 -- Triggers
 -- 
@@ -318,41 +324,43 @@ CREATE INDEX idx_bm_nextloss ON BracketMatches(NextMatchLoss);
 --   - FinalScore = SUM over exchanges of (avgContact + avgTarget + avgControl + avgAfterBlow + avgSelfCall)
 --   - Then add ScoreModifier (if any) and ROUND(2)
 -- --------------------------------------------------------
-DROP TRIGGER IF EXISTS trg_finalize_match;
 DELIMITER $$
 
 CREATE TRIGGER trg_finalize_match
 AFTER UPDATE ON Matches
 FOR EACH ROW
 BEGIN
-  -- Only act on transition to 'D'
-  IF NEW.PendingActiveDone = 'D' AND (OLD.PendingActiveDone IS NULL OR OLD.PendingActiveDone <> 'D') THEN
+  IF NEW.PendingActiveDone = 'D' 
+     AND (OLD.PendingActiveDone IS NULL OR OLD.PendingActiveDone <> 'D') THEN
 
-    /* 1) Compute FinalScore for each fighter in this match
-          - LEFT JOIN ExchangeScores so exchanges with no scores contribute 0s
-          - IFNULL around AVG() to turn NULL (no rows) into 0
-    */
     UPDATE MatchFighters mf
     LEFT JOIN (
       SELECT
         px.MatchFighterId,
-        SUM(
-          IFNULL(px.avgContact,0)
-        + IFNULL(px.avgTarget,0)
-        + IFNULL(px.avgControl,0)
-        + IFNULL(px.avgAfterBlow,0)
-        + IFNULL(px.avgSelfCall,0)
+        TRUNCATE(
+          SUM(
+            IFNULL(px.avgContact,0)
+          + IFNULL(px.avgTarget,0)
+          + IFNULL(px.avgControl,0)
+          + IFNULL(px.avgAfterBlow,0)
+          + IFNULL(px.avgSelfCall,0)
+          ), 2
         ) AS GrandTotal
       FROM (
         SELECT
           e.MatchFighterId,
           e.ExchangeId,
-          IFNULL(AVG(CASE WHEN s.Contact            = 1 THEN 1 ELSE 0 END), 0) AS avgContact,
-          IFNULL(AVG(CASE WHEN s.Target             = 1 THEN 1 ELSE 0 END), 0) AS avgTarget,
-          IFNULL(AVG(CASE WHEN s.Control            = 1 THEN 1 ELSE 0 END), 0) AS avgControl,
-          IFNULL(AVG(CASE WHEN s.AfterBlow          = 1 THEN 1 ELSE 0 END), 0) AS avgAfterBlow,
-          IFNULL(AVG(CASE WHEN s.OpponentSelfCall   = 1 THEN 1 ELSE 0 END), 0) AS avgSelfCall
-          -- NOTE: DoubleHit intentionally ignored per spec
+          -- replace AVG() with SUM()/COUNT() to dodge MariaDB 11 bug
+          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Contact = 1 THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgContact,
+          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Target = 1 THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgTarget,
+          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Control = 1 THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgControl,
+          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.AfterBlow = 1 THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgAfterBlow,
+          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.OpponentSelfCall = 1 THEN 1 ELSE 0 END)
+           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgSelfCall
         FROM Exchanges e
         LEFT JOIN ExchangeScores s ON s.ExchangeId = e.ExchangeId
         WHERE e.MatchFighterId IN (
@@ -362,10 +370,12 @@ BEGIN
       ) px
       GROUP BY px.MatchFighterId
     ) calc ON calc.MatchFighterId = mf.MatchFighterId
-    SET mf.FinalScore = ROUND(IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0), 2)
+    SET mf.FinalScore = TRUNCATE(
+        IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0),
+        2
+      )
     WHERE mf.MatchId = NEW.MatchId;
 
-    /* 2) Set Win/Loss/Draw via self-join comparison within the same match */
     UPDATE MatchFighters mf
     JOIN MatchFighters other
       ON other.MatchId = mf.MatchId
@@ -376,8 +386,6 @@ BEGIN
       ELSE 'D'
     END
     WHERE mf.MatchId = NEW.MatchId;
-
-    -- 3) Advance in rank if using brackets.
 
     INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
     SELECT bm.NextMatchWin, mf.FighterId,
@@ -398,7 +406,6 @@ BEGIN
           AND mf2.FighterId = mf.FighterId
       );
 
-    /* 4) Advance Losers if using brackets */
     INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
     SELECT bm.NextMatchLoss, mf.FighterId,
            CASE
@@ -422,6 +429,8 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+
 
 -- --------------------------------------------------------
 -- Trigger: trg_finalize_match

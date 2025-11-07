@@ -258,6 +258,10 @@ try {
                         'matchId' => $id
                     ]);
                 } catch (Exception $e) {
+                    echo json_encode([
+                        'status'  => 'fail',
+                        'message' => $e->getMessage()
+                    ]);
                     if ($db->inTransaction()) $db->rollBack();
                     throw $e;
                 }

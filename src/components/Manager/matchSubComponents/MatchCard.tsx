@@ -251,7 +251,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
         onComplete?.(matchId);
         addToast(`Marked match ${matchId} complete`);
       } else {
-        addToast("Failed to complete match.");
+        addToast(`Failed to complete match:${data.message}`);
       }
     } catch {
       addToast("Failed to complete match.");

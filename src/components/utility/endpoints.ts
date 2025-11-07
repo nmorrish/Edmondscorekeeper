@@ -1,24 +1,46 @@
 /**
  * src/components/utility/constants.ts
- * 
- * == Constants File ==
- * 
- * Place any variable that will remain constant through project development, 
- * but may need to be changed at a later date, here.
- * 
- * For a given constant, const, you may use anywhere in the project by declaring:
- * import { const } from "../contants";
- *  
+ *
+ * Dynamically loads endpoints.json from the same folder as the built JS assets.
+ * Falls back to local URIs automatically if endpoints.json is not found.
  */
 
+interface Config {
+  backend_uri: string;
+  backup_server_uri: string;
+}
 
-/* the domain path containing the server side execution scripts is declared here. Comment/uncomment whichever host is being used. */
-// export const backend_uri = "https://ec-reciever.m-is.net";
-// export const backend_uri = "https://ec2-receiver.m-is.net";
-// export const backend_uri = "http://localhost/Edmondscorekeeper/phpFiles";
-export const backend_uri = "http://68.149.96.12:25566/ec-receiver";
-// export const backup_server_uri = "http://174.3.211.213:25566/ec-receiver"
-export const backup_server_uri = "http://0.0.0.0/ec-receiver"
+// Default local fallback (assumes localhost dev)
+let config: Config = {
+  backend_uri: "http://localhost/Edmondscorekeeper/phpFiles",
+  backup_server_uri: "http://0.0.0.0/ec-receiver",
+};
+
+/**
+ * Example endpoints.json (place in same folder as npm build JS)
+ * {
+ *   "backend_uri": "http://68.149.96.12:25566/ec-receiver",
+ *   "backup_server_uri": "http://174.3.211.213:25566/ec-receiver"
+ * }
+ */
+
+// Resolve endpoints.json relative to where the script is running
+const scriptBase = window.location.pathname.replace(/\/[^/]*$/, "");
+const endpointsPath = `${scriptBase}/endpoints.json`;
+
+// Try to fetch runtime config from same directory as JS bundle
+fetch(endpointsPath)
+  .then((res) => (res.ok ? res.json() : Promise.reject()))
+  .then((json) => {
+    if (json.backend_uri) config.backend_uri = json.backend_uri;
+    if (json.backup_server_uri) config.backup_server_uri = json.backup_server_uri;
+    console.log(`Loaded endpoints.json
+      `);
+  })
+  .catch(() => console.warn("Using localhost fallback URI endpoints"));
+
+export const backend_uri = config.backend_uri;
+export const backup_server_uri = config.backup_server_uri;
 
 export const event_api = "eventApi.php"
 export const fighter_api = "fighterAPI.php"
