@@ -326,41 +326,39 @@ CREATE INDEX idx_bm_nextloss ON BracketMatches(NextMatchLoss);
 -- --------------------------------------------------------
 DELIMITER $$
 
+DROP TRIGGER IF EXISTS trg_finalize_match $$
 CREATE TRIGGER trg_finalize_match
 AFTER UPDATE ON Matches
 FOR EACH ROW
 BEGIN
-  IF NEW.PendingActiveDone = 'D' 
-     AND (OLD.PendingActiveDone IS NULL OR OLD.PendingActiveDone <> 'D') THEN
+  -- Only act on transition to 'D'
+  IF NEW.PendingActiveDone = 'D' AND (OLD.PendingActiveDone IS NULL OR OLD.PendingActiveDone <> 'D') THEN
 
+    /* 1) Compute FinalScore for each fighter in this match
+          - LEFT JOIN ExchangeScores so exchanges with no scores contribute 0s
+          - IFNULL around AVG() to turn NULL (no rows) into 0
+    */
     UPDATE MatchFighters mf
     LEFT JOIN (
       SELECT
         px.MatchFighterId,
-        TRUNCATE(
-          SUM(
-            IFNULL(px.avgContact,0)
-          + IFNULL(px.avgTarget,0)
-          + IFNULL(px.avgControl,0)
-          + IFNULL(px.avgAfterBlow,0)
-          + IFNULL(px.avgSelfCall,0)
-          ), 2
+        SUM(
+          IFNULL(px.avgContact,0)
+        + IFNULL(px.avgTarget,0)
+        + IFNULL(px.avgControl,0)
+        + IFNULL(px.avgAfterBlow,0)
+        + IFNULL(px.avgSelfCall,0)
         ) AS GrandTotal
       FROM (
         SELECT
           e.MatchFighterId,
           e.ExchangeId,
-          -- replace AVG() with SUM()/COUNT() to dodge MariaDB 11 bug
-          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Contact = 1 THEN 1 ELSE 0 END)
-           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgContact,
-          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Target = 1 THEN 1 ELSE 0 END)
-           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgTarget,
-          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.Control = 1 THEN 1 ELSE 0 END)
-           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgControl,
-          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.AfterBlow = 1 THEN 1 ELSE 0 END)
-           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgAfterBlow,
-          (SUM(CASE WHEN s.DoubleHit = 1 THEN NULL WHEN s.OpponentSelfCall = 1 THEN 1 ELSE 0 END)
-           / NULLIF(COUNT(CASE WHEN s.DoubleHit = 1 THEN NULL ELSE 1 END),0)) AS avgSelfCall
+          IFNULL(AVG(CASE WHEN s.Contact            = 1 THEN 1 ELSE 0 END), 0) AS avgContact,
+          IFNULL(AVG(CASE WHEN s.Target             = 1 THEN 1 ELSE 0 END), 0) AS avgTarget,
+          IFNULL(AVG(CASE WHEN s.Control            = 1 THEN 1 ELSE 0 END), 0) AS avgControl,
+          IFNULL(AVG(CASE WHEN s.AfterBlow          = 1 THEN 1 ELSE 0 END), 0) AS avgAfterBlow,
+          IFNULL(AVG(CASE WHEN s.OpponentSelfCall   = 1 THEN 1 ELSE 0 END), 0) AS avgSelfCall
+          -- NOTE: DoubleHit intentionally ignored per spec
         FROM Exchanges e
         LEFT JOIN ExchangeScores s ON s.ExchangeId = e.ExchangeId
         WHERE e.MatchFighterId IN (
@@ -370,12 +368,10 @@ BEGIN
       ) px
       GROUP BY px.MatchFighterId
     ) calc ON calc.MatchFighterId = mf.MatchFighterId
-    SET mf.FinalScore = TRUNCATE(
-        IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0),
-        2
-      )
+    SET mf.FinalScore = ROUND(IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0), 2)
     WHERE mf.MatchId = NEW.MatchId;
 
+    /* 2) Set Win/Loss/Draw via self-join comparison within the same match */
     UPDATE MatchFighters mf
     JOIN MatchFighters other
       ON other.MatchId = mf.MatchId
@@ -386,6 +382,8 @@ BEGIN
       ELSE 'D'
     END
     WHERE mf.MatchId = NEW.MatchId;
+
+    -- 3) Advance in rank if using brackets.
 
     INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
     SELECT bm.NextMatchWin, mf.FighterId,
@@ -406,6 +404,7 @@ BEGIN
           AND mf2.FighterId = mf.FighterId
       );
 
+    /* 4) Advance Losers if using brackets */
     INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
     SELECT bm.NextMatchLoss, mf.FighterId,
            CASE
@@ -429,8 +428,6 @@ BEGIN
 END$$
 
 DELIMITER ;
-
-
 
 -- --------------------------------------------------------
 -- Trigger: trg_finalize_match

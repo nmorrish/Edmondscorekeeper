@@ -657,7 +657,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                       </>
                     )}
 
-                    {visibleMatches[match.matchId] && !readOnly &&(
+                    {visibleMatches[match.matchId] &&(
                       <button
                         className="toggle-drilldown"
                         onClick={() => toggleJudgeDrilldown(match.matchId)}
