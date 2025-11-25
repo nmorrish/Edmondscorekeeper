@@ -604,6 +604,156 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && $action === 'move') {
 }
 
 /* ------------------------------
+   PUT: replaceFromTournament
+   Swap a fighter in a pool with a tournament fighter
+   who is not currently in ANY pool for this event.
+   - Body: { eventId, poolId, fromFighterId, toFighterId }
+   ------------------------------ */
+if ($_SERVER['REQUEST_METHOD'] === 'PUT' && $action === 'replaceFromTournament') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (
+        !$data ||
+        !isset($data['eventId'], $data['poolId'], $data['fromFighterId'], $data['toFighterId'])
+    ) {
+        echo json_encode(["status" => "error", "message" => "Invalid payload."]);
+        exit;
+    }
+
+    $eventId       = (int)$data['eventId'];
+    $poolId        = (int)$data['poolId'];
+    $fromFighterId = (int)$data['fromFighterId'];
+    $toFighterId   = (int)$data['toFighterId'];
+
+    try {
+        $db = db();
+        $db->beginTransaction();
+
+        // 1) Validate pool belongs to event & get TournamentId
+        $stmt = $db->prepare("
+            SELECT e.EventId, e.TournamentId
+            FROM Pools p
+            JOIN Events e ON e.EventId = p.EventId
+            WHERE p.PoolId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$poolId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            throw new Exception("Pool not found.");
+        }
+        if ((int)$row['EventId'] !== $eventId) {
+            throw new Exception("Pool does not belong to the specified event.");
+        }
+        $tournamentId = (int)$row['TournamentId'];
+
+        // 2) Ensure fromFighter is in this pool
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM PoolFighters
+            WHERE PoolId = ? AND FighterId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$poolId, $fromFighterId]);
+        if (!$stmt->fetchColumn()) {
+            throw new Exception("Source fighter is not in the specified pool.");
+        }
+
+        // 3) Ensure replacement fighter is part of this tournament
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM TournamentFighters
+            WHERE TournamentId = ? AND FighterId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$tournamentId, $toFighterId]);
+        if (!$stmt->fetchColumn()) {
+            throw new Exception("Replacement fighter is not registered for this tournament.");
+        }
+
+        // 4) Ensure replacement fighter is NOT already in any pool in this event
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM PoolFighters pf
+            JOIN Pools p ON p.PoolId = pf.PoolId
+            WHERE p.EventId = ?
+              AND pf.FighterId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$eventId, $toFighterId]);
+        if ($stmt->fetchColumn()) {
+            throw new Exception("Replacement fighter is already in a pool for this event.");
+        }
+
+        // 5) Ensure source fighter has NO ACTIVE/DONE matches in this event
+        //    (we do not want to rewrite history)
+        $stmt = $db->prepare("
+            SELECT 1
+            FROM Matches m
+            JOIN MatchFighters mf ON m.MatchId = mf.MatchId
+            JOIN PoolMatches pm ON pm.MatchId = m.MatchId
+            WHERE m.EventId = ?
+              AND pm.PoolId = ?
+              AND mf.FighterId = ?
+              AND m.PendingActiveDone IN ('A', 'D')
+            LIMIT 1
+        ");
+        $stmt->execute([$eventId, $poolId, $fromFighterId]);
+        if ($stmt->fetchColumn()) {
+            throw new Exception("Cannot replace fighter: they already have ACTIVE/DONE matches in this pool.");
+        }
+
+        // 6) Remove source fighter from this pool
+        $stmt = $db->prepare("
+            DELETE FROM PoolFighters
+            WHERE PoolId = ? AND FighterId = ?
+        ");
+        $stmt->execute([$poolId, $fromFighterId]);
+
+        // Optionally also remove from EventFighters if they have no other pools;
+        // for now we leave them in EventFighters to avoid surprises in other logic.
+
+        // 7) Ensure replacement fighter is in EventFighters for this event
+        ensureEventFighter($eventId, $toFighterId);
+
+        // 8) Add replacement fighter into this pool
+        ensureInPool($poolId, $toFighterId);
+
+        // 9) Repoint all PENDING matches in this pool from fromFighterId -> toFighterId
+        $stmt = $db->prepare("
+            UPDATE MatchFighters mf
+            JOIN Matches m     ON m.MatchId = mf.MatchId
+            JOIN PoolMatches pm ON pm.MatchId = m.MatchId
+            SET mf.FighterId = :toFighterId
+            WHERE m.EventId = :eventId
+              AND pm.PoolId = :poolId
+              AND m.PendingActiveDone = 'P'
+              AND mf.FighterId = :fromFighterId
+        ");
+        $stmt->execute([
+            ':toFighterId'   => $toFighterId,
+            ':eventId'       => $eventId,
+            ':poolId'        => $poolId,
+            ':fromFighterId' => $fromFighterId,
+        ]);
+
+        $db->commit();
+
+        echo json_encode([
+            "status"  => "success",
+            "message" => "Pool fighter swapped with tournament fighter.",
+        ]);
+    } catch (Exception $e) {
+        if (isset($db) && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    }
+    exit;
+}
+
+
+/* ------------------------------
    POST: save pools
    ------------------------------ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {

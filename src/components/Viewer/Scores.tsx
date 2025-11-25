@@ -55,37 +55,40 @@ const Scores: React.FC = () => {
 
   return (
     <div className="App">
-      {/* Event selection bar */}
-      <div className="event-selection-buttons">
-        {tournamentEvents.map((event) => (
-          <button
-            key={event.EventId}
-            onClick={() => setSelectedEvent(event.EventId)}
-            className={selectedEvent === event.EventId ? "active-event" : ""}
-          >
-            {event.EventName}
-          </button>
-        ))}
-      </div>
-
-      {/* Ring selection */}
-      {selectedEvent && maxRings > 0 && (
-        <div className="ring-selection-buttons" style={{ marginTop: "-40px" }}>
-          {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
+      <div className="select-button-container">
+        {/* Event selection bar */}
+        <div className="event-selection-buttons">
+          {tournamentEvents.map((event) => (
             <button
-              key={ring}
-              onClick={() => setSelectedRing(ring)}
-              className={selectedRing === ring ? "active-ring" : ""}
+              key={event.EventId}
+              onClick={() => setSelectedEvent(event.EventId)}
+              className={selectedEvent === event.EventId ? "active-event" : ""}
             >
-              Ring {ring}
+              {event.EventName}
             </button>
           ))}
         </div>
-      )}
+
+        {/* Ring selection */}
+        {selectedEvent && maxRings > 0 && (
+          <div className="ring-selection-buttons">
+            {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
+              <button
+                key={ring}
+                onClick={() => setSelectedRing(ring)}
+                className={selectedRing === ring ? "active-ring" : ""}
+              >
+                Ring {ring}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
 
       <main
         className="score-main"
-        style={{ marginTop: "110px", width: "100%", textAlign: "center" }}
+        style={{ marginTop: "11rem", width: "100%", textAlign: "center" }}
       >
         {!(selectedEvent && selectedRing) ? (
           <div className="score-placeholder">
@@ -94,15 +97,19 @@ const Scores: React.FC = () => {
             </h2>
           </div>
         ) : (
-          <MatchTables
-            eventId={selectedEvent}
-            ringNumber={selectedRing}
-            tournamentId={numericTournamentId}
-            fighters={fighters}
-            maxRings={maxRings}
-            onStrikeUpdate={() => {}}
-            readOnly={true}
-          />
+          <>
+            <h2 style={{ marginTop: "11rem", width: "100%", textAlign: "center" }}>Score Details</h2>
+            <MatchTables
+              eventId={selectedEvent}
+              ringNumber={selectedRing}
+              tournamentId={numericTournamentId}
+              fighters={fighters}
+              maxRings={maxRings}
+              onStrikeUpdate={() => {}}
+              readOnly={true}
+            />
+          </>
+          
         )}
       </main>
 

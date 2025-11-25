@@ -262,30 +262,33 @@ const EventStandings: React.FC = () => {
   // ---------- Render ----------
   return (
     <div className="App hide-caret">
-      <div className="event-selection-buttons" style={{ marginTop: "0" }}>
-        {events.map((ev) => (
-          <button
-            key={ev.EventId}
-            onClick={() => setSelectedEventId(ev.EventId)}
-            className={selectedEventId === ev.EventId ? "active-event" : ""}
-          >
-            {ev.EventName}
-          </button>
-        ))}
+      <div className="select-button-container">
+        <div className="event-selection-buttons" style={{ marginTop: "0" }}>
+          {events.map((ev) => (
+            <button
+              key={ev.EventId}
+              onClick={() => setSelectedEventId(ev.EventId)}
+              className={selectedEventId === ev.EventId ? "active-event" : ""}
+            >
+              {ev.EventName}
+            </button>
+          ))}
+        </div>
       </div>
 
+
       <div style={{ margin: "0 auto", padding: "1.5rem", maxWidth: "1100px" }}>
-        <h1 style={{ marginBottom: "1rem", textAlign: "center" }}>
+        <h1 style={{ marginBottom: "1rem", textAlign: "center", marginTop:"10rem" }}>
           {tournamentName || "Tournament"} – Standings
         </h1>
 
         {!selectedEventId ? (
-          <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "1.5rem", color: "#fff" }}>
+          <div style={{ textAlign: "center", marginTop: "1rem", fontSize: "1.5rem", color: "#fff" }}>
             <h3>↑↑↑ Please select an event for {tournamentName || "this tournament"} ↑↑↑</h3>
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: "1rem", textAlign: "center" }}>
+            <div style={{ marginBottom: "10rem", textAlign: "center" }}>
               <aside>↓ multi-key ranking or headings for single-key ↓</aside>
               <button
                 onClick={() => {

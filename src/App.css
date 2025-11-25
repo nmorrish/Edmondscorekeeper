@@ -305,11 +305,16 @@ h2 {
   color: rgb(255, 0, 0);
 }
 
+.select-button-container{
+  position:fixed;
+  top:0;
+  left:50%;
+  width:100vw;
+  z-index:5;
+}
+
 /*buttons for selecting rings and matches*/
 .event-selection-buttons {
-  position: fixed;
-  top: 0;
-  left: 50%;
   transform: translateX(-50%);
   padding: 10px;
   text-align: center;
@@ -319,13 +324,8 @@ h2 {
 }
 
 .ring-selection-buttons {
-  position: fixed;
-  top: 50px;
-  left: 50%;
   transform: translateX(-50%);
   padding: 10px;
-  padding-top: 60px;
-  margin-top: -50px;
   text-align: center;
   z-index: 999;
   width: 100%;

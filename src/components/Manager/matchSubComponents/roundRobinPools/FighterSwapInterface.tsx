@@ -33,6 +33,8 @@ interface FighterSwapInterfaceProps {
       | { movedFighterId: number; toPoolNo: number }
   ) => void;
   onManagePool?: (poolNo: number) => void;
+  /** modal to swap pool fighter with tournament-only fighter */
+  onSwapPoolFighters?: (poolNo: number) => void;
   readOnly: boolean;
 }
 
@@ -41,6 +43,7 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
   pools,
   onSwap,
   onManagePool,
+  onSwapPoolFighters,
   readOnly = false,
 }) => {
   const addToast = useToast();
@@ -254,24 +257,54 @@ const FighterSwapInterface: React.FC<FighterSwapInterfaceProps> = ({
               </ul>
             </div>
 
-            {!readOnly && onManagePool && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onManagePool(p.poolNo);
-                }}
+            {/* Buttons row: manage + swap pool fighters */}
+            {!readOnly && (onManagePool || onSwapPoolFighters) && (
+              <div
                 style={{
                   marginTop: "0.5rem",
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #666",
-                  background: "#2a2a2a",
-                  color: "#fff",
-                  cursor: "pointer",
+                  display: "flex",
+                  gap: "0.5rem",
+                  flexWrap: "wrap",
                 }}
               >
-                Manage Pool Fighters
-              </button>
+                {onManagePool && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onManagePool(p.poolNo);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #666",
+                      background: "#2a2a2a",
+                      color: "#fff",
+                    }}
+                  >
+                    Add/Remove Pool Fighters
+                  </button>
+                )}
+
+                {onSwapPoolFighters && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSwapPoolFighters(p.poolNo);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #666",
+                      background: "#2a2a2a",
+                      color: "#fff",
+                    }}
+                  >
+                    Swap Pool Fighters
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ))}

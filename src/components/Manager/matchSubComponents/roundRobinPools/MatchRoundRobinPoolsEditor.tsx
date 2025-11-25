@@ -57,7 +57,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   maxRings,
   interactive,
   allFighters = [],
-  tournamentId
+  tournamentId,
 }) => {
   const addToast = useToast();
   const { triggerRefresh } = useRefresh();
@@ -71,10 +71,23 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   const togglePool = (poolId: number) =>
     setOpenPools((prev) => ({ ...prev, [poolId]: !prev[poolId] }));
 
+  // Manage event fighters modal (reuse Single Elim manager)
+  const [showEventFighterManager, setShowEventFighterManager] = useState(false);
+
+  // Swap-with-tournament fighters modal
+  const [swapPoolId, setSwapPoolId] = useState<number | null>(null);
+  const [swapFromFighterId, setSwapFromFighterId] = useState<number | null>(
+    null
+  );
+  const [swapToFighterId, setSwapToFighterId] = useState<number | null>(null);
+  const [swapAvailable, setSwapAvailable] = useState<FullFighter[]>([]);
+
   // ----------------------- reload pools -----------------------
   const reloadPools = async () => {
     try {
-      const res = await fetch(`${POOLS_RR_API}?action=get&eventId=${encodeURIComponent(eventId)}`);
+      const res = await fetch(
+        `${POOLS_RR_API}?action=get&eventId=${encodeURIComponent(eventId)}`
+      );
       const data = await res.json();
       if (res.ok && data.status === "success" && Array.isArray(data.pools)) {
         setDisplayPools(data.pools);
@@ -87,7 +100,11 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   // ----------------------- derived directories -----------------------
   const swapFighterDirectory = useMemo(() => {
     const map = new Map<number, FullFighter>();
-    for (const p of displayPools) for (const f of p.roster ?? []) if (f?.FighterId) map.set(f.FighterId, f);
+    for (const p of displayPools) {
+      for (const f of p.roster ?? []) {
+        if (f?.FighterId) map.set(f.FighterId, f);
+      }
+    }
     return Array.from(map.values()).sort((a, b) =>
       (a.FighterName ?? "").localeCompare(b.FighterName ?? "")
     );
@@ -108,32 +125,78 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       })),
     [displayPools]
   );
-  const [editablePools, setEditablePools] = useState<PoolPlan[]>(buildEditableFromPools);
+  const [editablePools, setEditablePools] =
+    useState<PoolPlan[]>(buildEditableFromPools);
   useEffect(() => setEditablePools(buildEditableFromPools), [buildEditableFromPools]);
 
+  // event fighter set + tournament-only fighters
+  const eventFighterIdSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const p of displayPools) {
+      for (const f of p.roster ?? []) {
+        if (f?.FighterId) s.add(f.FighterId);
+      }
+    }
+    return s;
+  }, [displayPools]);
+
+  const tournamentOnlyFighters = useMemo(
+    () =>
+      (allFighters ?? []).filter(
+        (f) => f?.FighterId && !eventFighterIdSet.has(f.FighterId)
+      ),
+    [allFighters, eventFighterIdSet]
+  );
+
   // ----------------------- API helpers -----------------------
-  const handleSwapPersist = async (fromFighterId: number, toFighterId: number) => {
+  const handleSwapPersist = async (
+    fromFighterId: number,
+    toFighterId: number
+  ) => {
     try {
       const res = await fetch(`${POOLS_RR_API}?action=swap`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, fighterAId: fromFighterId, fighterBId: toFighterId }),
+        body: JSON.stringify({
+          eventId,
+          fighterAId: fromFighterId,
+          fighterBId: toFighterId,
+        }),
       });
       const data = await res.json();
-      if (!res.ok || data.status !== "success") throw new Error(data.message || "Swap failed");
+      if (!res.ok || data.status !== "success")
+        throw new Error(data.message || "Swap failed");
 
-      if (data?.details?.mode === "balanced" && Array.isArray(data?.details?.pools)) {
-        const updated = data.details.pools as Array<{ poolId: number; roster?: FullFighter[]; matches?: PoolMatch[] }>;
+      if (
+        data?.details?.mode === "balanced" &&
+        Array.isArray(data?.details?.pools)
+      ) {
+        const updated = data.details
+          .pools as Array<{
+          poolId: number;
+          roster?: FullFighter[];
+          matches?: PoolMatch[];
+        }>;
         setDisplayPools((prev) =>
           prev.map((p) => {
             const found = updated.find((u) => u.poolId === p.poolId);
             return found
-              ? { ...p, roster: found.roster ?? p.roster, matches: found.matches ?? p.matches }
+              ? {
+                  ...p,
+                  roster: found.roster ?? p.roster,
+                  matches: found.matches ?? p.matches,
+                }
               : p;
           })
         );
-      } else if (data?.details?.mode === "simple" && Array.isArray(data?.details?.pools)) {
-        const updated = data.details.pools as Array<{ poolId: number; roster: FullFighter[] }>;
+      } else if (
+        data?.details?.mode === "simple" &&
+        Array.isArray(data?.details?.pools)
+      ) {
+        const updated = data.details.pools as Array<{
+          poolId: number;
+          roster: FullFighter[];
+        }>;
         setDisplayPools((prev) =>
           prev.map((p) => {
             const found = updated.find((u) => u.poolId === p.poolId);
@@ -149,7 +212,11 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     }
   };
 
-  const handleMovePersist = async (movedFighterId: number, toPoolNo: number, _fromPoolId?: number | null) => {
+  const handleMovePersist = async (
+    movedFighterId: number,
+    toPoolNo: number,
+    _fromPoolId?: number | null
+  ) => {
     try {
       const dest = displayPools.find((p) => p.poolNo === toPoolNo);
       if (!dest) throw new Error("Target pool not found");
@@ -157,10 +224,15 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
       const res = await fetch(`${POOLS_RR_API}?action=move`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, movedFighterId, toPoolId: dest.poolId }),
+        body: JSON.stringify({
+          eventId,
+          movedFighterId,
+          toPoolId: dest.poolId,
+        }),
       });
       const data = await res.json();
-      if (!res.ok || data.status !== "success") throw new Error(data.message || "Move failed");
+      if (!res.ok || data.status !== "success")
+        throw new Error(data.message || "Move failed");
 
       addToast(data.message || "Move completed");
       setDisplayPools((prev) =>
@@ -180,18 +252,50 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     }
   };
 
+  // external tournament swap API helper
+  const handleExternalSwapPersist = async (
+    poolId: number,
+    fromFighterId: number,
+    toFighterId: number
+  ) => {
+    try {
+      const res = await fetch(`${POOLS_RR_API}?action=replaceFromTournament`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, poolId, fromFighterId, toFighterId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "success") {
+        throw new Error(data.message || "Tournament swap failed");
+      }
+
+      await reloadPools();
+      addToast(data.message || "Fighter swapped with tournament fighter.");
+    } catch (err: any) {
+      addToast(err.message || "Network error during tournament swap");
+    }
+  };
+
   // ----------------------- pool management modal -----------------------
   const [managePoolId, setManagePoolId] = useState<number | null>(null);
   const [roster, setRoster] = useState<FullFighter[]>([]);
   const [available, setAvailable] = useState<FullFighter[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
+  const swapPoolRoster = useMemo(() => {
+    if (swapPoolId === null) return [] as FullFighter[];
+    const pool = displayPools.find((p) => p.poolId === swapPoolId);
+    return pool?.roster ?? [];
+  }, [swapPoolId, displayPools]);
+
   const loadCandidates = async (poolId: number) => {
     if (!interactive) return; // disable in read-only mode
     setLoadingCandidates(true);
     try {
       const res = await fetch(
-        `${POOLS_RR_API}?action=candidates&eventId=${encodeURIComponent(eventId)}&poolId=${encodeURIComponent(poolId)}`
+        `${POOLS_RR_API}?action=candidates&eventId=${encodeURIComponent(
+          eventId
+        )}&poolId=${encodeURIComponent(poolId)}`
       );
       const data = await res.json();
       if (data.status === "success") {
@@ -213,7 +317,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     setRoster((prev) => [...prev, fighter]);
     setAvailable((prev) => prev.filter((f) => f.FighterId !== fighterId));
     setDisplayPools((prev) =>
-      prev.map((p) => (p.poolId === managePoolId ? { ...p, roster: [...p.roster, fighter] } : p))
+      prev.map((p) =>
+        p.poolId === managePoolId ? { ...p, roster: [...p.roster, fighter] } : p
+      )
     );
     try {
       const res = await fetch(`${POOLS_RR_API}?action=addToPool`, {
@@ -254,18 +360,25 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
               ...p,
               roster: p.roster.filter((f) => f.FighterId !== fighterId),
               matches: p.matches.filter(
-                (m) => !(m.status === "P" && m.fighters?.some((f) => f.FighterId === fighterId))
+                (m) =>
+                  !(
+                    m.status === "P" &&
+                    m.fighters?.some((f) => f.FighterId === fighterId)
+                  )
               ),
             }
           : p
       )
     );
     try {
-      const res = await fetch(`${POOLS_RR_API}?action=removeFromPoolAndEvent`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, poolId: managePoolId, fighterId }),
-      });
+      const res = await fetch(
+        `${POOLS_RR_API}?action=removeFromPoolAndEvent`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId, poolId: managePoolId, fighterId }),
+        }
+      );
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.message);
       setRoster(Array.isArray(data.roster) ? data.roster : []);
@@ -286,7 +399,25 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
   if (!displayPools || displayPools.length === 0)
     return (
       <div className="container" style={{ margin: "0 auto" }}>
-        <p>No pools generated yet.</p>
+        <h3 style={{ marginTop: 0 }}>Round Robin Pools</h3>
+        <p>No pools generated yet for this event.</p>
+
+        {/* Only available before pools exist */}
+        <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
+          <button
+            onClick={() => setShowEventFighterManager(true)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid #666",
+              background: "#1b1b1b",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            Manage Event Fighters
+          </button>
+        </div>
       </div>
     );
 
@@ -309,11 +440,19 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                 const newRoster = pool.roster.map((f) => {
                   if (f.FighterId === fromFighterId) {
                     const nf = fighterById.get(toFighterId);
-                    return { ...f, FighterId: toFighterId, FighterName: nf?.FighterName ?? `#${toFighterId}` };
+                    return {
+                      ...f,
+                      FighterId: toFighterId,
+                      FighterName: nf?.FighterName ?? `#${toFighterId}`,
+                    };
                   }
                   if (f.FighterId === toFighterId) {
                     const nf = fighterById.get(fromFighterId);
-                    return { ...f, FighterId: fromFighterId, FighterName: nf?.FighterName ?? `#${fromFighterId}` };
+                    return {
+                      ...f,
+                      FighterId: fromFighterId,
+                      FighterName: nf?.FighterName ?? `#${fromFighterId}`,
+                    };
                   }
                   return f;
                 });
@@ -325,7 +464,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
 
           if ("movedFighterId" in lastSwap && "toPoolNo" in lastSwap) {
             const { movedFighterId, toPoolNo } = lastSwap;
-            const from = displayPools.find((p) => p.roster.some((f) => f.FighterId === movedFighterId));
+            const from = displayPools.find((p) =>
+              p.roster.some((f) => f.FighterId === movedFighterId)
+            );
             handleMovePersist(movedFighterId, toPoolNo, from?.poolId ?? null);
           }
         }}
@@ -339,9 +480,45 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
           setManagePoolId(pool.poolId);
           loadCandidates(pool.poolId);
         }}
+        // wire up Swap Pool Fighters button to open modal
+        onSwapPoolFighters={(poolNo) => {
+          if (!interactive) return;
+          const pool = displayPools.find((p) => p.poolNo === poolNo);
+          if (!pool) {
+            addToast(`Pool ${poolNo} not found`);
+            return;
+          }
+          const poolId = pool.poolId;
+          setSwapPoolId(poolId);
+          setSwapFromFighterId(null);
+          setSwapToFighterId(null);
+
+          // Load tournament-only fighters via /candidates
+          (async () => {
+            try {
+              const res = await fetch(
+                `${POOLS_RR_API}?action=candidates&eventId=${encodeURIComponent(
+                  eventId
+                )}&poolId=${encodeURIComponent(poolId)}`
+              );
+              const data = await res.json();
+              if (data.status === "success") {
+                setSwapAvailable(
+                  Array.isArray(data.available) ? data.available : []
+                );
+              } else {
+                addToast(data.message || "Failed to load swap candidates");
+                setSwapAvailable([]);
+              }
+            } catch {
+              addToast("Error loading swap candidates");
+              setSwapAvailable([]);
+            }
+          })();
+        }}
       />
 
-      {/* --- Manage Modal --- */}
+      {/* --- Manage Pool Fighters Modal --- */}
       {managePoolId && (
         <div
           style={{
@@ -375,17 +552,34 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
             {loadingCandidates ? (
               <p>Loading...</p>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                }}
+              >
                 <div>
                   <h4>In Pool</h4>
                   {roster.length === 0 && <p>No fighters</p>}
                   {roster.map((f) => (
-                    <div key={f.FighterId} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <div
+                      key={f.FighterId}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
+                    >
                       <span>
                         {f.FighterName}
                         {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
                       </span>
-                      <button onClick={() => handleRemoveFighter(f.FighterId)}>Remove</button>
+                      <button
+                        onClick={() => handleRemoveFighter(f.FighterId)}
+                      >
+                        Remove
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -393,8 +587,17 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                   <h4>Available Fighters</h4>
                   {available.length === 0 && <p>No available fighters</p>}
                   {available.map((f) => (
-                    <div key={f.FighterId} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <button onClick={() => handleAddFighter(f.FighterId)}>Add</button>
+                    <div
+                      key={f.FighterId}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <button onClick={() => handleAddFighter(f.FighterId)}>
+                        Add
+                      </button>
                       <span>
                         {f.FighterName}
                         {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
@@ -411,11 +614,175 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
         </div>
       )}
 
+      {/* Swap Pool Fighters Modal */}
+      {swapPoolId !== null && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1100,
+          }}
+          onClick={() => {
+            setSwapPoolId(null);
+            setSwapFromFighterId(null);
+            setSwapToFighterId(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#1e1e1e",
+              padding: "1rem",
+              borderRadius: 8,
+              width: "90%",
+              maxWidth: "500px",
+              maxHeight: "80%",
+              overflowY: "auto",
+              color: "#fff",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Swap Pool Fighters</h3>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: 4,
+                  fontSize: 14,
+                  color: "#ccc",
+                }}
+              >
+                Fighter in this pool
+              </label>
+              <select
+                value={swapFromFighterId ?? ""}
+                onChange={(e) =>
+                  setSwapFromFighterId(
+                    e.target.value ? Number(e.target.value) : null
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  borderRadius: 4,
+                  border: "1px solid #555",
+                  background: "#1f1f1f",
+                  color: "#fff",
+                }}
+              >
+                <option value="">Select a fighter from this pool…</option>
+                {swapPoolRoster.map((f) => (
+                  <option key={f.FighterId} value={f.FighterId}>
+                    {f.FighterName}
+                    {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: 4,
+                  fontSize: 14,
+                  color: "#ccc",
+                }}
+              >
+                Replacement fighter
+              </label>
+              <select
+                value={swapToFighterId ?? ""}
+                onChange={(e) =>
+                  setSwapToFighterId(
+                    e.target.value ? Number(e.target.value) : null
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  borderRadius: 4,
+                  border: "1px solid #555",
+                  background: "#1f1f1f",
+                  color: "#fff",
+                }}
+              >
+                <option value="">Select replacement fighter…</option>
+                {swapAvailable.map((f) => (
+                  <option key={f.FighterId} value={f.FighterId}>
+                    {f.FighterName}
+                    {f.ClubAcronym ? ` (${f.ClubAcronym})` : ""}
+                  </option>
+                ))}
+              </select>
+              {swapAvailable.length === 0 && (
+                <div style={{ marginTop: 4, color: "#999", fontSize: 12 }}>
+                  No tournament-only fighters available outside these pools.
+                </div>
+              )}
+              {tournamentOnlyFighters.length === 0 && (
+                <div style={{ marginTop: 4, color: "#999", fontSize: 12 }}>
+                  Replacement fighters are fighters in the tournament not yet
+                  registered in this event.
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: "1rem", textAlign: "right" }}>
+              <button
+                onClick={() => {
+                  setSwapPoolId(null);
+                  setSwapFromFighterId(null);
+                  setSwapToFighterId(null);
+                }}
+                style={{ marginRight: "0.5rem" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!interactive) return;
+                  if (
+                    swapPoolId === null ||
+                    !swapFromFighterId ||
+                    !swapToFighterId
+                  ) {
+                    addToast("Select both fighters to perform the swap.");
+                    return;
+                  }
+                  await handleExternalSwapPersist(
+                    swapPoolId,
+                    swapFromFighterId,
+                    swapToFighterId
+                  );
+                  setSwapPoolId(null);
+                  setSwapFromFighterId(null);
+                  setSwapToFighterId(null);
+                }}
+              >
+                Confirm Swap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Pool Match Sections --- */}
       {displayPools.map((pool) => {
         const isOpen = !!openPools[pool.poolId];
         const visibleMatches = pool.matches.filter(
-          (m) => !(m.status === "P" && (!m.fighters || m.fighters.length < 2))
+          (m) =>
+            !(
+              m.status === "P" &&
+              (!m.fighters || m.fighters.length < 2)
+            )
         );
         return (
           <div
@@ -441,7 +808,9 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
             >
               <span style={{ fontWeight: "bold", color: "#fff" }}>
                 Pool {pool.poolNo} – Ring {pool.ringAssigned ?? "-"}{" "}
-                <span style={{ color: "#bbb" }}>({visibleMatches.length} matches)</span>
+                <span style={{ color: "#bbb" }}>
+                  ({visibleMatches.length} matches)
+                </span>
               </span>
               <button
                 style={{
@@ -472,7 +841,12 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
                         setDisplayPools((prev) =>
                           prev.map((p) =>
                             p.poolId === pool.poolId
-                              ? { ...p, matches: p.matches.filter((mx) => mx.matchId !== deletedId) }
+                              ? {
+                                  ...p,
+                                  matches: p.matches.filter(
+                                    (mx) => mx.matchId !== deletedId
+                                  ),
+                                }
                               : p
                           )
                         )

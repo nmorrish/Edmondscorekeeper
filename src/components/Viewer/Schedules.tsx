@@ -110,20 +110,23 @@ const Schedules: React.FC = () => {
   return (
     <div className="App">
       {/* Event selection bar */}
-      <div className="event-selection-buttons" style={{ marginTop: "0rem" }}>
-        {tournamentEvents.map((event) => (
-          <button
-            key={event.EventId}
-            onClick={() => setSelectedEvent(event.EventId)}
-            className={selectedEvent === event.EventId ? "active-event" : ""}
-          >
-            {event.EventName}
-          </button>
-        ))}
+      <div className="select-button-container">
+        <div className="event-selection-buttons" style={{ marginTop: "0rem" }}>
+          {tournamentEvents.map((event) => (
+            <button
+              key={event.EventId}
+              onClick={() => setSelectedEvent(event.EventId)}
+              className={selectedEvent === event.EventId ? "active-event" : ""}
+            >
+              {event.EventName}
+            </button>
+          ))}
+        </div>
       </div>
 
+
       {/* Body */}
-      <div style={{ marginTop: "3rem", textAlign: "center", width: "100%" }}>
+      <div style={{ marginTop: "10rem", textAlign: "center", width: "100%" }}>
         {!selectedEventObj ? (
           <h2 style={{ fontSize:"1.5rem" }}>↑↑↑ Please select an event for {tournamentName} from above ↑↑↑</h2>
         ) : (

@@ -11,6 +11,7 @@ import MatchRoundRobinPoolsEditor from "./MatchRoundRobinPoolsEditor";
 import { Fighter } from "../../subComponents/useFighters";
 import { backend_uri } from "../../../utility/endpoints";
 import { apiQuery } from "../../../utility/apiClient";
+import MatchSingleElimFighterManager from "../singleElim/MatchSingleElimFighterManager";
 
 interface MatchRoundRobinPoolsProps {
   eventId: number;
@@ -18,7 +19,7 @@ interface MatchRoundRobinPoolsProps {
   maxRings?: number;
   fighters?: Fighter[];
   isActive: boolean; // true if Pools table has entries for this event
-  readOnly: boolean; 
+  readOnly: boolean;
   tournamentId: number;
 }
 
@@ -32,7 +33,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
 }) => {
   const [savedPools, setSavedPools] = useState<any[] | null>(null);
 
-  // NEW: track which menu button was last clicked
+  // track which menu button was last clicked
   const [activeMenu, setActiveMenu] = useState<string>(() => {
     return localStorage.getItem(`poolsMenu-${eventId}`) || "";
   });
@@ -42,6 +43,9 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
       localStorage.setItem(`poolsMenu-${eventId}`, activeMenu);
     }
   }, [activeMenu, eventId]);
+
+  // modal for managing event fighters (before pools exist)
+  const [showEventFighterManager, setShowEventFighterManager] = useState(false);
 
   // Reusable fetch function
   const fetchPools = useCallback(async () => {
@@ -74,11 +78,17 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
     setActiveMenu("refresh");
   };
 
-  console.log(readOnly)
+  console.log(readOnly);
 
   return (
     <div style={{ textAlign: "left", margin: "0 auto", maxWidth: 1200 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <h2 style={{ marginBottom: "0.5rem" }}>
           Round Robin Pools {eventName ? `— ${eventName}` : ""}
         </h2>
@@ -89,7 +99,10 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
             style={{
               padding: "6px 12px",
               borderRadius: 6,
-              border: activeMenu === "refresh" ? "2px solid #0af" : "1px solid #666",
+              border:
+                activeMenu === "refresh"
+                  ? "2px solid #0af"
+                  : "1px solid #666",
               background: activeMenu === "refresh" ? "#222" : "#1b1b1b",
               color: "white",
               cursor: "pointer",
@@ -97,23 +110,42 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           >
             Refresh View
           </button>
+
+          {/* NEW: Manage Event Fighters — only when pools are being generated */}
+          {!savedPools && !readOnly && (
+            <button
+              onClick={() => setShowEventFighterManager(true)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #666",
+                background: "#1b1b1b",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Manage Event Fighters
+            </button>
+          )}
+
           {savedPools && !readOnly && (
-            <>
-              <button
-                onClick={handleRegenerateClick}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: activeMenu === "regenerate" ? "2px solid #0af" : "1px solid transparent",
-                  background: "#840000ff",
-                  color: "white",
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                }}
-              >
-                Regenerate Pools
-              </button>
-            </>
+            <button
+              onClick={handleRegenerateClick}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border:
+                  activeMenu === "regenerate"
+                    ? "2px solid #0af"
+                    : "1px solid transparent",
+                background: "#840000ff",
+                color: "white",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              Regenerate Pools
+            </button>
           )}
         </div>
       </div>
@@ -132,6 +164,15 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
           interactive={!readOnly}
           eventId={eventId}
           tournamentId={tournamentId}
+        />
+      )}
+
+      {/* Modal reusing Single Elim fighter manager */}
+      {showEventFighterManager && (
+        <MatchSingleElimFighterManager
+          eventId={eventId}
+          tournamentId={tournamentId}
+          onClose={() => setShowEventFighterManager(false)}
         />
       )}
     </div>
