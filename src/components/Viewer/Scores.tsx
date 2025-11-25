@@ -118,7 +118,7 @@ const Scores: React.FC = () => {
         backUrl="/"
         links={[
           { text: "Standings", to: `/viewer/standings/${tournamentId}` },
-          { text: "Event Schedules", to: `/viewer/schedules/${tournamentId}` },
+          { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
           { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
         ]}
       />

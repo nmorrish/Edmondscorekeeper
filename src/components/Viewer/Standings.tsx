@@ -370,8 +370,8 @@ const EventStandings: React.FC = () => {
           tournamentId={parseInt(tournamentId, 10)}
           backUrl="/"
           links={[
-            { text: "Event Scores", to: `/viewer/scores/${tournamentId}` },
-            { text: "Event Schedules", to: `/viewer/schedules/${tournamentId}` },
+            { text: "Scores", to: `/viewer/scores/${tournamentId}` },
+            { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
             { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
           ]}
         />

@@ -25,6 +25,8 @@ const ScoreManagement: React.FC = () => {
 
   const [fighters, setFighters] = useState<Fighter[]>([]);
 
+  const [showFighterList, setShowFighterList] = useState<boolean>(false);
+
   useEffect(() => {
     setFighters(fetchedFighters);
   }, [fetchedFighters]);
@@ -61,38 +63,41 @@ const ScoreManagement: React.FC = () => {
     <div className="App">
 
       <div className="select-button-container">
-          {/* Event selection bar */}
-          <div className="event-selection-buttons">
-            {tournamentEvents.map((event) => (
+        {/* Event selection bar */}
+        <div className="event-selection-buttons">
+          {tournamentEvents.map((event) => (
+            <button
+              key={event.EventId}
+              onClick={() => setSelectedEvent(event.EventId)}
+              className={selectedEvent === event.EventId ? "active-event" : ""}
+            >
+              {event.EventName}
+            </button>
+          ))}
+        </div>
+
+        {/* Ring selection for chosen event */}
+        {selectedEvent && maxRings > 0 && (
+          <div className="ring-selection-buttons">
+            {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
               <button
-                key={event.EventId}
-                onClick={() => setSelectedEvent(event.EventId)}
-                className={selectedEvent === event.EventId ? "active-event" : ""}
+                key={ring}
+                onClick={() => handleRingSelection(ring)}
+                className={selectedRing === ring ? "active-ring" : ""}
               >
-                {event.EventName}
+                Ring {ring}
               </button>
             ))}
           </div>
+        )}
 
-          {/* Ring selection for chosen event */}
-          {selectedEvent && maxRings > 0 && (
-            <div className="ring-selection-buttons">
-              {Array.from({ length: maxRings }, (_, i) => i + 1).map((ring) => (
-                <button
-                  key={ring}
-                  onClick={() => handleRingSelection(ring)}
-                  className={selectedRing === ring ? "active-ring" : ""}
-                >
-                  Ring {ring}
-                </button>
-              ))}
-            </div>
-          )}
       </div>
 
 
       <div style={{ marginTop: "110px" }} className="score-layout">
-        {selectedEvent && (
+
+        {/* fighter sidebar appears only when toggled */}
+        {selectedEvent && showFighterList && (
           <aside className="score-sidebar">
             <TournamentFighterList fighters={fighters} eventId={numericTournamentId} />
           </aside>
@@ -104,6 +109,18 @@ const ScoreManagement: React.FC = () => {
               <strong>Select Event and Ring No. above</strong>
             </div>
           ) : (
+          <>
+            {/* Fighter toggle */}
+            {selectedEvent && (
+              <div className="fighter-toggle-container">
+                <button
+                  onClick={() => setShowFighterList((prev) => !prev)}
+                  style={{ marginTop: "10rem", marginBottom: "1rem", padding: "0.3rem 0.8rem"}}
+                >
+                  {showFighterList ? "Hide Fighter Strike list" : "Show Fighters Strike List"}
+                </button>
+              </div>
+            )}
             <MatchTables
               eventId={selectedEvent}
               ringNumber={selectedRing}
@@ -113,11 +130,12 @@ const ScoreManagement: React.FC = () => {
               onStrikeUpdate={handleStrikeUpdate}
               readOnly={false}
             />
+          </>
           )}
         </main>
+
       </div>
 
-      {/* Floating nav is always available since tournamentId is fixed */}
       <FloatingNav
         tournamentId={numericTournamentId}
         backUrl="/manager/tournament"
@@ -126,6 +144,7 @@ const ScoreManagement: React.FC = () => {
           { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` },
         ]}
       />
+
     </div>
   );
 };

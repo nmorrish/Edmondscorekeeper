@@ -121,6 +121,12 @@ const Tournament: React.FC = () => {
         {selectedEvent && (
           <div style={{ marginTop: "20px", textAlign: "left" }}>
             <h2 style={{ fontSize: "2rem" }}>{selectedEvent.EventName}</h2>
+            <div style={{ display: "flex", flexDirection: "row", gap: "4px", marginBottom: "1rem", justifyContent:"center" }}>
+              <a className="button" href={`/viewer/schedules/${tournamentId}`}>See Match Rosters</a>
+              <a className="button" href={`/viewer/scores/${tournamentId}`}>See Score Breakdowns</a>
+              <a className="button" href={`/viewer/standings/${tournamentId}`}>See Event Standings</a>
+            </div>
+
             <div className="card">
               <h3>{selectedEvent.EventName} Rules</h3>
               <p>{selectedEvent.EventRules}</p>
@@ -141,9 +147,9 @@ const Tournament: React.FC = () => {
         tournamentId={Number(tournamentId)}
         backUrl="/"
         links={[
-          { text: "Event Schedules", to: `/viewer/schedules/${tournamentId}` },
+          { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
           { text: "Standings", to: `/viewer/standings/${tournamentId}` },
-          { text: "Event Scores", to: `/viewer/scores/${tournamentId}` },
+          { text: "Scores", to: `/viewer/scores/${tournamentId}` },
         ]}
       />
     </div>
