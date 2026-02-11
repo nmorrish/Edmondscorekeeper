@@ -73,6 +73,7 @@ CREATE TABLE `Fighters` (
   `ClubId` int(11) NULL,
   `FighterName` varchar(120) NOT NULL,
   `FighterPortrait` varchar(120) NULL,
+  `FighterSkill` int(11) NULL,
   PRIMARY KEY (`FighterId`),
   CONSTRAINT `FK_Fighter_Club` FOREIGN KEY (`ClubId`) REFERENCES `Clubs` (`ClubId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
