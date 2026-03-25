@@ -10,10 +10,13 @@ interface Config {
   backup_server_uri: string;
 }
 
+//variables to deter
+const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
 // Default local fallback (assumes localhost dev)
-let config: Config = {
+const config: Config = {
   backend_uri: "http://localhost/Edmondscorekeeper/phpFiles",
-  backup_server_uri: "http://0.0.0.0/ec-receiver",
+  backup_server_uri: "http://0.0.0.0/phpFiles",
 };
 
 /**
@@ -24,20 +27,24 @@ let config: Config = {
  * }
  */
 
-// Resolve endpoints.json relative to where the script is running
-const scriptBase = window.location.pathname.replace(/\/[^/]*$/, "");
-const endpointsPath = `${scriptBase}/endpoints.json`;
 
-// Try to fetch runtime config from same directory as JS bundle
-fetch(endpointsPath)
-  .then((res) => (res.ok ? res.json() : Promise.reject()))
-  .then((json) => {
-    if (json.backend_uri) config.backend_uri = json.backend_uri;
-    if (json.backup_server_uri) config.backup_server_uri = json.backup_server_uri;
-    console.log(`Loaded endpoints.json
-      `);
-  })
-  .catch(() => console.warn("Using localhost fallback URI endpoints"));
+const scriptBase = window.location.pathname.replace(/\/[^/]*$/, "");
+
+export const configPromise: Promise<Config> = isLocalhost
+  ? Promise.resolve(config)
+  : fetch(`${scriptBase}/endpoints.json`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("endpoints.json not found")))
+      .then((json): Config => {
+        console.log("Loaded endpoints.json");
+        return {
+          backend_uri: json.backend_uri,
+          backup_server_uri: json.backup_server_uri,
+        };
+      })
+      .catch((err) => {
+        console.warn("Failed to load endpoints.json:", err);
+        return config;
+      });
 
 export const backend_uri = config.backend_uri;
 export const backup_server_uri = config.backup_server_uri;

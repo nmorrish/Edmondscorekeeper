@@ -52,7 +52,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
         return {
           running: !!parsed.running,
           remainingMs:
-            typeof parsed.remainingMs === "number" && parsed.remainingMs >= 0
+            typeof parsed.remainingMs === "number"
               ? parsed.remainingMs
               : DURATION_MS,
           startedAt:
@@ -128,8 +128,8 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
 
     if (p.running) return; // already running
 
-    // If previously finished (<= 0), reset to full duration on new start
-    const remaining = p.remainingMs <= 0 ? DURATION_MS : p.remainingMs;
+    
+    const remaining = p.remainingMs;
 
     const next: PersistedTimer = {
       running: true,
@@ -149,7 +149,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
     let remaining = p.remainingMs;
     if (p.running && p.startedAt) {
       const elapsed = Date.now() - p.startedAt;
-      remaining = Math.max(0, p.remainingMs - elapsed);
+      remaining = p.remainingMs - elapsed;
     }
 
     const next: PersistedTimer = {
@@ -170,22 +170,13 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
 
     if (p.running && p.startedAt) {
       const elapsed = Date.now() - p.startedAt;
-      const remaining = Math.max(0, p.remainingMs - elapsed);
+      const remaining = p.remainingMs - elapsed;
 
-      if (remaining <= 0) {
-        // auto-finish if it ran out while hidden
-        const next: PersistedTimer = { running: false, remainingMs: 0, startedAt: null };
-        savePersisted(next);
-        setIsRunning(false);
-        setDisplayMs(0);
-      } else {
-        setIsRunning(true);
-        setDisplayMs(remaining);
-      }
+      setIsRunning(true);
+      setDisplayMs(remaining);
     } else {
-      setIsRunning(false);
-      setDisplayMs(Math.max(0, p.remainingMs));
-    }
+      setDisplayMs(p.remainingMs);
+  }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [STORAGE_KEY]);
 
@@ -200,19 +191,10 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
         if (tickRef.current) clearInterval(tickRef.current);
         return;
       }
-
       const elapsed = Date.now() - p.startedAt;
-      const remaining = Math.max(0, p.remainingMs - elapsed);
+      const remaining = p.remainingMs - elapsed;
 
       setDisplayMs(remaining);
-
-      if (remaining <= 0) {
-        // stop cleanly at zero
-        const next: PersistedTimer = { running: false, remainingMs: 0, startedAt: null };
-        savePersisted(next);
-        setIsRunning(false);
-        if (tickRef.current) clearInterval(tickRef.current);
-      }
     }, 100);
 
     return () => {
@@ -227,7 +209,7 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
       const p = loadPersisted();
       if (p.running && p.startedAt) {
         const elapsed = Date.now() - p.startedAt;
-        const remaining = Math.max(0, p.remainingMs - elapsed);
+        const remaining = p.remainingMs - elapsed;
         savePersisted({ running: false, remainingMs: remaining, startedAt: null });
       } else {
         savePersisted(p);
@@ -237,7 +219,10 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const formatTime = (ms: number) => (ms / 1000).toFixed(1);
+  const formatTime = (ms: number) => {
+    const sign = ms < 0 ? "-" : "";
+    return `${sign}${(Math.abs(ms) / 1000).toFixed(1)}`;
+  };
 
   return (
     <div>

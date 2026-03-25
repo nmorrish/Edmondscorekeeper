@@ -72,7 +72,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
     setOpenPools((prev) => ({ ...prev, [poolId]: !prev[poolId] }));
 
   // Manage event fighters modal (reuse Single Elim manager)
-  const [showEventFighterManager, setShowEventFighterManager] = useState(false);
+  const [_, setShowEventFighterManager] = useState(false);
 
   // Swap-with-tournament fighters modal
   const [swapPoolId, setSwapPoolId] = useState<number | null>(null);

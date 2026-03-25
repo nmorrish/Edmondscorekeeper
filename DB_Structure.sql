@@ -160,7 +160,7 @@ CREATE TABLE `Matches` (
 --
 -- Table structure for table `MatchFighter`
 -- Creates a link to Match for when no exchanges exist yet and assigns fighter color.
--- Holds derived values for easy access after match. (FinalScore + Win/Loss/Draw)
+-- Holds derived values for easy access after match. (FinalScore + Win/Loss/Draw/Swiss)
 -- Score Modifier is for adding/subtracting points to correct mistakes or on order from Referee
 
 CREATE TABLE `MatchFighters` (
@@ -216,12 +216,12 @@ CREATE TABLE `ExchangeScores` (
 
 --
 -- Table structure for table `Brackets`
--- Bracket table will handle single and double elimination formats (S or D), 
+-- Bracket table will handle Single elim 'S', and Double elim 'D', or sWiss 'W' formats, 
 
 CREATE TABLE `Brackets` (
   `BracketId` int(11) NOT NULL AUTO_INCREMENT,
   `EventId` int(11) NOT NULL,
-  `BracketFormat` ENUM('S','D') NOT NULL,
+  `BracketFormat` ENUM('S','D','W') NOT NULL,
   PRIMARY KEY (`BracketId`),
   CONSTRAINT `FK_Bracket_Events` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
@@ -290,6 +290,7 @@ CREATE TABLE `PoolFighters` (
     `PoolFighterId` INT AUTO_INCREMENT PRIMARY KEY,
     `PoolId` INT NOT NULL,
     `FighterId` INT NOT NULL,
+    `HadBye` BOOLEAN NOT NULL DEFAULT 0,
     UNIQUE (`PoolId`, `FighterId`),
     FOREIGN KEY (`PoolId`) REFERENCES `Pools` (`PoolId`) ON DELETE CASCADE,
     FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`) ON DELETE CASCADE
