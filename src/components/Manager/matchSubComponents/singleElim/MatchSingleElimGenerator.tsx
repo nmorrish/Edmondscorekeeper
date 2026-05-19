@@ -178,7 +178,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
                   cursor: "pointer",
                 }}
               >
-                Manage Fighters
+                Add/Remove Fighters
               </button>
             </div>
 

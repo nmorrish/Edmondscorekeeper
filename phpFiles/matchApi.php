@@ -98,6 +98,7 @@ try {
                 } else {
                     echo json_encode(['status' => 'error', 'message' => 'Match not found']);
                 }
+            
             } elseif ($eventId) {
                 $query = "
                     SELECT m.*, e.EventName
@@ -139,6 +140,51 @@ try {
                 echo json_encode(['status' => 'success', 'rings' => array_map('intval', $rings)]);
                 break;
 
+            } 
+            
+            // GET ?ringNo=N&active=1  — returns the active match for a ring
+            elseif (isset($_GET['ringNo']) && isset($_GET['active'])) {
+                $ringNo = (int)$_GET['ringNo'];
+
+                $stmt = $db->prepare("
+                    SELECT
+                        m.MatchId,
+                        m.EventId,
+                        m.MatchRingNo,
+                        m.PendingActiveDone,
+                        mf.FighterId,
+                        mf.FighterColor,
+                        f.FighterName
+                    FROM Matches m
+                    JOIN MatchFighters mf ON mf.MatchId = m.MatchId
+                    JOIN Fighters f ON f.FighterId = mf.FighterId
+                    WHERE m.MatchRingNo = :ringNo
+                    AND m.PendingActiveDone = 'A'
+                    ORDER BY m.MatchId DESC
+                ");
+                $stmt->execute([':ringNo' => $ringNo]);
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (empty($rows)) {
+                    echo json_encode(['status' => 'none', 'message' => 'No active match on this ring']);
+                    exit;
+                }
+
+                // Group fighters under the match
+                $match = [
+                    'matchId'           => (int)$rows[0]['MatchId'],
+                    'eventId'           => (int)$rows[0]['EventId'],
+                    'matchRingNo'       => (int)$rows[0]['MatchRingNo'],
+                    'pendingActiveDone' => $rows[0]['PendingActiveDone'],
+                    'fighters'          => array_map(fn($r) => [
+                        'fighterId'   => (int)$r['FighterId'],
+                        'fighterName' => $r['FighterName'],
+                        'fighterColor'=> $r['FighterColor'],
+                    ], $rows),
+                ];
+
+                echo json_encode(['status' => 'success', 'match' => $match]);
+                break;
             } else {
                 $stmt = $db->query("
                     SELECT m.*, e.EventName

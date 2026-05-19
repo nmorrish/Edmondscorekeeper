@@ -415,7 +415,7 @@ const MatchRoundRobinPoolsEditor: React.FC<MatchRoundRobinPoolsEditorProps> = ({
               cursor: "pointer",
             }}
           >
-            Manage Event Fighters
+            Add/Remove Fighters
           </button>
         </div>
       </div>

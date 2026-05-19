@@ -47,15 +47,15 @@ $lastSeenId = null;
 $counter = 0;
 
 while (true) {
-    // Stop if client closed the connection
     if (connection_aborted()) {
+        // Stop if client closed the connection
         break;
     }
 
-    try {
-        $stmt = $db->query("SELECT MAX(ExchangeScoresId) AS lastId FROM ExchangeScores");
+    try {                                          // ← this is missing
+        $stmt = $db->query("SELECT MAX(ScoreTimeStamp) AS lastTs FROM ExchangeScores");
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $currentId = $result['lastId'] ?? null;
+        $currentId = $result['lastTs'] ?? null;
 
         if ($currentId && $currentId !== $lastSeenId) {
             $stmt = $db->prepare("
@@ -64,10 +64,11 @@ while (true) {
                 JOIN Exchanges e ON s.ExchangeId = e.ExchangeId
                 JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
                 JOIN Matches m ON mf.MatchId = m.MatchId
-                WHERE s.ExchangeScoresId = :id
+                WHERE s.ScoreTimeStamp = :ts
+                ORDER BY s.ExchangeScoresId DESC
                 LIMIT 1
             ");
-            $stmt->bindValue(':id', $currentId, PDO::PARAM_INT);
+            $stmt->bindValue(':ts', $currentId);
             $stmt->execute();
             $matchId = $stmt->fetchColumn();
 
@@ -76,7 +77,6 @@ while (true) {
                 $lastSeenId = $currentId;
             }
         } else {
-            // heartbeat every ~30 seconds
             if ($counter % 6 === 0) {
                 echo "event: ping\n";
                 echo "data: {}\n\n";

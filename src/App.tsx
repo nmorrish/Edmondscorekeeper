@@ -19,6 +19,7 @@ import SchedulesWithProvider from './components/Viewer/Schedules';
 import ScoreViewerWithProvider from './components/Viewer/Scores';
 import Tournament from './components/Viewer/Tournament';
 import TournamentListWithProvider from './components/Viewer/TournamentList';
+import RefereeFactCheck from './components/Judgement/RefereeFactCheck';
 
 const App: React.FC = () => {
   return (
@@ -34,6 +35,7 @@ const App: React.FC = () => {
         <Route path="/viewer/schedules/:tournamentId" element={<SchedulesWithProvider />} />
         <Route path="/viewer/scores/:tournamentId" element={<ScoreViewerWithProvider />} />
         <Route path="/viewer/tournament/:tournamentId" element={<Tournament />} />
+        <Route path="/referee-check/:ringNumber" element={<RefereeFactCheck />} /> 
         <Route path="/" element={<TournamentListWithProvider />} />
       </Routes>
     </Router>

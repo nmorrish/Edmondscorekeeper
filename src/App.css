@@ -1134,3 +1134,23 @@ button.strike-button{
 .hide-caret {
   caret-color: transparent;
 }
+
+.judge-scores-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.judge-scores-table th,
+.judge-scores-table td {
+  border: 1px solid #555555;
+  padding: 8px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.judge-scores-table input[type="checkbox"] {
+  width: 25px;
+  height: 25px;
+  transform: scale(1.5);
+  cursor: pointer;
+}

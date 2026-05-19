@@ -124,7 +124,7 @@ const MatchRoundRobinPools: React.FC<MatchRoundRobinPoolsProps> = ({
                 cursor: "pointer",
               }}
             >
-              Manage Event Fighters
+              Add/Remove Fighters
             </button>
           )}
 

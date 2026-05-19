@@ -100,12 +100,12 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
               <thead>
                 <tr>
                   <th>Judge</th>
-                  <th>Contact</th>
-                  <th>Target</th>
-                  <th>Control</th>
+                  <th>CONT</th>
+                  <th>TRGT</th>
+                  <th>CTRL</th>
                   <th>A/B</th>
                   <th>Call</th>
-                  <th>Doubles</th>
+                  <th>DBL</th>
                 </tr>
               </thead>
               <tbody>
