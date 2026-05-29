@@ -20,6 +20,8 @@ import ScoreViewerWithProvider from './components/Viewer/Scores';
 import Tournament from './components/Viewer/Tournament';
 import TournamentListWithProvider from './components/Viewer/TournamentList';
 import RefereeFactCheck from './components/Judgement/RefereeFactCheck';
+import EyeOfJudgement from './components/Judgement/EyeOfJudgement/EyeOfJudgement';
+import EyeOfJudgementReplay from './components/Judgement/EyeOfJudgement/EyeOfJudgementReplay';
 
 const App: React.FC = () => {
   return (
@@ -35,8 +37,11 @@ const App: React.FC = () => {
         <Route path="/viewer/schedules/:tournamentId" element={<SchedulesWithProvider />} />
         <Route path="/viewer/scores/:tournamentId" element={<ScoreViewerWithProvider />} />
         <Route path="/viewer/tournament/:tournamentId" element={<Tournament />} />
-        <Route path="/referee-check/:ringNumber" element={<RefereeFactCheck />} /> 
+        <Route path="/referee-check/:ringNumber" element={<RefereeFactCheck />} />
+        <Route path="/eye-of-judgement/:ringNumber/:cameraNumber" element={<EyeOfJudgement />} /> 
         <Route path="/" element={<TournamentListWithProvider />} />
+        <Route path="/eye-of-judgement" element={<EyeOfJudgement key="setup" />} />
+        <Route path="/eye-of-judgement/:ringNumber/:cameraNumber" element={<EyeOfJudgement key="active" />} />
       </Routes>
     </Router>
   );

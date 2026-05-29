@@ -70,10 +70,10 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
     [fighter.fighterId, onConfirm, onSubmit]
   );
 
-  const handleSelfCallSubmit = useCallback(
-    () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
-    [opponent.fighterId, onConfirm, onSubmit]
-  );
+  // const handleSelfCallSubmit = useCallback(
+  //   () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
+  //   [opponent.fighterId, onConfirm, onSubmit]
+  // );
 
   return (
     <div className={`${fighter.fighterColor}`}>
@@ -126,13 +126,13 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
         value={`afterblow: ${fighter.fighterColor} hit first`}
         onClick={handleAfterBlowSubmit}
       />
-      <input
+      {/* <input
         type="button"
         className="scoreButton"
         name={`selfCall-${fighter.fighterId}`}
         value={`self-call: ${fighter.fighterColor} point concede`}
         onClick={handleSelfCallSubmit}
-      />
+      /> */}
     </div>
   );
 };

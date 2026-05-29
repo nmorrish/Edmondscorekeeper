@@ -318,30 +318,39 @@ try {
             if (($input['action'] ?? null) === 'judgement') {
                 if (!$id) throw new Exception("matchId required");
 
+                // Read the exchange duration sent by TriggerJudgement (may be absent on older clients)
+                $exchangeDurationMs = isset($input['exchangeDurationMs'])
+                    ? (int)$input['exchangeDurationMs']
+                    : null;
+
                 try {
                     $db->beginTransaction();
 
                     $db->prepare("
-                        UPDATE Matches 
-                        SET lastMatchJudgement = CURRENT_TIMESTAMP 
+                        UPDATE Matches
+                        SET lastMatchJudgement = CURRENT_TIMESTAMP,
+                            ExchangeDurationMs  = ?
                         WHERE MatchId = ?
-                    ")->execute([$id]);
+                    ")->execute([$exchangeDurationMs, $id]);
 
                     $stmt = $db->prepare("SELECT MatchFighterId FROM MatchFighters WHERE MatchId = ?");
                     $stmt->execute([$id]);
                     $fighters = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-                    $ins = $db->prepare("INSERT INTO Exchanges (MatchFighterId, ExchangeTimeStamp) VALUES (?, CURRENT_TIMESTAMP)");
+                    $ins = $db->prepare(
+                        "INSERT INTO Exchanges (MatchFighterId, ExchangeTimeStamp) VALUES (?, CURRENT_TIMESTAMP)"
+                    );
                     foreach ($fighters as $mfid) {
                         $ins->execute([$mfid]);
                     }
 
                     $db->commit();
                     echo json_encode([
-                        'status'  => 'success',
-                        'updated' => 'judgement',
-                        'matchId' => $id,
-                        'exchangesCreated' => count($fighters)
+                        'status'           => 'success',
+                        'updated'          => 'judgement',
+                        'matchId'          => $id,
+                        'exchangesCreated' => count($fighters),
+                        'exchangeDurationMs' => $exchangeDurationMs,
                     ]);
                 } catch (Exception $e) {
                     if ($db->inTransaction()) $db->rollBack();

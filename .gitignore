@@ -3,6 +3,9 @@
 #file for storing db credentials
 dblogin.json
 
+#folder for storing video replays
+/judgementClips
+
 # dependencies
 /node_modules
 /.pnp

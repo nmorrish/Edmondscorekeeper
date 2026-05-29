@@ -73,13 +73,13 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
 
   // === Perform action on matchesApi.php ===
   const performAction = useCallback(
-    async (action: string) => {
+    async (action: string, extra: Record<string, any> = {}) => {
       try {
         setLoading(true);
         const response = await apiQuery(`${backend_uri}/${match_api}?id=${matchId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
+          body: JSON.stringify({ action, ...extra }),
         });
 
         if (!response.ok) throw new Error(`Failed ${action}`);
@@ -143,13 +143,16 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
   }, [activateMatch]);
 
   const stopTimer = useCallback(() => {
-    // Convert wall-clock progress into remainingMs, pause, then fire "judgement"
-    const p = loadPersisted();
+  const p = loadPersisted();
+
+    // Snapshot the actual wall-clock duration of this exchange
+    const stoppedAt = Date.now();
+    const exchangeDurationMs =
+      p.running && p.startedAt ? Math.max(0, stoppedAt - p.startedAt) : 0;
 
     let remaining = p.remainingMs;
     if (p.running && p.startedAt) {
-      const elapsed = Date.now() - p.startedAt;
-      remaining = p.remainingMs - elapsed;
+      remaining = p.remainingMs - (stoppedAt - p.startedAt);
     }
 
     const next: PersistedTimer = {
@@ -161,7 +164,9 @@ const TriggerJudgement: React.FC<TriggerJudgementProps> = ({
     savePersisted(next);
     setIsRunning(false);
     setDisplayMs(remaining);
-    performAction("judgement");
+
+    // Send duration so the camera can slice the exact exchange window
+    performAction("judgement", { exchangeDurationMs });
   }, [performAction]);
 
   // === On mount: restore and compute the correct remaining time from wall clock ===

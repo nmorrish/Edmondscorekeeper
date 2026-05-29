@@ -54,11 +54,13 @@ function sendSSEData($data) {
 // --- util: send heartbeat ---
 function sendHeartbeat() {
     echo "event: heartbeat\n";
-    echo "data: " . json_encode(['time' => date('H:i:s')]) . "\n\n";
+    echo "data: " . json_encode([
+        'time'      => date('H:i:s'),
+        'serverNow' => (int) round(microtime(true) * 1000),
+    ]) . "\n\n";
     @ob_flush();
     @flush();
 }
-
 // --- validate input ---
 $ringNumber = isset($_GET['ringNumber']) ? intval($_GET['ringNumber']) : null;
 if ($ringNumber === null || $ringNumber <= 0) {
@@ -108,14 +110,24 @@ while (true) {
                 $stmtDetails = $db->prepare("
                     SELECT 
                         m.MatchId, 
-                        m.MatchRingNo, 
+                        m.MatchRingNo,
+                        m.ExchangeDurationMs, 
                         mf1.FighterId AS fighter1Id,
                         f1.FighterName AS fighter1Name,
                         mf1.FighterColor AS fighter1Color,
                         mf2.FighterId AS fighter2Id,
                         f2.FighterName AS fighter2Name,
                         mf2.FighterColor AS fighter2Color,
-                        m.lastMatchJudgement
+                        m.lastMatchJudgement,
+                        CAST(UNIX_TIMESTAMP(m.lastMatchJudgement) * 1000 AS UNSIGNED) AS lastJudgementEpochMs,
+                        (
+                            SELECT e.ExchangeId
+                            FROM Exchanges e
+                            JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
+                            WHERE mf.MatchId = m.MatchId
+                            ORDER BY e.ExchangeId DESC
+                            LIMIT 1
+                        ) AS latestExchangeId
                     FROM Matches m
                     LEFT JOIN MatchFighters mf1 ON m.MatchId = mf1.MatchId AND mf1.FighterColor = 'Red'
                     LEFT JOIN Fighters f1 ON mf1.FighterId = f1.FighterId
@@ -153,7 +165,15 @@ while (true) {
                         'fighter2Name'    => $row['fighter2Name'],
                         'fighter2Color'   => $row['fighter2Color'],
                         'lastJudgement'   => $currentJudgement,
-                        'judgesSubmitted' => $judges
+                        'judgesSubmitted' => $judges,
+                        'sentAt'          => (int) $row['lastJudgementEpochMs'],  // referee press time, epoch ms
+                        'serverNow'       => (int) round(microtime(true) * 1000), // dispatch time, epoch ms
+                        'exchangeId'      => $row['latestExchangeId'] !== null
+                          ? (int) $row['latestExchangeId']
+                          : null,
+                        'exchangeDurationMs'  => $row['ExchangeDurationMs'] !== null
+                            ? (int) $row['ExchangeDurationMs']
+                            : null,
                     ];
                     sendSSEData($payload);
                     $lastJudgement = $currentJudgement;

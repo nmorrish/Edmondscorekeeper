@@ -5,12 +5,16 @@
  * Shows per-exchange averages (one row per exchange), column totals, and grand total.
  * When toggled into JudgeScores mode, hides the main headers so only
  * the JudgeScores per-exchange tables (with their own headers) are visible.
+ *
+ * Below each exchange row (Active or Done matches), drops in a fully
+ * self-contained ExchangeVideoButtons component for per-camera footage.
  */
 
 import React, { useState, useEffect } from "react";
 import TotalsCalculator, { Fighter, Exchange } from "../../utility/TotalsCalculator";
 import IncrementFighterStrikeButton from "../fighterSubComponents/incrementFighterStrikes";
 import JudgeScores from "./JudgeScores";
+import ExchangeVideoButtons from "../../Judgement/EyeOfJudgement/ExchangeVideoButtons";
 
 type LooseExchange = {
   exchangeId?: number;
@@ -42,8 +46,8 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
   matchStatus,
 }) => {
   const [localExchanges, setLocalExchanges] = useState<Exchange[]>([]);
+  const [totals, setTotals] = useState<any>(null);
 
-  // --- keep localExchanges in sync with SSE updates ---
   useEffect(() => {
     setLocalExchanges(
       (fighter.exchanges || []).map((ex, idx) => ({
@@ -54,16 +58,14 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
     );
   }, [fighter.exchanges]);
 
-  const [totals, setTotals] = useState<any>(null);
-
   const handleTotalsCalculated = (t: any) => {
     setTotals(t);
-
-    console.log(matchStatus)
     if (onGrandTotalChange) {
       onGrandTotalChange(fighter.fighterId, t.grandTotal);
     }
   };
+
+  const showVideoRow = matchStatus === "D" || matchStatus === "A";
 
   return (
     <div style={{ marginTop: "15px" }}>
@@ -108,17 +110,29 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
           ) : (
             <>
               {!showJudgeDrilldown &&
-                (totals?.exchangeAverages || []).map((row: any, idx: number) => (
-                  <tr key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
-                    <td>{row.judgeCount}</td>
-                    <td>{row.avgContact.toFixed(1)}</td>
-                    <td>{row.avgTarget.toFixed(1)}</td>
-                    <td>{row.avgControl.toFixed(1)}</td>
-                    <td>{row.avgAfterBlow.toFixed(1)}</td>
-                    <td>{row.avgSelfCall.toFixed(1)}</td>
-                    <td>{row.avgDoubleHit.toFixed(1)}</td>
-                  </tr>
-                ))}
+                (totals?.exchangeAverages || []).map((row: any, idx: number) => {
+                  const exchangeId = localExchanges[idx]?.exchangeId;
+                  return (
+                    <React.Fragment key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
+                      <tr>
+                        <td>{row.judgeCount}</td>
+                        <td>{row.avgContact.toFixed(1)}</td>
+                        <td>{row.avgTarget.toFixed(1)}</td>
+                        <td>{row.avgControl.toFixed(1)}</td>
+                        <td>{row.avgAfterBlow.toFixed(1)}</td>
+                        <td>{row.avgSelfCall.toFixed(1)}</td>
+                        <td>{row.avgDoubleHit.toFixed(1)}</td>
+                      </tr>
+                      {showVideoRow && exchangeId !== undefined && (
+                        <tr className="video-row">
+                          <td colSpan={7} style={videoCellStyle}>
+                            <ExchangeVideoButtons exchangeId={exchangeId} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
 
               {showJudgeDrilldown && (
                 <tr>
@@ -165,6 +179,12 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
       </table>
     </div>
   );
+};
+
+const videoCellStyle: React.CSSProperties = {
+  padding: "6px 8px",
+  background: "#1a1a1a08",
+  textAlign: "left",
 };
 
 export default React.memo(ScoreDisplayComponent);

@@ -15,6 +15,8 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
 
 // Default local fallback (assumes localhost dev)
 const config: Config = {
+  // backend_uri: "https://scorecard.swordsmanship.ca/ec-receiver",
+  // backup_server_uri: "http://localhost/Edmondscorekeeper/phpFiles",
   backend_uri: "http://localhost/Edmondscorekeeper/phpFiles",
   backup_server_uri: "http://0.0.0.0/phpFiles",
 };

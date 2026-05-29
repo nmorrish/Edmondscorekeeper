@@ -150,7 +150,8 @@ CREATE TABLE `Matches` (
   `PendingActiveDone` ENUM('P','A','D') NOT NULL DEFAULT 'P',
   `MatchRingNo` int(11) NOT NULL,
   `MatchQueueNumber` int(11) DEFAULT NULL,
-  `lastMatchJudgement` timestamp NULL DEFAULT current_timestamp(),
+  `lastMatchJudgement` timestamp(3) NULL DEFAULT current_timestamp(),
+  `ExchangeDurationMs` INT UNSIGNED NULL,
   PRIMARY KEY (`MatchId`),
   CONSTRAINT `FK_Match_Event` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -187,6 +188,7 @@ CREATE TABLE `Exchanges` (
   `ExchangeId` int(11) NOT NULL AUTO_INCREMENT,
   `MatchFighterId` int(11) NOT NULL,
   `ExchangeTimeStamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `VideoFilename` VARCHAR(255) NULL,
   PRIMARY KEY (`ExchangeId`),
   CONSTRAINT `FK_Exchange_MatchFighter` FOREIGN KEY (`MatchFighterId`) REFERENCES `MatchFighters` (`MatchFighterId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -211,6 +213,27 @@ CREATE TABLE `ExchangeScores` (
   PRIMARY KEY (`ExchangeScoresId`),
   CONSTRAINT `FK_ExchangeScores_Exchanges` FOREIGN KEY (`ExchangeId`) REFERENCES `Exchanges` (`ExchangeId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ExchangeVideos`
+--
+
+CREATE TABLE `ExchangeVideos` (
+  `ExchangeVideoId` int(11) NOT NULL AUTO_INCREMENT,
+  `ExchangeId` int(11) NOT NULL,
+  `CameraNumber` int(11) NOT NULL,
+  `VideoFilename` varchar(255) NOT NULL,
+  `UploadedAt` timestamp(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`ExchangeVideoId`),
+  CONSTRAINT `FK_ExchangeVideo_Exchange` FOREIGN KEY (`ExchangeId`)
+    REFERENCES `Exchanges` (`ExchangeId`) ON DELETE CASCADE,
+  UNIQUE KEY uq_exchange_camera (`ExchangeId`, `CameraNumber`),
+  CONSTRAINT chk_camera_positive CHECK (`CameraNumber` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_exchangevideos_camera ON ExchangeVideos(CameraNumber);
 
 -- --------------------------------------------------------
 
@@ -433,7 +456,7 @@ DELIMITER ;
 
 -- --------------------------------------------------------
 -- Trigger: trg_finalize_match
--- Increments a matches Queue Number if not specified in the match insert statement
+-- Increments a matches score if match is already finalized
 -- --------------------------------------------------------
 DELIMITER $$
 
@@ -447,6 +470,130 @@ BEGIN
       FROM Matches
       WHERE EventId = NEW.EventId
     );
+  END IF;
+END$$
+
+DELIMITER ;
+
+
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS trg_late_finalize_after_score_update $$
+
+CREATE TRIGGER trg_late_finalize_after_score_update
+AFTER UPDATE ON ExchangeScores
+FOR EACH ROW
+BEGIN
+  DECLARE v_match_id INT;
+  DECLARE v_status CHAR(1);
+
+  SELECT m.MatchId, m.PendingActiveDone
+    INTO v_match_id, v_status
+  FROM Exchanges e
+  JOIN MatchFighters mf ON e.MatchFighterId = mf.MatchFighterId
+  JOIN Matches m ON mf.MatchId = m.MatchId
+  WHERE e.ExchangeId = NEW.ExchangeId
+  LIMIT 1;
+
+  IF v_status = 'D' THEN
+
+    /* 1) Recompute FinalScore */
+    UPDATE MatchFighters mf
+    LEFT JOIN (
+      SELECT
+        px.MatchFighterId,
+        SUM(
+          IFNULL(px.avgContact,0)
+        + IFNULL(px.avgTarget,0)
+        + IFNULL(px.avgControl,0)
+        + IFNULL(px.avgAfterBlow,0)
+        + IFNULL(px.avgSelfCall,0)
+        ) AS GrandTotal
+      FROM (
+        SELECT
+          e.MatchFighterId,
+          e.ExchangeId,
+          IFNULL(AVG(CASE WHEN s.Contact          = 1 THEN 1 ELSE 0 END), 0) AS avgContact,
+          IFNULL(AVG(CASE WHEN s.Target           = 1 THEN 1 ELSE 0 END), 0) AS avgTarget,
+          IFNULL(AVG(CASE WHEN s.Control          = 1 THEN 1 ELSE 0 END), 0) AS avgControl,
+          IFNULL(AVG(CASE WHEN s.AfterBlow        = 1 THEN 1 ELSE 0 END), 0) AS avgAfterBlow,
+          IFNULL(AVG(CASE WHEN s.OpponentSelfCall = 1 THEN 1 ELSE 0 END), 0) AS avgSelfCall
+        FROM Exchanges e
+        LEFT JOIN ExchangeScores s ON s.ExchangeId = e.ExchangeId
+        WHERE e.MatchFighterId IN (
+          SELECT mf2.MatchFighterId FROM MatchFighters mf2 WHERE mf2.MatchId = v_match_id
+        )
+        GROUP BY e.MatchFighterId, e.ExchangeId
+      ) px
+      GROUP BY px.MatchFighterId
+    ) calc ON calc.MatchFighterId = mf.MatchFighterId
+    SET mf.FinalScore = ROUND(IFNULL(calc.GrandTotal, 0) + IFNULL(mf.ScoreModifier, 0), 2)
+    WHERE mf.MatchId = v_match_id;
+
+    /* 2) Recompute WinLossDraw */
+    UPDATE MatchFighters mf
+    JOIN MatchFighters other
+      ON other.MatchId = mf.MatchId
+     AND other.MatchFighterId <> mf.MatchFighterId
+    SET mf.WinLossDraw = CASE
+      WHEN COALESCE(mf.FinalScore,0) > COALESCE(other.FinalScore,0) THEN 'W'
+      WHEN COALESCE(mf.FinalScore,0) < COALESCE(other.FinalScore,0) THEN 'L'
+      ELSE 'D'
+    END
+    WHERE mf.MatchId = v_match_id;
+
+    /* 3) Clear stale bracket advancements where downstream match hasn't started */
+    DELETE mf_next FROM MatchFighters mf_next
+    JOIN BracketMatches bm
+      ON mf_next.MatchId IN (bm.NextMatchWin, bm.NextMatchLoss)
+    WHERE bm.MatchId = v_match_id
+      AND mf_next.FighterId IN (
+        SELECT FighterId FROM MatchFighters WHERE MatchId = v_match_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM Exchanges ex WHERE ex.MatchFighterId = mf_next.MatchFighterId
+      );
+
+    /* 4) Re-advance winners */
+    INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
+    SELECT bm.NextMatchWin, mf.FighterId,
+           CASE
+             WHEN NOT EXISTS (
+               SELECT 1 FROM MatchFighters WHERE MatchId = bm.NextMatchWin AND FighterColor = 'Red'
+             ) THEN 'Red'
+             ELSE 'Blue'
+           END
+    FROM BracketMatches bm
+    JOIN MatchFighters mf ON mf.MatchId = v_match_id
+    WHERE bm.MatchId = v_match_id
+      AND bm.NextMatchWin IS NOT NULL
+      AND mf.WinLossDraw = 'W'
+      AND NOT EXISTS (
+        SELECT 1 FROM MatchFighters mf2
+        WHERE mf2.MatchId = bm.NextMatchWin
+          AND mf2.FighterId = mf.FighterId
+      );
+
+    /* 5) Re-advance losers */
+    INSERT INTO MatchFighters (MatchId, FighterId, FighterColor)
+    SELECT bm.NextMatchLoss, mf.FighterId,
+           CASE
+             WHEN NOT EXISTS (
+               SELECT 1 FROM MatchFighters WHERE MatchId = bm.NextMatchLoss AND FighterColor = 'Red'
+             ) THEN 'Red'
+             ELSE 'Blue'
+           END
+    FROM BracketMatches bm
+    JOIN MatchFighters mf ON mf.MatchId = v_match_id
+    WHERE bm.MatchId = v_match_id
+      AND bm.NextMatchLoss IS NOT NULL
+      AND mf.WinLossDraw = 'L'
+      AND NOT EXISTS (
+        SELECT 1 FROM MatchFighters mf2
+        WHERE mf2.MatchId = bm.NextMatchLoss
+          AND mf2.FighterId = mf.FighterId
+      );
+
   END IF;
 END$$
 
