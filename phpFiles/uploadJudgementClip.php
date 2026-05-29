@@ -97,6 +97,8 @@ if (!is_dir($baseStorageDir)) {
     }
     chown($baseStorageDir, 'www-data');
 }
+@chown($baseStorageDir, 'www-data');
+@chmod($baseStorageDir, 0755);
 
 $camStorageDir = $baseStorageDir . DIRECTORY_SEPARATOR . 'cam-' . $cameraNumber;
 if (!is_dir($camStorageDir)) {
@@ -108,6 +110,8 @@ if (!is_dir($camStorageDir)) {
     }
     chown($camStorageDir, 'www-data');
 }
+@chown($camStorageDir, 'www-data');
+@chmod($camStorageDir, 0755);
 
 // ---------- Determine extension + filename ----------
 $ext = (stripos($mimeType, 'mp4') !== false) ? 'mp4' : 'webm';
@@ -224,6 +228,36 @@ if ($exchangeId <= 0) {
 
         // rowCount: 1 = inserted, 2 = updated existing, 0 = no change
         $linked = $stmt->rowCount() > 0;
+
+        // --- Also link to the partner exchange (same match, same timestamp, other fighter) ---
+        $partnerStmt = $db->prepare("
+            SELECT e2.ExchangeId
+            FROM Exchanges e1
+            JOIN MatchFighters mf1 ON e1.MatchFighterId = mf1.MatchFighterId
+            JOIN MatchFighters mf2 ON mf2.MatchId = mf1.MatchId
+                                  AND mf2.MatchFighterId != mf1.MatchFighterId
+            JOIN Exchanges e2 ON e2.MatchFighterId = mf2.MatchFighterId
+                             AND e2.ExchangeTimeStamp = e1.ExchangeTimeStamp
+            WHERE e1.ExchangeId = :exchangeId
+            LIMIT 1
+        ");
+        $partnerStmt->execute([':exchangeId' => $exchangeId]);
+        $partnerRow = $partnerStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($partnerRow) {
+            $partnerInsert = $db->prepare("
+                INSERT INTO ExchangeVideos (ExchangeId, CameraNumber, VideoFilename)
+                VALUES (:exchangeId, :cameraNumber, :filename)
+                ON DUPLICATE KEY UPDATE
+                    VideoFilename = VALUES(VideoFilename),
+                    UploadedAt    = current_timestamp(3)
+            ");
+            $partnerInsert->execute([
+                ':exchangeId'   => $partnerRow['ExchangeId'],
+                ':cameraNumber' => $cameraNumber,
+                ':filename'     => $filename,
+            ]);
+        }
 
     } catch (PDOException $e) {
         error_log("DB link failed for $filename: " . $e->getMessage());

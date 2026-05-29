@@ -188,7 +188,6 @@ CREATE TABLE `Exchanges` (
   `ExchangeId` int(11) NOT NULL AUTO_INCREMENT,
   `MatchFighterId` int(11) NOT NULL,
   `ExchangeTimeStamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `VideoFilename` VARCHAR(255) NULL,
   PRIMARY KEY (`ExchangeId`),
   CONSTRAINT `FK_Exchange_MatchFighter` FOREIGN KEY (`MatchFighterId`) REFERENCES `MatchFighters` (`MatchFighterId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

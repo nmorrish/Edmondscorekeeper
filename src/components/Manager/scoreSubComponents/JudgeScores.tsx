@@ -22,12 +22,14 @@ interface JudgeScoresProps {
   }>;
   readOnly: boolean;
   onExchangesUpdate?: (updated: JudgeScoresProps["exchanges"]) => void;
+  indexOffset?: number;
 }
 
 const JudgeScores: React.FC<JudgeScoresProps> = ({
   exchanges,
   readOnly,
   onExchangesUpdate,
+  indexOffset = 0,
 }) => {
   const addToast = useToast();
   const [localExchanges, setLocalExchanges] = useState(exchanges);
@@ -95,7 +97,7 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
 
         return (
           <div key={`exchange-${exchangeId}`} style={{ marginBottom: "15px" }}>
-            <h4>Exchange {exIdx + 1}</h4>
+            <h4 style={{fontSize : "1.6em", margin : 0}}>Exchange {exIdx + 1 + indexOffset}</h4>
             <table className="judge-scores-table">
               <thead>
                 <tr>

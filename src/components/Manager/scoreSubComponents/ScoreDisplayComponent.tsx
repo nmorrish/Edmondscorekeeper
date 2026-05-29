@@ -14,7 +14,6 @@ import React, { useState, useEffect } from "react";
 import TotalsCalculator, { Fighter, Exchange } from "../../utility/TotalsCalculator";
 import IncrementFighterStrikeButton from "../fighterSubComponents/incrementFighterStrikes";
 import JudgeScores from "./JudgeScores";
-import ExchangeVideoButtons from "../../Judgement/EyeOfJudgement/ExchangeVideoButtons";
 
 type LooseExchange = {
   exchangeId?: number;
@@ -65,8 +64,6 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
     }
   };
 
-  const showVideoRow = matchStatus === "D" || matchStatus === "A";
-
   return (
     <div style={{ marginTop: "15px" }}>
       <TotalsCalculator
@@ -113,24 +110,15 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
                 (totals?.exchangeAverages || []).map((row: any, idx: number) => {
                   const exchangeId = localExchanges[idx]?.exchangeId;
                   return (
-                    <React.Fragment key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
-                      <tr>
-                        <td>{row.judgeCount}</td>
-                        <td>{row.avgContact.toFixed(1)}</td>
-                        <td>{row.avgTarget.toFixed(1)}</td>
-                        <td>{row.avgControl.toFixed(1)}</td>
-                        <td>{row.avgAfterBlow.toFixed(1)}</td>
-                        <td>{row.avgSelfCall.toFixed(1)}</td>
-                        <td>{row.avgDoubleHit.toFixed(1)}</td>
-                      </tr>
-                      {showVideoRow && exchangeId !== undefined && (
-                        <tr className="video-row">
-                          <td colSpan={7} style={videoCellStyle}>
-                            <ExchangeVideoButtons exchangeId={exchangeId} />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <tr key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
+                      <td>{row.judgeCount}</td>
+                      <td>{row.avgContact.toFixed(1)}</td>
+                      <td>{row.avgTarget.toFixed(1)}</td>
+                      <td>{row.avgControl.toFixed(1)}</td>
+                      <td>{row.avgAfterBlow.toFixed(1)}</td>
+                      <td>{row.avgSelfCall.toFixed(1)}</td>
+                      <td>{row.avgDoubleHit.toFixed(1)}</td>
+                    </tr>
                   );
                 })}
 
