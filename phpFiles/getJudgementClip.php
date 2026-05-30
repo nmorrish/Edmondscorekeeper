@@ -10,13 +10,14 @@
  *   exchangeId (int)
  *
  * Responses:
- *   200  { status: 'ok',        clips: [{cameraNumber, filename}, ...] }
- *   404  { status: 'not_found', message: 'No such exchange'      }   // exchange row missing
- *   404  { status: 'not_found', message: 'No clips linked yet'   }   // exchange exists, no uploads
- *   400  { status: 'error',     message: 'Bad exchangeId'        }
+ *   200  { status: 'ok',        clips: [{cameraNumber, relativePath, uploadedAt}, ...] }
+ *   404  { status: 'not_found', message: 'No such exchange'    }   // exchange row missing
+ *   404  { status: 'not_found', message: 'No clips linked yet' }   // exchange exists, no uploads
+ *   400  { status: 'error',     message: 'Bad exchangeId'      }
  *
- * The caller is responsible for constructing the full URL — clips live at
- *   <judgementClips>/cam-<cameraNumber>/<filename>
+ * VideoFilename in ExchangeVideos holds the full relative path from judgementClips/ inward,
+ * e.g. tournament_1/event_2/match_3/exchange_4/4-cam1.webm
+ * The caller prepends the base URL for playback — no path construction needed client-side.
  */
 
 header('Content-Type: application/json');
@@ -35,7 +36,7 @@ if ($exchangeId <= 0) {
     exit;
 }
 
-require_once("connect.php");
+require_once('connect.php');
 
 try {
     $db = connect();
@@ -50,12 +51,10 @@ try {
         LIMIT 1
     ");
     $checkStmt->execute([':id' => $exchangeId]);
+
     if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
         http_response_code(404);
-        echo json_encode([
-            'status'  => 'not_found',
-            'message' => 'No such exchange',
-        ]);
+        echo json_encode(['status' => 'not_found', 'message' => 'No such exchange']);
         exit;
     }
 
@@ -72,25 +71,19 @@ try {
 
     if (empty($rows)) {
         http_response_code(404);
-        echo json_encode([
-            'status'  => 'not_found',
-            'message' => 'No clips linked yet',
-        ]);
+        echo json_encode(['status' => 'not_found', 'message' => 'No clips linked yet']);
         exit;
     }
 
     $clips = array_map(function ($row) {
         return [
-            'cameraNumber' => (int) $row['CameraNumber'],
-            'filename'     => $row['VideoFilename'],
+            'cameraNumber' => (int)$row['CameraNumber'],
+            'relativePath' => $row['VideoFilename'],  // full path from judgementClips/ inward
             'uploadedAt'   => $row['UploadedAt'],
         ];
     }, $rows);
 
-    echo json_encode([
-        'status' => 'ok',
-        'clips'  => $clips,
-    ]);
+    echo json_encode(['status' => 'ok', 'clips' => $clips]);
 
 } catch (PDOException $e) {
     error_log("getJudgementClip failed: " . $e->getMessage());

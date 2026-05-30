@@ -11,16 +11,22 @@
  *
  * Expected POST fields:
  *   - clip          (file)   the rolling-buffer video blob
- *   - matchId       (int)    used in filename
- *   - ringNumber    (int)    used in filename
+ *   - exchangeId    (int)    required; used to derive match/event/tournament and for DB linkage
  *   - cameraNumber  (int)    required; determines subfolder + DB row
- *   - pressTime     (int)    epoch ms; used in filename
- *   - mimeType      (str)    used to pick extension
- *   - exchangeId    (int)    required for DB linkage
+ *   - mimeType      (str)    used to pick file extension
  *   - trimSecs      (float)  seconds to keep from the end (PRE + exchange + POST)
  *
  * Storage layout:
- *   ../judgementClips/cam-<N>/match-<id>-ring-<r>-press-<ts>.<ext>
+ *   ../judgementClips/
+ *     tournament_[TournamentId]/
+ *       event_[EventId]/
+ *         match_[MatchId]/
+ *           exchange_[ExchangeId]/
+ *             [ExchangeId]-cam[CameraNumber].[ext]
+ *
+ * VideoFilename stored in DB is the full relative path from judgementClips/ inward,
+ * e.g. tournament_1/event_2/match_3/exchange_4/4-cam1.webm
+ * The caller prepends the base URL for playback.
  *
  * DB behaviour:
  *   INSERT INTO ExchangeVideos with ON DUPLICATE KEY UPDATE on
@@ -59,20 +65,17 @@ if ($file['size'] <= 0) {
 }
 
 // ---------- Validate fields ----------
-$matchId      = isset($_POST['matchId'])      ? (int)$_POST['matchId']      : 0;
-$ringNumber   = isset($_POST['ringNumber'])   ? (int)$_POST['ringNumber']   : 0;
-$cameraNumber = isset($_POST['cameraNumber']) ? (int)$_POST['cameraNumber'] : 0;
-$pressTime    = isset($_POST['pressTime'])    ? (int)$_POST['pressTime']    : 0;
 $exchangeId   = isset($_POST['exchangeId'])   ? (int)$_POST['exchangeId']   : 0;
+$cameraNumber = isset($_POST['cameraNumber']) ? (int)$_POST['cameraNumber'] : 0;
 $mimeType     = isset($_POST['mimeType'])     ? (string)$_POST['mimeType']  : '';
 $trimSecs     = isset($_POST['trimSecs'])     ? (float)$_POST['trimSecs']   : 0.0;
 
-if ($matchId <= 0 || $pressTime <= 0 || $cameraNumber <= 0) {
+if ($exchangeId <= 0 || $cameraNumber <= 0) {
     http_response_code(400);
     echo json_encode([
         'status'   => 'error',
-        'message'  => 'Bad matchId, pressTime, or cameraNumber',
-        'received' => compact('matchId', 'ringNumber', 'cameraNumber', 'pressTime', 'exchangeId', 'mimeType', 'trimSecs'),
+        'message'  => 'Bad exchangeId or cameraNumber',
+        'received' => compact('exchangeId', 'cameraNumber', 'mimeType', 'trimSecs'),
         'post_keys'      => array_keys($_POST),
         'files_keys'     => array_keys($_FILES),
         'content_length' => (int)($_SERVER['CONTENT_LENGTH'] ?? 0),
@@ -84,44 +87,78 @@ if ($matchId <= 0 || $pressTime <= 0 || $cameraNumber <= 0) {
 if ($trimSecs < 0)   $trimSecs = 0.0;
 if ($trimSecs > 300) $trimSecs = 300.0;
 
-// ---------- Storage path (per-camera subfolder) ----------
+// ---------- Derive MatchId, EventId, TournamentId from ExchangeId ----------
+// Everything we need for the folder path lives in the DB. ExchangeId is the
+// canonical anchor — walk up through MatchFighters → Matches → Events → Tournaments.
+require_once('connect.php');
+
+try {
+    $db = connect();
+
+    $pathStmt = $db->prepare("
+        SELECT
+            m.MatchId,
+            m.EventId,
+            e.TournamentId
+        FROM Exchanges ex
+        JOIN MatchFighters mf ON ex.MatchFighterId = mf.MatchFighterId
+        JOIN Matches       m  ON mf.MatchId        = m.MatchId
+        JOIN Events        e  ON m.EventId          = e.EventId
+        WHERE ex.ExchangeId = :exchangeId
+        LIMIT 1
+    ");
+    $pathStmt->execute([':exchangeId' => $exchangeId]);
+    $pathRow = $pathStmt->fetch(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    error_log("Path lookup failed for exchangeId=$exchangeId: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'DB path lookup failed']);
+    exit;
+}
+
+if (!$pathRow) {
+    http_response_code(404);
+    echo json_encode(['status' => 'error', 'message' => 'Exchange not found', 'exchangeId' => $exchangeId]);
+    exit;
+}
+
+$matchId      = (int)$pathRow['MatchId'];
+$eventId      = (int)$pathRow['EventId'];
+$tournamentId = (int)$pathRow['TournamentId'];
+
+// ---------- Build storage path ----------
 const CLIPS_DIRNAME = 'judgementClips';
 $baseStorageDir = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . CLIPS_DIRNAME;
 
-if (!is_dir($baseStorageDir)) {
-    if (!@mkdir($baseStorageDir, 0755, true) && !is_dir($baseStorageDir)) {
-        error_log("Failed to create $baseStorageDir");
-        http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'Storage init failed']);
-        exit;
-    }
-    chown($baseStorageDir, 'www-data');
-}
-@chown($baseStorageDir, 'www-data');
-@chmod($baseStorageDir, 0755);
+$relativeDir = implode(DIRECTORY_SEPARATOR, [
+    "tournament_{$tournamentId}",
+    "event_{$eventId}",
+    "match_{$matchId}",
+    "exchange_{$exchangeId}",
+]);
 
-$camStorageDir = $baseStorageDir . DIRECTORY_SEPARATOR . 'cam-' . $cameraNumber;
-if (!is_dir($camStorageDir)) {
-    if (!@mkdir($camStorageDir, 0755, true) && !is_dir($camStorageDir)) {
-        error_log("Failed to create $camStorageDir");
+$fullDir = $baseStorageDir . DIRECTORY_SEPARATOR . $relativeDir;
+
+// Create the full directory tree in one shot
+if (!is_dir($fullDir)) {
+    if (!@mkdir($fullDir, 0755, true) && !is_dir($fullDir)) {
+        error_log("Failed to create directory: $fullDir");
         http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'Camera folder init failed']);
+        echo json_encode(['status' => 'error', 'message' => 'Storage directory init failed']);
         exit;
     }
-    chown($camStorageDir, 'www-data');
 }
-@chown($camStorageDir, 'www-data');
-@chmod($camStorageDir, 0755);
+@chown($fullDir, 'www-data');
+@chmod($fullDir, 0755);
 
 // ---------- Determine extension + filename ----------
-$ext = (stripos($mimeType, 'mp4') !== false) ? 'mp4' : 'webm';
+$ext      = (stripos($mimeType, 'mp4') !== false) ? 'mp4' : 'webm';
+$filename = "{$exchangeId}-cam{$cameraNumber}.{$ext}";
 
-$filename = preg_replace(
-    '/[^A-Za-z0-9\.\-_]/', '_',
-    sprintf('match-%d-ring-%d-press-%d.%s', $matchId, $ringNumber, $pressTime, $ext)
-);
-
-$targetPath = $camStorageDir . DIRECTORY_SEPARATOR . $filename;
+// Relative path stored in DB — base URL prepended by the caller
+$relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativeDir) . '/' . $filename;
+$targetPath   = $fullDir . DIRECTORY_SEPARATOR . $filename;
 
 // ---------- Move raw upload into place ----------
 if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
@@ -144,9 +181,6 @@ if ($trimSecs > 0) {
     error_log("[trim] trimSecs=$trimSecs rawPath=$rawPath");
 
     if (!rename($targetPath, $rawPath)) {
-
-        error_log("[trim] rename FAILED"); 
-
         $trimWarning = 'Rename to .raw failed; FFmpeg trim skipped, raw upload stored';
         error_log($trimWarning);
 
@@ -199,88 +233,78 @@ if ($trimSecs > 0) {
 }
 
 // ---------- Link to ExchangeVideos ----------
-require_once('connect.php');
-
 $linked      = false;
 $linkWarning = null;
 
-if ($exchangeId <= 0) {
-    $linkWarning = "Missing exchangeId; file saved but not linked. matchId=$matchId cam=$cameraNumber filename=$filename";
-    error_log($linkWarning);
-} else {
-    try {
-        $db = connect();
+try {
+    // INSERT or refresh the row for (ExchangeId, CameraNumber).
+    // VideoFilename holds the full relative path from judgementClips/ inward.
+    // The UNIQUE KEY uq_exchange_camera makes re-uploads idempotent.
+    $stmt = $db->prepare("
+        INSERT INTO ExchangeVideos (ExchangeId, CameraNumber, VideoFilename)
+        VALUES (:exchangeId, :cameraNumber, :relativePath)
+        ON DUPLICATE KEY UPDATE
+            VideoFilename = VALUES(VideoFilename),
+            UploadedAt    = current_timestamp(3)
+    ");
+    $stmt->execute([
+        ':exchangeId'   => $exchangeId,
+        ':cameraNumber' => $cameraNumber,
+        ':relativePath' => $relativePath,
+    ]);
 
-        // INSERT or refresh the row for (ExchangeId, CameraNumber).
-        // The UNIQUE KEY uq_exchange_camera makes re-uploads idempotent.
-        $stmt = $db->prepare("
+    // rowCount: 1 = inserted, 2 = updated existing, 0 = no change
+    $linked = $stmt->rowCount() > 0;
+
+    // --- Also link to the partner exchange (same match, same timestamp, other fighter) ---
+    $partnerStmt = $db->prepare("
+        SELECT e2.ExchangeId
+        FROM Exchanges e1
+        JOIN MatchFighters mf1 ON e1.MatchFighterId = mf1.MatchFighterId
+        JOIN MatchFighters mf2 ON mf2.MatchId = mf1.MatchId
+                              AND mf2.MatchFighterId != mf1.MatchFighterId
+        JOIN Exchanges e2 ON e2.MatchFighterId = mf2.MatchFighterId
+                         AND e2.ExchangeTimeStamp = e1.ExchangeTimeStamp
+        WHERE e1.ExchangeId = :exchangeId
+        LIMIT 1
+    ");
+    $partnerStmt->execute([':exchangeId' => $exchangeId]);
+    $partnerRow = $partnerStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($partnerRow) {
+        $partnerInsert = $db->prepare("
             INSERT INTO ExchangeVideos (ExchangeId, CameraNumber, VideoFilename)
-            VALUES (:exchangeId, :cameraNumber, :filename)
+            VALUES (:exchangeId, :cameraNumber, :relativePath)
             ON DUPLICATE KEY UPDATE
                 VideoFilename = VALUES(VideoFilename),
                 UploadedAt    = current_timestamp(3)
         ");
-        $stmt->execute([
-            ':exchangeId'   => $exchangeId,
+        $partnerInsert->execute([
+            ':exchangeId'   => $partnerRow['ExchangeId'],
             ':cameraNumber' => $cameraNumber,
-            ':filename'     => $filename,
+            ':relativePath' => $relativePath,
         ]);
-
-        // rowCount: 1 = inserted, 2 = updated existing, 0 = no change
-        $linked = $stmt->rowCount() > 0;
-
-        // --- Also link to the partner exchange (same match, same timestamp, other fighter) ---
-        $partnerStmt = $db->prepare("
-            SELECT e2.ExchangeId
-            FROM Exchanges e1
-            JOIN MatchFighters mf1 ON e1.MatchFighterId = mf1.MatchFighterId
-            JOIN MatchFighters mf2 ON mf2.MatchId = mf1.MatchId
-                                  AND mf2.MatchFighterId != mf1.MatchFighterId
-            JOIN Exchanges e2 ON e2.MatchFighterId = mf2.MatchFighterId
-                             AND e2.ExchangeTimeStamp = e1.ExchangeTimeStamp
-            WHERE e1.ExchangeId = :exchangeId
-            LIMIT 1
-        ");
-        $partnerStmt->execute([':exchangeId' => $exchangeId]);
-        $partnerRow = $partnerStmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($partnerRow) {
-            $partnerInsert = $db->prepare("
-                INSERT INTO ExchangeVideos (ExchangeId, CameraNumber, VideoFilename)
-                VALUES (:exchangeId, :cameraNumber, :filename)
-                ON DUPLICATE KEY UPDATE
-                    VideoFilename = VALUES(VideoFilename),
-                    UploadedAt    = current_timestamp(3)
-            ");
-            $partnerInsert->execute([
-                ':exchangeId'   => $partnerRow['ExchangeId'],
-                ':cameraNumber' => $cameraNumber,
-                ':filename'     => $filename,
-            ]);
-        }
-
-    } catch (PDOException $e) {
-        error_log("DB link failed for $filename: " . $e->getMessage());
-        echo json_encode([
-            'status'       => 'partial',
-            'message'      => 'Clip saved but DB linkage failed',
-            'filename'     => $filename,
-            'cameraNumber' => $cameraNumber,
-            'storagePath'  => 'cam-' . $cameraNumber . '/' . $filename,
-            'size'         => filesize($targetPath),
-            'trimmed'      => $trimmed,
-            'trimWarning'  => $trimWarning,
-        ]);
-        exit;
     }
+
+} catch (PDOException $e) {
+    error_log("DB link failed for $relativePath: " . $e->getMessage());
+    echo json_encode([
+        'status'       => 'partial',
+        'message'      => 'Clip saved but DB linkage failed',
+        'relativePath' => $relativePath,
+        'cameraNumber' => $cameraNumber,
+        'size'         => filesize($targetPath),
+        'trimmed'      => $trimmed,
+        'trimWarning'  => $trimWarning,
+    ]);
+    exit;
 }
 
 // ---------- Done ----------
 echo json_encode([
     'status'       => 'ok',
-    'filename'     => $filename,
+    'relativePath' => $relativePath,
     'cameraNumber' => $cameraNumber,
-    'storagePath'  => 'cam-' . $cameraNumber . '/' . $filename,
     'size'         => filesize($targetPath),
     'linked'       => $linked,
     'trimmed'      => $trimmed,

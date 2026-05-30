@@ -12,7 +12,7 @@ interface FighterInfo {
 
 interface ClipMeta {
   cameraNumber: number;
-  filename: string;
+  relativePath: string; // full path from judgementClips/ inward, e.g. tournament_1/event_1/match_1/exchange_2/2-cam1.webm
 }
 
 interface ExchangeReviewModalProps {
@@ -25,7 +25,7 @@ interface ExchangeReviewModalProps {
 }
 
 const CLIPS_URL = backend_uri.replace(/\/[^/]+\/?$/, "/judgementClips");
-const clipUrl = (clip: ClipMeta) => `${CLIPS_URL}/cam-${clip.cameraNumber}/${clip.filename}`;
+const clipUrl = (clip: ClipMeta) => `${CLIPS_URL}/${clip.relativePath}`;
 const FRAME_STEP = 1 / 30;
 
 const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
@@ -154,10 +154,10 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
                 width: fullWidth ? "100vw" : "min(900px, 96vw)",
                 maxWidth: fullWidth ? "100vw" : undefined,
                 borderRadius: fullWidth ? 0 : "10px",
-                overflowY: "auto",   // was "hidden"
+                overflowY: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
-        >f
+        >
 
         {/* Combined nav row: exchange selector | cam selector | close */}
         <div style={navRowStyle}>
@@ -212,7 +212,7 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
         {/* Video */}
         {currentClip ? (
           <video
-            key={currentClip.filename}
+            key={currentClip.relativePath}
             ref={videoRef}
             src={clipUrl(currentClip)}
             style={{
@@ -370,7 +370,7 @@ const timeLabelStyle: React.CSSProperties = {
   whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
 };
 const scorePanelsStyle: React.CSSProperties = {
-  display: "flex", overflowY: "visible", 
+  display: "flex", overflowY: "visible",
 };
 const scorePanelStyle: React.CSSProperties = {
   flex: 1, padding: "12px 14px",
