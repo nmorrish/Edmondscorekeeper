@@ -136,6 +136,7 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
   };
 
   const currentClip = clipStatus === "loaded" && clips.length > 0 ? clips[camIndex] : null;
+  if (currentClip) console.log("Video URL:", clipUrl(currentClip));
 
   if (!f1Ex || !f2Ex) return null;
 
@@ -215,12 +216,9 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
             key={currentClip.relativePath}
             ref={videoRef}
             src={clipUrl(currentClip)}
-            style={{
-                ...videoStyle,
-                maxHeight: fullWidth ? "92vh" : "80vh",
-            }}
-            onTimeUpdate={handleTimeUpdate}
+            onError={(e) => console.error("Video error:", e.currentTarget.error?.code, e.currentTarget.error?.message)}
             onLoadedMetadata={handleTimeUpdate}
+            onTimeUpdate={handleTimeUpdate}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline
