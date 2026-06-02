@@ -42,9 +42,9 @@ RING_NUMBER  = 1
 SSE_URL      = "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"
 UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
 
-OBS_HOST     = "10.0.0.187"
+OBS_HOST     = "web.socket.ip.address"
 OBS_PORT     = 4455
-OBS_PASSWORD = "yourpwd"
+OBS_PASSWORD = "YOUR-PASSWORD"
 
 FFMPEG_PATH  = "ffmpeg"
 FFPROBE_PATH = "ffprobe"
@@ -63,7 +63,7 @@ MAX_OFFSET_SAMPLES  = 5
 
 # Re-encode settings — ultrafast keeps processing time under ~1s for short clips
 VIDEO_CODEC   = "libx264"
-VIDEO_PRESET  = "medium"
+VIDEO_PRESET  = "ultrafast"
 VIDEO_CRF     = "23"
 AUDIO_CODEC   = "aac"
 
@@ -153,7 +153,7 @@ def detect_cameras(ws_client: obs.ReqClient, obs_record_dir: Path) -> list[Camer
 
 
 def resolve_cameras(ws_client: obs.ReqClient) -> list[Camera]:
-    obs_record_dir = Path("/home/nick-ua01/Videos")
+    obs_record_dir = Path("/home/user/Videos")
     try:
         resp = ws_client.get_record_directory()
         candidate = Path(getattr(resp, "record_directory", "") or "")
@@ -490,9 +490,35 @@ def handle_signal(
 
     trigger_replay_saves(ws_client, cameras)
 
-    TEMP_DIR.mkdir(exist_ok=True)
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
     def process(cam: Camera) -> None:
+        src = wait_for_new_file(
+            cam, not_before, FILE_WAIT_TIMEOUT_S, pre_snapshots[cam.cam_num]
+        )
+        if src is None:
+            return
+
+        wait_for_stable_file(src)
+
+        dst = TEMP_DIR / f"exchange{exchange_id}-cam{cam.cam_num}.mp4"
+
+        if reencode_clip(src, dst, keep_secs):
+            if upload_clip(dst, exchange_id, cam.cam_num):
+                try:
+                    src.unlink(missing_ok=True)
+                    log.info(f"  cam{cam.cam_num}: deleted source file {src.name}")
+                except OSError as e:
+                    log.warning(f"  cam{cam.cam_num}: could not delete source file {src.name}: {e}")
+            else:
+                log.error(f"  cam{cam.cam_num}: upload failed, keeping source file {src.name}")
+        else:
+            log.error(f"  cam{cam.cam_num}: encoding failed, clip not uploaded")
+
+        try:
+            dst.unlink(missing_ok=True)
+        except OSError:
+            pass
         src = wait_for_new_file(
             cam, not_before, FILE_WAIT_TIMEOUT_S, pre_snapshots[cam.cam_num]
         )
