@@ -1,0 +1,2 @@
+obsws_python==1.8.0
+Requests==2.34.2

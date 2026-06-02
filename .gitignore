@@ -5,6 +5,7 @@ dblogin.json
 
 #folder for storing video replays
 /judgementClips
+OBS/venv
 
 # dependencies
 /node_modules

@@ -44,7 +44,7 @@ UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
 
 OBS_HOST     = "10.0.0.187"
 OBS_PORT     = 4455
-OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
+OBS_PASSWORD = "yourpwd"
 
 FFMPEG_PATH  = "ffmpeg"
 FFPROBE_PATH = "ffprobe"
