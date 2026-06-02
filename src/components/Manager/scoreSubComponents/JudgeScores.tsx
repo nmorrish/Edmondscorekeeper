@@ -105,8 +105,8 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
                   <th>CONT</th>
                   <th>TRGT</th>
                   <th>CTRL</th>
-                  <th>A/B</th>
-                  <th>Call</th>
+                  {/* <th>A/B</th>
+                  <th>Call</th> */}
                   <th>DBL</th>
                 </tr>
               </thead>
@@ -118,8 +118,8 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
                       "contact",
                       "target",
                       "control",
-                      "afterBlow",
-                      "opponentSelfCall",
+                      // "afterBlow",
+                      // "opponentSelfCall",
                       "doubleHit",
                     ].map((field) => (
                       <td key={`${s.scoreId}-${field}`}>
@@ -157,8 +157,8 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
                   <td>{totals.contact.toFixed(1)}</td>
                   <td>{totals.target.toFixed(1)}</td>
                   <td>{totals.control.toFixed(1)}</td>
-                  <td>{totals.afterBlow.toFixed(1)}</td>
-                  <td>{totals.opponentSelfCall.toFixed(1)}</td>
+                  {/* <td>{totals.afterBlow.toFixed(1)}</td>
+                  <td>{totals.opponentSelfCall.toFixed(1)}</td> */}
                   <td>({totals.doubleHit.toFixed(1)})</td>
                 </tr>
               </tbody>

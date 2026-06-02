@@ -91,8 +91,8 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
               <th>Contact</th>
               <th>Target</th>
               <th>Control</th>
-              <th>A/B</th>
-              <th>Call</th>
+              {/* <th>A/B</th>
+              <th>Call</th> */}
               <th>Doubles</th>
             </tr>
           )}
@@ -108,15 +108,15 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
             <>
               {!showJudgeDrilldown &&
                 (totals?.exchangeAverages || []).map((row: any, idx: number) => {
-                  const exchangeId = localExchanges[idx]?.exchangeId;
+                  // const exchangeId = localExchanges[idx]?.exchangeId;
                   return (
                     <tr key={`fighter-${fighter.fighterId}-exchange-${idx}`}>
                       <td>{row.judgeCount}</td>
                       <td>{row.avgContact.toFixed(1)}</td>
                       <td>{row.avgTarget.toFixed(1)}</td>
                       <td>{row.avgControl.toFixed(1)}</td>
-                      <td>{row.avgAfterBlow.toFixed(1)}</td>
-                      <td>{row.avgSelfCall.toFixed(1)}</td>
+                      {/* <td>{row.avgAfterBlow.toFixed(1)}</td>
+                      <td>{row.avgSelfCall.toFixed(1)}</td> */}
                       <td>{row.avgDoubleHit.toFixed(1)}</td>
                     </tr>
                   );
@@ -150,8 +150,8 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
                     <td>{totals.overallTotals.contact.toFixed(1)}</td>
                     <td>{totals.overallTotals.target.toFixed(1)}</td>
                     <td>{totals.overallTotals.control.toFixed(1)}</td>
-                    <td>{totals.overallTotals.afterBlow.toFixed(1)}</td>
-                    <td>{totals.overallTotals.opponentSelfCall.toFixed(1)}</td>
+                    {/* <td>{totals.overallTotals.afterBlow.toFixed(1)}</td>
+                    <td>{totals.overallTotals.opponentSelfCall.toFixed(1)}</td> */}
                     <td>({totals.overallTotals.doubleHit.toFixed(1)})</td>
                   </tr>
                   <tr>
@@ -169,10 +169,10 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
   );
 };
 
-const videoCellStyle: React.CSSProperties = {
-  padding: "6px 8px",
-  background: "#1a1a1a08",
-  textAlign: "left",
-};
+// const videoCellStyle: React.CSSProperties = {
+//   padding: "6px 8px",
+//   background: "#1a1a1a08",
+//   textAlign: "left",
+// };
 
 export default React.memo(ScoreDisplayComponent);

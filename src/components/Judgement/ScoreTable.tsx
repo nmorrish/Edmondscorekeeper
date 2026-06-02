@@ -32,8 +32,8 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
   opponent,
   scores,
   onCheckboxChange,
-  onSubmit,
-  onConfirm,
+  // onSubmit,
+  // onConfirm,
 }) => {
   const handleCheckboxChange = useCallback(
     (criteria: string) => {
@@ -65,10 +65,10 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
     [fighter.fighterId, opponent.fighterId, onCheckboxChange, scores]
   );
 
-  const handleAfterBlowSubmit = useCallback(
-    () => onConfirm('Confirm Afterblow?', () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })),
-    [fighter.fighterId, onConfirm, onSubmit]
-  );
+  // const handleAfterBlowSubmit = useCallback(
+  //   () => onConfirm('Confirm Afterblow?', () => onSubmit({ fighterId: fighter.fighterId, doubleHit: false })),
+  //   [fighter.fighterId, onConfirm, onSubmit]
+  // );
 
   // const handleSelfCallSubmit = useCallback(
   //   () => onConfirm('Confirm Self-call?', () => onSubmit({ opponentId: opponent.fighterId, doubleHit: false })),
@@ -119,14 +119,14 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
           </tr>
         </tbody>
       </table>
-      <input
+      {/* <input
         type="button"
         className="scoreButton"
         name={`afterblow-${fighter.fighterId}`}
         value={`afterblow: ${fighter.fighterColor} hit first`}
         onClick={handleAfterBlowSubmit}
-      />
-      {/* <input
+      /> *
+      <input
         type="button"
         className="scoreButton"
         name={`selfCall-${fighter.fighterId}`}
@@ -134,6 +134,7 @@ const ScoreTable: React.FC<ScoreTableProps> = ({
         onClick={handleSelfCallSubmit}
       /> */}
     </div>
+    
   );
 };
 

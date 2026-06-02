@@ -37,12 +37,17 @@ $value   = (int)$data['value'];
 
 // map frontend → DB columns
 $fieldMap = [
-    'contact'          => 'Contact',
-    'target'           => 'Target',
-    'control'          => 'Control',
-    'afterBlow'        => 'AfterBlow',
-    'doubleHit'        => 'DoubleHit',
-    'opponentSelfCall' => 'OpponentSelfCall'
+    'contact'              => 'Contact',
+    'target'               => 'Target',
+    'control'              => 'Control',
+    'afterBlow'            => 'AfterBlow',
+    'doubleHit'            => 'DoubleHit',
+    'opponentSelfCall'     => 'OpponentSelfCall',
+    'contactUncertainty'   => 'ContactUncertainty',
+    'targetUncertainty'    => 'TargetUncertainty',
+    'controlUncertainty'   => 'ControlUncertainty',
+    'doubleHitUncertainty' => 'DoubleHitUncertainty',
+    'afterBlowUncertainty' => 'AfterBlowUncertainty',
 ];
 
 if (!isset($fieldMap[$field])) {
