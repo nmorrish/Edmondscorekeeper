@@ -44,6 +44,14 @@ interface JudgementData {
   judgesSubmitted?: string[];
 }
 
+const emptyScores = {
+  contact: false, target: false, control: false,
+  afterBlow: false, opponentSelfCall: false,
+  contactUncertainty: false, targetUncertainty: false,
+  controlUncertainty: false, afterBlowUncertainty: false,
+  doubleHitUncertainty: false,
+};
+
 const JudgementManager: React.FC = () => {
   const { ringNumber } = useParams<{ ringNumber: string }>();
   const navigate = useNavigate();
@@ -132,8 +140,8 @@ const JudgementManager: React.FC = () => {
             } else {
               setJudgementData(data);
               setScores({
-                [data.fighter1Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
-                [data.fighter2Id]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false }
+                [data.fighter1Id]: { ...emptyScores },
+                [data.fighter2Id]: { ...emptyScores },
               });
             }
             setLastSeenJudgement(data.lastJudgement);
@@ -188,7 +196,7 @@ const JudgementManager: React.FC = () => {
     if (criteria === 'clear') {
       setScores((prev) => ({
         ...prev,
-        [fighterId]: { contact: false, target: false, control: false, afterBlow: false, opponentSelfCall: false },
+        [fighterId]: { ...emptyScores },
       }));
     } else {
       setScores((prev) => ({
@@ -222,6 +230,11 @@ const JudgementManager: React.FC = () => {
           afterBlow: action.fighterId === judgementData.fighter1Id && action.doubleHit === false,
           opponentSelfCall: action.opponentId === judgementData.fighter1Id,
           doubleHit: action.doubleHit || false,
+          contactUncertainty: scores[judgementData.fighter1Id]?.contactUncertainty || false,
+          targetUncertainty: scores[judgementData.fighter1Id]?.targetUncertainty || false,
+          controlUncertainty: scores[judgementData.fighter1Id]?.controlUncertainty || false,
+          afterBlowUncertainty: scores[judgementData.fighter1Id]?.afterBlowUncertainty || false,
+          doubleHitUncertainty: scores[judgementData.fighter1Id]?.doubleHitUncertainty || false,
           judgeName,
         };
         const fighter2Scores = {
@@ -231,6 +244,11 @@ const JudgementManager: React.FC = () => {
           afterBlow: action.fighterId === judgementData.fighter2Id && action.doubleHit === false,
           opponentSelfCall: action.opponentId === judgementData.fighter2Id,
           doubleHit: action.doubleHit || false,
+          contactUncertainty: scores[judgementData.fighter2Id]?.contactUncertainty || false,
+          targetUncertainty: scores[judgementData.fighter2Id]?.targetUncertainty || false,
+          controlUncertainty: scores[judgementData.fighter2Id]?.controlUncertainty || false,
+          afterBlowUncertainty: scores[judgementData.fighter2Id]?.afterBlowUncertainty || false,
+          doubleHitUncertainty: scores[judgementData.fighter2Id]?.doubleHitUncertainty || false,
           judgeName,
         };
         const data = {

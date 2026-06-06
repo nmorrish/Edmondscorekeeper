@@ -108,7 +108,10 @@ function buildMatch($db, $matchId) {
             // scores for each exchange
             $stmtScores = $db->prepare("
                 SELECT ExchangeScoresId, JudgeName, Contact, Target, Control,
-                       AfterBlow, DoubleHit, OpponentSelfCall, ScoreTimeStamp
+                    AfterBlow, DoubleHit, OpponentSelfCall,
+                    ContactUncertainty, TargetUncertainty, ControlUncertainty,
+                    DoubleHitUncertainty, AfterBlowUncertainty,
+                    ScoreTimeStamp
                 FROM ExchangeScores
                 WHERE ExchangeId=?
                 ORDER BY ExchangeScoresId ASC
@@ -117,15 +120,20 @@ function buildMatch($db, $matchId) {
             $scores = $stmtScores->fetchAll(PDO::FETCH_ASSOC);
 
             $ex['scores'] = array_map(fn($s) => [
-                'scoreId'          => (int)$s['ExchangeScoresId'],
-                'judgeName'        => $s['JudgeName'],
-                'contact'          => (int)$s['Contact'],
-                'target'           => (int)$s['Target'],
-                'control'          => (int)$s['Control'],
-                'afterBlow'        => (int)$s['AfterBlow'],
-                'doubleHit'        => (int)$s['DoubleHit'],
-                'opponentSelfCall' => (int)$s['OpponentSelfCall'],
-                'scoreTimeStamp'   => $s['ScoreTimeStamp'],
+                'scoreId'                => (int)$s['ExchangeScoresId'],
+                'judgeName'              => $s['JudgeName'],
+                'contact'                => (int)$s['Contact'],
+                'target'                 => (int)$s['Target'],
+                'control'                => (int)$s['Control'],
+                'afterBlow'              => (int)$s['AfterBlow'],
+                'doubleHit'              => (int)$s['DoubleHit'],
+                'opponentSelfCall'       => (int)$s['OpponentSelfCall'],
+                'contactUncertainty'     => (int)$s['ContactUncertainty'],
+                'targetUncertainty'      => (int)$s['TargetUncertainty'],
+                'controlUncertainty'     => (int)$s['ControlUncertainty'],
+                'doubleHitUncertainty'   => (int)$s['DoubleHitUncertainty'],
+                'afterBlowUncertainty'   => (int)$s['AfterBlowUncertainty'],
+                'scoreTimeStamp'         => $s['ScoreTimeStamp'],
             ], $scores);
         }
 

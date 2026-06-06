@@ -87,18 +87,25 @@ try {
         // 4. Insert this judge’s score
         $ins = $db->prepare("
             INSERT INTO ExchangeScores 
-            (ExchangeId, JudgeName, Contact, Target, Control, DoubleHit, AfterBlow, OpponentSelfCall)
-            VALUES (:eid, :jname, :contact, :target, :control, :doubleHit, :afterBlow, :opponentSelfCall)
+            (ExchangeId, JudgeName, Contact, Target, Control, DoubleHit, AfterBlow, OpponentSelfCall,
+            ContactUncertainty, TargetUncertainty, ControlUncertainty, DoubleHitUncertainty, AfterBlowUncertainty)
+            VALUES (:eid, :jname, :contact, :target, :control, :doubleHit, :afterBlow, :opponentSelfCall,
+                    :contactUncertainty, :targetUncertainty, :controlUncertainty, :doubleHitUncertainty, :afterBlowUncertainty)
         ");
         $ins->execute([
-            ':eid'              => $exchangeId,
-            ':jname'            => $judgeName,
-            ':contact'          => (int)!empty($scoreData['contact']),
-            ':target'           => (int)!empty($scoreData['target']),
-            ':control'          => (int)!empty($scoreData['control']),
-            ':doubleHit'        => (int)!empty($scoreData['doubleHit']),
-            ':afterBlow'        => (int)!empty($scoreData['afterBlow']),
-            ':opponentSelfCall' => (int)!empty($scoreData['opponentSelfCall'])
+            ':eid'                   => $exchangeId,
+            ':jname'                 => $judgeName,
+            ':contact'               => (int)!empty($scoreData['contact']),
+            ':target'                => (int)!empty($scoreData['target']),
+            ':control'               => (int)!empty($scoreData['control']),
+            ':doubleHit'             => (int)!empty($scoreData['doubleHit']),
+            ':afterBlow'             => (int)!empty($scoreData['afterBlow']),
+            ':opponentSelfCall'      => (int)!empty($scoreData['opponentSelfCall']),
+            ':contactUncertainty'    => (int)!empty($scoreData['contactUncertainty']),
+            ':targetUncertainty'     => (int)!empty($scoreData['targetUncertainty']),
+            ':controlUncertainty'    => (int)!empty($scoreData['controlUncertainty']),
+            ':doubleHitUncertainty'  => (int)!empty($scoreData['doubleHitUncertainty']),
+            ':afterBlowUncertainty'  => (int)!empty($scoreData['afterBlowUncertainty']),
         ]);
     }
 

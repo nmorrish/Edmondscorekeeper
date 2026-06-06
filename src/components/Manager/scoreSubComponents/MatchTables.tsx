@@ -32,6 +32,11 @@ export interface Score {
   opponentSelfCall: boolean;
   doubleHit: boolean;
   scoreTimeStamp: string;
+  contactUncertainty: boolean;
+  targetUncertainty: boolean;
+  controlUncertainty: boolean;
+  doubleHitUncertainty: boolean;
+  afterBlowUncertainty: boolean;
 }
 
 export interface Exchange {

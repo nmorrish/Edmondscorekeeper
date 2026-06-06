@@ -42,9 +42,9 @@ RING_NUMBER  = 1
 SSE_URL      = "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"
 UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
 
-OBS_HOST     = "web.socket.ip.address"
+OBS_HOST     = "192.168.122.1"
 OBS_PORT     = 4455
-OBS_PASSWORD = "YOUR-PASSWORD"
+OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
 
 FFMPEG_PATH  = "ffmpeg"
 FFPROBE_PATH = "ffprobe"
