@@ -44,6 +44,7 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [fullWidth, setFullWidth] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -102,6 +103,11 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
     v.pause();
     v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + dir * FRAME_STEP));
   }, []);
+
+  const handleRateChange = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) videoRef.current.playbackRate = rate;
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -217,7 +223,10 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
             ref={videoRef}
             src={clipUrl(currentClip)}
             onError={(e) => console.error("Video error:", e.currentTarget.error?.code, e.currentTarget.error?.message)}
-            onLoadedMetadata={handleTimeUpdate}
+            onLoadedMetadata={() => {
+              if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+              handleTimeUpdate();
+            }}
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
@@ -260,6 +269,24 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
           <span style={timeLabelStyle}>
             {currentTime.toFixed(2)}s / {(duration || 0).toFixed(2)}s
           </span>
+          <div style={speedGroupStyle}>
+            {[0.10, 0.25, 0.5, 1, 1.5].map((rate) => (
+              <button
+                key={rate}
+                style={{
+                  ...navBtnStyle,
+                  padding: "4px 8px",
+                  fontSize: "0.85rem",
+                  background: playbackRate === rate ? "#4a90d9" : "#2a2a2a",
+                  color: playbackRate === rate ? "#fff" : "#eee",
+                  border: playbackRate === rate ? "1px solid #4a90d9" : "1px solid #444",
+                }}
+                onClick={() => handleRateChange(rate)}
+              >
+                {rate}×
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Score panels */}
@@ -366,6 +393,10 @@ const scrubStyle: React.CSSProperties = {
 const timeLabelStyle: React.CSSProperties = {
   fontSize: "0.75rem", opacity: 0.7,
   whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
+};
+const speedGroupStyle: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: "4px",
+  marginLeft: "auto",
 };
 const scorePanelsStyle: React.CSSProperties = {
   display: "flex", overflowY: "visible",
