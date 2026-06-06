@@ -30,6 +30,7 @@ interface JudgeScoresProps {
   readOnly: boolean;
   onExchangesUpdate?: (updated: JudgeScoresProps["exchanges"]) => void;
   indexOffset?: number;
+  fighterColor?: string;
 }
 
 // ── Criterion cell ────────────────────────────────────────────────────────────
@@ -130,11 +131,13 @@ const REVIEW_CRITERIA = [
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
 const JudgeScores: React.FC<JudgeScoresProps> = ({
   exchanges,
   readOnly,
   onExchangesUpdate,
   indexOffset = 0,
+  fighterColor,
 }) => {
   const addToast = useToast();
   const [localExchanges, setLocalExchanges] = useState(exchanges);
@@ -192,7 +195,7 @@ const JudgeScores: React.FC<JudgeScoresProps> = ({
   };
 
   return (
-    <div className="judge-scores-editor">
+    <div className={`judge-scores-editor${fighterColor ? ` scores-${fighterColor}` : ""}`}>
       {localExchanges.map((ex, exIdx) => {
         const exchangeId = ex.exchangeId ?? ex.ExchangeId ?? exIdx;
         const totals = calcExchangeTotals(ex.scores);

@@ -70,7 +70,7 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
         fighter={{ ...fighter, exchanges: localExchanges }}
         onTotalsCalculated={handleTotalsCalculated}
       />
-      <table className="match">
+      <table className={`match match-${fighter.fighterColor}`}>
         <thead>
           <tr>
             <th colSpan={7} className={`${fighter.fighterColor} ${isWinner ? "winner" : ""}`}>

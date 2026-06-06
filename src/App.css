@@ -139,9 +139,31 @@ body {
 
 .border-Red {
   border: 2px solid #690000;
+  background-color: rgba(105, 0, 0, 0.08);
 }
 .border-Blue {
   border: 2px solid #050069;
+  background-color: rgba(5, 0, 105, 0.08);
+}
+
+table.match-Red .judge-scores-table td,
+table.match-Red .judge-scores-table th {
+  background-color: rgba(105, 0, 0, 0.25) !important;
+}
+table.match-Blue .judge-scores-table td,
+table.match-Blue .judge-scores-table th {
+  background-color: rgba(5, 0, 105, 0.25) !important;
+}
+
+table.match-Red thead tr:nth-child(2) th,
+table.match-Red tbody td,
+table.match-Red tbody th {
+  background-color: rgba(105, 0, 0, 0.25) !important;
+}
+table.match-Blue thead tr:nth-child(2) th,
+table.match-Blue tbody td,
+table.match-Blue tbody th {
+  background-color: rgba(5, 0, 105, 0.25) !important;
 }
 
 h2 {

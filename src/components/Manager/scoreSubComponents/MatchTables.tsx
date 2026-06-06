@@ -363,7 +363,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   };
 
   // --- Shared match header renderer ---
-  const renderMatchHeader = (match: Match, f1: FighterWithExchanges, f2: FighterWithExchanges) => {
+  const renderMatchHeader = (match: Match, f1: FighterWithExchanges, f2: FighterWithExchanges, matchNumber: number) => {
     const f1Total = parseFloat(
       fighterTotals[match.matchId]?.[f1.fighterId] ?? f1.finalScore.toString()
     );
@@ -376,8 +376,14 @@ const MatchTables: React.FC<MatchTablesProps> = ({
         className="table-header"
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
-        <div>
-          <span className={getHighlightClass(f1Total, f2Total, true)}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontWeight: "bold", color: "#aaa", whiteSpace: "nowrap", fontSize: "0.85rem" }}>
+            Match {matchNumber}
+          </span>
+          <span
+            className={`${getHighlightClass(f1Total, f2Total, true)} ${f1.fighterColor}`}
+            style={{ padding: "2px 8px", borderRadius: "4px" }}
+          >
             ({f1Total.toFixed(2)})
             {readOnly ? (
               <span>{f1.fighterName}</span>
@@ -403,9 +409,12 @@ const MatchTables: React.FC<MatchTablesProps> = ({
                 }
               />
             )}
-          </span>{" "}
-          vs.{" "}
-          <span className={getHighlightClass(f1Total, f2Total, false)}>
+          </span>
+          {" "}vs.{" "}
+          <span
+            className={`${getHighlightClass(f1Total, f2Total, false)} ${f2.fighterColor}`}
+            style={{ padding: "2px 8px", borderRadius: "4px" }}
+          >
             {readOnly ? (
               <span>{f2.fighterName}</span>
             ) : (
@@ -461,6 +470,18 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   // --- Render ---
   const poolsExist = matches.some((m) => m.poolNo != null);
 
+  const matchOrder = poolsExist
+    ? (() => {
+        const grouped = groupByPool(matches);
+        const sortedKeys = Object.keys(grouped).sort((a, b) => {
+          if (a === "No Pool") return 1;
+          if (b === "No Pool") return -1;
+          return parseInt(a.replace("Pool ", ""), 10) - parseInt(b.replace("Pool ", ""), 10);
+        });
+        return sortedKeys.flatMap((k) => grouped[k].map((m) => m.matchId));
+      })()
+    : matches.map((m) => m.matchId);
+
   return (
     <div>
       {matches.length > 0 ? (
@@ -496,7 +517,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
 
                   return (
                     <div key={`match-${match.matchId}`} className={getMatchTableClass(match.pendingActiveDone)}>
-                      {renderMatchHeader(match, f1, f2)}
+                      {renderMatchHeader(match, f1, f2, matchOrder.indexOf(match.matchId) + 1)}
                       {match.poolNo && (
                         <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "#fff", padding: "2px 6px", borderRadius: "4px" }}>
                           Pool {match.poolNo}
@@ -516,7 +537,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
 
             return (
               <div key={`match-${match.matchId}`} className={getMatchTableClass(match.pendingActiveDone)}>
-                {renderMatchHeader(match, f1, f2)}
+                {renderMatchHeader(match, f1, f2, matchOrder.indexOf(match.matchId) + 1)}
                 {visibleMatches[match.matchId] && renderMatchBody(match, f1, f2)}
               </div>
             );
