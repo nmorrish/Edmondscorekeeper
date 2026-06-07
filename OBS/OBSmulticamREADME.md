@@ -34,8 +34,9 @@ OBS requires the following:
 4. Open a command console and navigate to the location containing `obs_middleware.py`
 5. Create a virtual Environment `$ python3 -m venv venv`
 6. Activate virtual environment if not active or if already created `$ source venv/bin/activate`
-7. Install pip requirements `$ pip install -r requirements.txt`
-8. Run the script `$ python3 obs_middleware.py`
+7. Ensure `requirements.txt` is in the same file as `obs_middleware.py`
+8. Install pip requirements `$ pip install -r requirements.txt`
+9. Run the script `$ python3 obs_middleware.py`
 
 
 The console should connect to OBS Cameras and the score card SSE. 
