@@ -12,6 +12,7 @@ import { backend_uri, fighter_api } from "../../utility/endpoints";
 import { useToast } from "../../utility/ToastProvider";
 import { Fighter } from "../subComponents/useFighters";
 import { apiQuery } from "../../utility/apiClient";
+import { useRefresh } from "../../utility/RefreshContext";
 
 export interface Club {
   ClubId: number;
@@ -36,6 +37,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
   // context = "tournament",
 }) => {
   const addToast = useToast();
+  const { triggerRefresh } = useRefresh();
   const isNew = !fighter;
 
   const [editing, setEditing] = useState<boolean>(isNew);
@@ -72,6 +74,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
           addToast("Fighter created");
           setName("");
           setClubId(null);
+          triggerRefresh();
         } else {
           addToast(`Error: ${data.message}`);
         }
@@ -92,6 +95,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
         if (data.status === "success") {
           addToast("Fighter updated");
           setEditing(false);
+          triggerRefresh();
         } else {
           addToast(`Error: ${data.message}`);
         }
@@ -113,6 +117,7 @@ const FighterEntryForm: React.FC<FighterEntryFormProps> = ({
       const data = await res.json();
       if (data.status === "success") {
         addToast("Fighter deleted");
+        triggerRefresh();
       } else {
         addToast(`Error: ${data.message}`);
       }
