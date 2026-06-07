@@ -3,12 +3,13 @@ import { backend_uri, tournament_api } from "../../utility/endpoints";
 import { Tournament } from "../subComponents/useTournaments";
 import useEvents from "./useEvent";
 import EventForm from "./EventForm";
+import DateTimePicker from "./DateTimePicker";
 import { apiQuery } from "../../utility/apiClient";
 
 interface Props {
-  tournament: Tournament | null;  // null → add new
+  tournament: Tournament | null;
   onClose: () => void;
-  onSaved: () => void;            // callback to refresh parent list
+  onSaved: () => void;
 }
 
 const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
@@ -20,7 +21,6 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
     rules: tournament?.TournamentRules || "",
   });
 
-  // Fetch all events for this tournament
   const { events, loading: eventsLoading, error: eventsError } = useEvents(
     0,
     tournament?.TournamentId
@@ -38,8 +38,16 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleDateChange = (name: "startDate" | "endDate") => (value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.startDate || !formData.endDate) {
+      alert("Please select both a start and end date.");
+      return;
+    }
     try {
       const method = tournament ? "PUT" : "POST";
       const url = tournament
@@ -66,9 +74,7 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
 
   const handleDelete = async () => {
     if (!tournament) return;
-    if (!window.confirm("Are you sure you want to delete this tournament?")) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to delete this tournament?")) return;
     try {
       const response = await apiQuery(
         `${backend_uri}/${tournament_api}?id=${tournament.TournamentId}`,
@@ -92,60 +98,32 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
       <form onSubmit={handleSubmit}>
         <label>
           Tournament Name:
-          <input
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
+          <input name="name" value={formData.name} onChange={handleChange} required />
         </label>
+
         <label>
           Start Date:
-          <input
-            type="datetime-local"
-            name="startDate"
-            value={formData.startDate}
-            onChange={handleChange}
-            required
-          />
+          <DateTimePicker value={formData.startDate} onChange={handleDateChange("startDate")} />
         </label>
+
         <label>
           End Date:
-          <input
-            type="datetime-local"
-            name="endDate"
-            value={formData.endDate}
-            onChange={handleChange}
-            required
-          />
+          <DateTimePicker value={formData.endDate} onChange={handleDateChange("endDate")} />
         </label>
+
         <label>
           Tournament Description:
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            required
-          />
+          <textarea name="description" value={formData.description} onChange={handleChange} required />
         </label>
         <label>
           Rules universal to all events in tournament:
-          <textarea
-            name="rules"
-            value={formData.rules}
-            onChange={handleChange}
-            required
-          />
+          <textarea name="rules" value={formData.rules} onChange={handleChange} required />
         </label>
 
         <div className="form-actions">
           <button type="submit">{tournament ? "Save" : "Create"}</button>
           {tournament && (
-            <button
-              type="button"
-              className="delete-button"
-              onClick={handleDelete}
-            >
+            <button type="button" className="delete-button" onClick={handleDelete}>
               Delete
             </button>
           )}
@@ -157,39 +135,32 @@ const TournamentForm: React.FC<Props> = ({ tournament, onClose, onSaved }) => {
 
       <hr />
 
-      {/* Events Section */}
       {tournament && (
         <div className="events-section">
           {eventsLoading && <p>Loading events...</p>}
           {eventsError && <p style={{ color: "red" }}>{eventsError}</p>}
 
-          {/* Existing events */}
           {tournamentEvents.map((ev) => (
             <div id={`event-${ev.id}`} key={ev.id}>
               <EventForm
                 event={ev}
                 tournamentId={tournament.TournamentId}
-                onClose={() => {}}
-                onSaved={onSaved}
+                onClose={onClose}
+                onSaved={() => { onSaved(); onClose(); }}
               />
             </div>
           ))}
 
-          {/* New event forms */}
           {newEventForms.map((id) => (
             <EventForm
               key={`new-${id}`}
               event={null}
               tournamentId={tournament.TournamentId}
-              onClose={() =>
-                setNewEventForms((prev) => prev.filter((n) => n !== id))
-              }
-              onSaved={onSaved}
+              onClose={() => setNewEventForms((prev) => prev.filter((n) => n !== id))}
+              onSaved={() => { onSaved(); onClose(); }}
               onCreated={(newId) => {
                 const el = document.getElementById(`event-${newId}`);
-                if (el) {
-                  el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
             />
           ))}

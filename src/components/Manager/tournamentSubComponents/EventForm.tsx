@@ -5,15 +5,15 @@ import type { Event } from "./useEvent";
 import { apiQuery } from "../../utility/apiClient";
 
 interface Props {
-  event: Event | null;              // null → add new
-  tournamentId: number;             // passed from TournamentForm
+  event: Event | null;
+  tournamentId: number;
   onClose: () => void;
   onSaved: () => void;
   onCreated?: (newId: number) => void; 
 }
 
 const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onCreated }) => {
-  const { weapons } = useWeapons(); // already working elsewhere
+  const { weapons } = useWeapons();
   const [formData, setFormData] = useState({
     name: event?.name ?? "",
     rules: event?.rules ?? "",
@@ -22,7 +22,6 @@ const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onC
     maxRings: event?.maxRings ?? 1, 
   });
 
-  // Keep tournamentId locked to parent
   useEffect(() => {
     if (!event) {
       setFormData((prev) => ({ ...prev, tournamentId }));
@@ -67,11 +66,11 @@ const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onC
       try { data = JSON.parse(text); } catch { data = { status: "error", message: text }; }
 
       if (res.ok && data.status === "success") {
+        // onSaved owns navigation — do not call onClose here
         onSaved();
         if (!event && data.id && onCreated) {
-          onCreated(data.id); // 👈 scroll after creating new
+          onCreated(data.id);
         }
-        onClose();
       } else {
         alert("Error: " + (data.message || "Failed to save event."));
       }
@@ -138,7 +137,6 @@ const EventForm: React.FC<Props> = ({ event, tournamentId, onClose, onSaved, onC
           />
         </label>
 
-        {/* Hidden (locked to parent tournament) */}
         <input type="hidden" name="tournamentId" value={formData.tournamentId} />
 
         <div className="form-actions">

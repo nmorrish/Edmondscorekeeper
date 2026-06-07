@@ -66,7 +66,7 @@ const JudgementManager: React.FC = () => {
 
   // rings
   const [availableRings, setAvailableRings] = useState<number[]>([]);
-  const [showRingSelect, setShowRingSelect] = useState(false);
+  const [showRingSelect, setShowRingSelect] = useState(!ringNumber);
 
   // connection status
   const [connectionStatus, setConnectionStatus] = useState<"ok" | "warn">("ok");
@@ -362,7 +362,9 @@ const JudgementManager: React.FC = () => {
             Ring {r}
           </button>
         ))}
-        <button onClick={() => setShowRingSelect(false)} style={buttonStyle}>Cancel</button>
+        {ringNumber && (
+          <button onClick={() => setShowRingSelect(false)} style={buttonStyle}>Cancel</button>
+        )}
         <ConnectionIndicator />
       </div>
     );

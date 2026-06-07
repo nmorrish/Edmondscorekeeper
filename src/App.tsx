@@ -21,12 +21,13 @@ import Tournament from './components/Viewer/Tournament';
 import TournamentListWithProvider from './components/Viewer/TournamentList';
 import RefereeFactCheck from './components/Judgement/RefereeFactCheck';
 import EyeOfJudgement from './components/Judgement/EyeOfJudgement/EyeOfJudgement';
-import EyeOfJudgementReplay from './components/Judgement/EyeOfJudgement/EyeOfJudgementReplay';
+// import EyeOfJudgementReplay from './components/Judgement/EyeOfJudgement/EyeOfJudgementReplay';
 
 const App: React.FC = () => {
   return (
     <Router>
       <Routes>
+        <Route path="/judgement/" element={<JudgementManager />} />
         <Route path="/judgement/:ringNumber" element={<JudgementManager />} />
         <Route path="/manager/" element={<TournamentManagementWithProvider />} />
         <Route path="/manager/tournament/" element={<TournamentManagementWithProvider />} />

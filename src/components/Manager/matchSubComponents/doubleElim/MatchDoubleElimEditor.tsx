@@ -1,206 +1,352 @@
 /**
- * src/components/Manager/matchSubComponents/doubleElim/MatchDoubleElimEditor.tsx
+ * src/components/Manager/matchSubComponents/doubleElim/MatchDoubleElimGenerator.tsx
  *
- * === Double Elimination Viewer/Editor ===
- * Renders bracket columns using MatchCard, same column style as single elim.
- * - Columns sorted by BracketNo ascending: LB (negative) lands LEFT of the
- *   winners' bracket (positive), grand final(s) on the far right.
- * - Column titles derived from bracketSection + matchRole + round number:
- *     section 'W' (positive)  -> "Winners Round N"
- *     section 'L' (negative)  -> "Losers Round |N|"
- *     role grandFinal/final   -> "Grand Final"
- *     role grandFinalReset    -> "Grand Final (Reset)"
- * - Supports grab-scroll with inertia for large brackets.
+ * === Double Elimination Bracket Generator ===
+ * Reuses the single-elim fighter manager (format-agnostic).
  */
 
-import React, { useMemo, useRef, useState } from "react";
-import MatchCard, { MatchFighterRow } from "../MatchCard";
-import { BracketMatch, BracketRounds } from "./MatchDoubleElim";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  backend_uri,
+  bracket_api,
+  event_fighters_api,
+  match_api,
+} from "../../../utility/endpoints";
+import { useToast } from "../../../utility/ToastProvider";
+import { Fighter } from "../../subComponents/useFighters";
+import MatchSingleElimFighterManager from "../singleElim/MatchSingleElimFighterManager";
+import ErrorBoundary from "../../../utility/ErrorBoundary";
+import { safeParseJson, sanitizeFighters } from "../../../utility/dataGuards";
+import { useRefresh } from "../../../utility/RefreshContext";
+import WarningDialog from "../../../utility/WarningDialogue";
+import { apiQuery } from "../../../utility/apiClient";
 
-interface MatchDoubleElimEditorProps {
-  rounds: BracketRounds;
+interface MatchDoubleElimGeneratorProps {
+  eventId: number;
   maxRings: number;
-  interactive?: boolean;
-  onChange?: (matchId: number, updatedFighters: MatchFighterRow[]) => void;
-  onDelete?: (matchId: number) => void;
-  onComplete?: (matchId: number) => void;
-  onChangeRing?: (matchId: number, newRing: number) => void;
+  onCreated: (payload: any) => void;
   tournamentId: number;
 }
 
-type MatchRole =
-  | "final"
-  | "bronze"
-  | "grandFinal"
-  | "grandFinalReset"
-  | null
-  | undefined;
+const eliminationApi = `${backend_uri}/${bracket_api}`;
+const EVENT_FIGHTERS_API = `${backend_uri}/${event_fighters_api}`;
+const MATCHES_API = `${backend_uri}/${match_api}`;
 
-const roleOf = (m: BracketMatch): MatchRole =>
-  (m as BracketMatch & { matchRole?: MatchRole }).matchRole;
-
-const MatchDoubleElimEditor: React.FC<MatchDoubleElimEditorProps> = ({
-  rounds,
+const MatchDoubleElimGenerator: React.FC<MatchDoubleElimGeneratorProps> = ({
+  eventId,
   maxRings,
-  interactive = false,
-  onChange,
-  onDelete,
-  onComplete,
-  onChangeRing,
+  onCreated,
   tournamentId,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const addToast = useToast();
+  const { triggerRefresh } = useRefresh();
+  const [loading, setLoading] = useState(false);
+  const [withGrandFinalReset, setWithGrandFinalReset] = useState(true);
+  const [localMaxRings, setLocalMaxRings] = useState<number>(
+    Math.max(1, maxRings || 1)
+  );
+  const [showManager, setShowManager] = useState(false);
+  const [localFighters, setLocalFighters] = useState<Fighter[]>([]);
+  const [showWarning, setShowWarning] = useState(false);
+  const [hasExistingMatches, setHasExistingMatches] = useState<boolean | null>(null);
 
-  // Drag state
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const velocityRef = useRef(0);
-  const lastXRef = useRef(0);
-  const animationRef = useRef<number | null>(null);
+  const loadFighters = useCallback(async () => {
+    setLocalFighters([]);
+    try {
+      const res = await apiQuery(`${EVENT_FIGHTERS_API}?eventId=${eventId}`);
+      const data = await res.json().catch(() => null);
 
-  // Sort columns by BracketNo ascending.
-  // Negative (LB) sort before positive (WB + grand final), so the losers'
-  // bracket renders to the LEFT of the winners' bracket.
-  const sortedRoundKeys = useMemo(() => {
-    const nums = Object.keys(rounds)
-      .map((k) => parseInt(k, 10))
-      .filter((n) => !isNaN(n))
-      .sort((a, b) => a - b);
-    return nums;
-  }, [rounds]);
-
-  // Resolve a column's role (grand final detection) from its matches.
-  const roleByRound = useMemo(() => {
-    const map: Record<number, MatchRole> = {};
-    for (const roundNo of sortedRoundKeys) {
-      const matches = rounds[String(roundNo)] || [];
-      const role = matches
-        .map(roleOf)
-        .find(
-          (r) =>
-            r === "grandFinal" || r === "grandFinalReset" || r === "final"
-        );
-      map[roundNo] = role;
-    }
-    return map;
-  }, [rounds, sortedRoundKeys]);
-
-  // Section ('W' | 'L') per column, read from the first match in the column.
-  const sectionByRound = useMemo(() => {
-    const map: Record<number, "W" | "L" | undefined> = {};
-    for (const roundNo of sortedRoundKeys) {
-      const matches = rounds[String(roundNo)] || [];
-      map[roundNo] = matches[0]?.bracketSection;
-    }
-    return map;
-  }, [rounds, sortedRoundKeys]);
-
-  const renderColumnTitle = (roundNo: number) => {
-    const role = roleByRound[roundNo];
-    if (role === "grandFinalReset") return "Grand Final (Reset)";
-    if (role === "grandFinal" || role === "final") return "Grand Final";
-
-    const section = sectionByRound[roundNo];
-    if (section === "L") return `Losers Round ${Math.abs(roundNo)}`;
-    // Winners' bracket: BracketNo is the round number directly.
-    return `Winners Round ${roundNo}`;
-  };
-
-  // Mouse drag handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - containerRef.current.offsetLeft);
-    setScrollLeft(containerRef.current.scrollLeft);
-    lastXRef.current = e.pageX;
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - containerRef.current.offsetLeft;
-    const walk = (x - startX) * 1;
-    containerRef.current.scrollLeft = scrollLeft - walk;
-
-    // Track velocity
-    velocityRef.current = e.pageX - lastXRef.current;
-    lastXRef.current = e.pageX;
-  };
-
-  const stopDragging = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-
-    // Start inertia animation
-    const inertia = () => {
-      if (!containerRef.current) return;
-      containerRef.current.scrollLeft -= velocityRef.current;
-      velocityRef.current *= 0.95; // friction
-      if (Math.abs(velocityRef.current) > 0.5) {
-        animationRef.current = requestAnimationFrame(inertia);
+      if (res.ok && data?.status === "success" && Array.isArray(data.fighters)) {
+        setLocalFighters(sanitizeFighters(data.fighters));
       } else {
-        animationRef.current = null;
+        setLocalFighters([]);
+        addToast(`No fighters found for event ${eventId}`);
       }
-    };
-    inertia();
-  };
+    } catch (err: any) {
+      addToast(`Error fetching fighters: ${err.message || err}`);
+    }
+  }, [eventId, addToast]);
+
+  const checkExistingMatches = useCallback(async () => {
+    setHasExistingMatches(null);
+    try {
+      const res = await apiQuery(`${MATCHES_API}?eventId=${eventId}`);
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.status === "success" && Array.isArray(data.matches)) {
+        setHasExistingMatches(data.matches.length > 0);
+      } else {
+        setHasExistingMatches(false);
+      }
+    } catch {
+      setHasExistingMatches(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    loadFighters();
+    checkExistingMatches();
+  }, [eventId, loadFighters, checkExistingMatches]);
+
+  useEffect(() => {
+    loadFighters();
+    checkExistingMatches();
+  }, [triggerRefresh, loadFighters, checkExistingMatches]);
+
+  const fighterIds = useMemo<number[]>(
+    () =>
+      localFighters
+        .map((f) => Number(f.FighterId))
+        .filter((id): id is number => Number.isInteger(id) && id > 0),
+    [localFighters]
+  );
+
+  const handleCreate = useCallback(async () => {
+    if (fighterIds.length < 3) {
+      addToast("Add at least 3 fighters to create a bracket.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        action: "create",
+        eventId,
+        tournamentId,
+        format: "D",
+        fighters: fighterIds,
+        maxRings: Math.max(1, localMaxRings),
+        withGrandFinalReset: !!withGrandFinalReset,
+      };
+
+      const res = await apiQuery(eliminationApi, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const bodyText = await res.text().catch(() => null);
+      const data = safeParseJson(bodyText);
+
+      if (!data || data?.status !== "success") {
+        throw new Error(
+          data?.message ||
+            `Bracket creation failed (status ${res.status}): ${
+              typeof bodyText === "string"
+                ? bodyText.slice(0, 200)
+                : "(no body)"
+            }`
+        );
+      }
+
+      const totalMatches = Object.values<any>(data.rounds || {}).reduce(
+        (acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0),
+        0
+      );
+
+      addToast(
+        `Created bracket with ${totalMatches} matches across ${
+          Object.keys(data.rounds || {}).length
+        } columns.`
+      );
+
+      try {
+        onCreated(data);
+      } catch (cbErr: any) {
+        addToast(`Error in parent callback: ${cbErr.message || cbErr}`);
+      }
+    } catch (err: any) {
+      addToast(`Error: ${err.message || err}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    addToast,
+    eventId,
+    fighterIds,
+    localMaxRings,
+    onCreated,
+    withGrandFinalReset,
+    tournamentId,
+  ]);
+
+  const handleCreateClick = useCallback(() => {
+    // If the match check is still in flight, re-check then open
+    if (hasExistingMatches === null) {
+      checkExistingMatches().then(() => setShowWarning(true));
+      return;
+    }
+    setShowWarning(true);
+  }, [hasExistingMatches, checkExistingMatches]);
 
   return (
-    <div
-      ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseLeave={stopDragging}
-      onMouseUp={stopDragging}
-      onMouseMove={handleMouseMove}
-      style={{
-        overflowX: "auto",
-        overflowY: "hidden",
-        maxWidth: "100%",
-        paddingBottom: 8,
-        cursor: isDragging ? "grabbing" : "grab",
-      }}
-    >
+    <ErrorBoundary>
       <div
-        className="double-elim-grid"
-        style={{
-          display: "grid",
-          gridAutoFlow: "column",
-          gap: 16,
-          alignItems: "start",
-          justifyContent: "flex-start",
-          minWidth: "fit-content",
-          userSelect: "none",
-        }}
+        className="de-generator"
+        style={{ border: "1px dashed #666", borderRadius: 10, padding: 12 }}
       >
-        {sortedRoundKeys.map((roundNo) => (
-          <div key={roundNo} className="de-column" style={{ minWidth: 280 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>
-              {renderColumnTitle(roundNo)}
+        <h3 style={{ marginTop: 0 }}>Create Double-Elimination Bracket</h3>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {/* Fighters + Manage button */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                {localFighters.length} Fighters in Event
+              </span>
+              <button
+                onClick={() => setShowManager(true)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #666",
+                  background: "#1b1b1b",
+                  cursor: "pointer",
+                }}
+              >
+                Add/Remove Fighters
+              </button>
             </div>
-            {(rounds[String(roundNo)] || []).map(
-              (m: BracketMatch, idx: number) => (
-                <MatchCard
-                  key={m.matchId}
-                  matchId={m.matchId}
-                  ringNo={m.matchRing ?? 1}
-                  matchNumber={m.matchQueue ?? idx + 1}
-                  maxRings={maxRings}
-                  interactive={interactive}
-                  onChange={onChange}
-                  onDelete={onDelete}
-                  onComplete={onComplete}
-                  onChangeRing={onChangeRing}
-                  tournamentId={tournamentId}
-                />
-              )
+
+            {localFighters.length === 0 ? (
+              <div style={{ opacity: 0.7 }}>
+                No fighters found for this event.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                  gap: 8,
+                }}
+              >
+                {localFighters.map((f) => (
+                  <div
+                    key={String(f.FighterId)}
+                    style={{
+                      border: "1px solid #444",
+                      borderRadius: 8,
+                      padding: 8,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{f.FighterName}</div>
+                    {f.ClubName ? (
+                      <div style={{ opacity: 0.75, fontSize: 12 }}>
+                        {f.ClubName}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-        ))}
+
+          {/* Controls */}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={withGrandFinalReset}
+                onChange={(e) => setWithGrandFinalReset(e.target.checked)}
+              />
+              Include Grand Final Reset
+            </label>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              Max Rings:
+              <input
+                type="number"
+                min={1}
+                value={localMaxRings}
+                onChange={(e) =>
+                  setLocalMaxRings(Math.max(1, Number(e.target.value) || 1))
+                }
+                style={{
+                  width: 80,
+                  padding: "4px 6px",
+                  borderRadius: 6,
+                  border: "1px solid #666",
+                  background: "transparent",
+                  color: "inherit",
+                }}
+              />
+            </label>
+
+            <button
+              onClick={handleCreateClick}
+              disabled={loading || fighterIds.length === 0}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #666",
+                cursor: "pointer",
+                background: "#1b1b1b",
+              }}
+              title={
+                fighterIds.length === 0 ? "Add fighters first" : "Create bracket"
+              }
+            >
+              {loading ? "Creating..." : "Create Bracket"}
+            </button>
+          </div>
+        </div>
+
+        {/* Fighter Manager Modal (reused from single elim) */}
+        {showManager && (
+          <MatchSingleElimFighterManager
+            eventId={eventId}
+            tournamentId={tournamentId}
+            onClose={() => setShowManager(false)}
+          />
+        )}
+
+        {/* Warning Dialog — alarming if matches exist, neutral if not */}
+        {hasExistingMatches ? (
+          <WarningDialog
+            isOpen={showWarning}
+            title="!!! DANGER WARNING !!!"
+            message={
+              "Creating a bracket will erase the current brackets, pools, and all matches for this event.\n\nTHIS CANNOT BE UNDONE!\n\nIf no matches have been created yet, it is safe to continue."
+            }
+            confirmText="Erase & Create"
+            cancelText="Cancel"
+            onConfirm={() => {
+              setShowWarning(false);
+              handleCreate();
+            }}
+            onCancel={() => setShowWarning(false)}
+          />
+        ) : (
+          <WarningDialog
+            isOpen={showWarning}
+            title="Create Bracket"
+            message={
+              "This will generate a double-elimination bracket for the current fighters.\n\nNo existing matches were found, so it is safe to proceed."
+            }
+            confirmText="Create"
+            cancelText="Cancel"
+            onConfirm={() => {
+              setShowWarning(false);
+              handleCreate();
+            }}
+            onCancel={() => setShowWarning(false)}
+          />
+        )}
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
-export default MatchDoubleElimEditor;
+export default MatchDoubleElimGenerator;
