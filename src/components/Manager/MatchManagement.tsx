@@ -19,6 +19,7 @@ import {
   sanitizeArray,
 } from "../utility/dataGuards";
 import { apiQuery } from "../utility/apiClient";
+import MatchDoubleElim from "./matchSubComponents/doubleElim/MatchDoubleElim";
 
 type MatchType =
   | "manual"
@@ -310,7 +311,16 @@ const MatchManagement: React.FC = () => {
             />
           )}
 
-          {/* Future: DoubleElim */}
+          {viewType === "doubleElimination" && (
+            <MatchDoubleElim
+              eventId={Number(selectedEvent.EventId)}
+              eventName={selectedEvent.EventName}
+              maxRings={selectedEvent.MaxRings || 1}
+              isActive={matchType === "doubleElimination"}
+              tournamentId={numericTournamentId}
+              readOnly={false}
+            />
+          )}
         </div>
       </div>
 
