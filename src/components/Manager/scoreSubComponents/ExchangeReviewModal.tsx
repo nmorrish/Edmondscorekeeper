@@ -371,10 +371,6 @@ const retryBtnStyle: React.CSSProperties = {
   background: "#2a2a2a", color: "#eee",
   border: "1px solid #444", borderRadius: "4px", cursor: "pointer",
 };
-const videoStyle: React.CSSProperties = {
-  width: "100%", maxHeight: "50vh",
-  background: "#000", display: "block",
-};
 const videoPlaceholderStyle: React.CSSProperties = {
   width: "100%", height: "200px",
   background: "#0a0a0a",

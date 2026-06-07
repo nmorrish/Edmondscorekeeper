@@ -6,6 +6,8 @@
  * - Portable: consumes backend `BracketRounds` structure.
  * - Editing enabled when `interactive=true`.
  * - Supports grab-scroll with inertia for large brackets.
+ * - Column titles are driven by backend `matchRole` ("final" | "bronze"),
+ *   not by column position.
  */
 
 import React, { useMemo, useRef, useState } from "react";
@@ -22,6 +24,13 @@ interface MatchSingleElimEditorProps {
   onChangeRing?: (matchId: number, newRing: number) => void;
   tournamentId: number;
 }
+
+// Role may not yet be present on the shared BracketMatch interface;
+// read it defensively. (Recommended: add `matchRole?: "final" | "bronze" | null`
+// to BracketMatch in MatchSingleElim.tsx.)
+type MatchRole = "final" | "bronze" | null | undefined;
+const roleOf = (m: BracketMatch): MatchRole =>
+  (m as BracketMatch & { matchRole?: MatchRole }).matchRole;
 
 const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
   rounds,
@@ -52,11 +61,39 @@ const MatchSingleElimEditor: React.FC<MatchSingleElimEditorProps> = ({
     return nums;
   }, [rounds]);
 
+  // Map each column (BracketNo) to its role, derived from the matches it holds.
+  const roleByRound = useMemo(() => {
+    const map: Record<number, MatchRole> = {};
+    for (const roundNo of sortedRoundKeys) {
+      const matches = rounds[String(roundNo)] || [];
+      // A bronze/final column holds a single match; pick the first role found.
+      const role = matches.map(roleOf).find((r) => r === "final" || r === "bronze");
+      map[roundNo] = role;
+    }
+    return map;
+  }, [rounds, sortedRoundKeys]);
+
+  // Number of "real" rounds = columns that are neither bronze nor final.
+  const realRoundCount = useMemo(
+    () =>
+      sortedRoundKeys.filter(
+        (rn) => roleByRound[rn] !== "final" && roleByRound[rn] !== "bronze"
+      ).length,
+    [sortedRoundKeys, roleByRound]
+  );
+
   const renderRoundTitle = (roundNo: number) => {
-    const finalRoundNo = Math.max(...sortedRoundKeys);
-    if (roundNo === finalRoundNo) return "Gold | Silver";
-    if (roundNo === finalRoundNo - 1) return "Bronze";
-    return `${roundNo}/${finalRoundNo - 2} Finals`;
+    const role = roleByRound[roundNo];
+    if (role === "final") return "Gold | Silver";
+    if (role === "bronze") return "Bronze";
+
+    // Real round: position among the real rounds only.
+    const realIndex =
+      sortedRoundKeys
+        .filter((rn) => roleByRound[rn] !== "final" && roleByRound[rn] !== "bronze")
+        .indexOf(roundNo) + 1;
+
+    return `Round ${realIndex}/${realRoundCount}`;
   };
 
   // Mouse drag handlers
