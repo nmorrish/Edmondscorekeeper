@@ -170,7 +170,7 @@ const EyeOfJudgement: React.FC = () => {
   const [mimeType,          setMimeType]           = useState<string | null>(null);
   const [lastHeartbeat,     setLastHeartbeat]      = useState<number>(Date.now());
   const [connectionStatus,  setConnectionStatus]   = useState<"ok" | "warn">("warn");
-  const [uploads,           setUploads]            = useState<ClipUploadRecord[]>([]);
+  const [_,           setUploads]            = useState<ClipUploadRecord[]>([]);
 
   const videoRef      = useRef<HTMLVideoElement | null>(null);
   const streamRef     = useRef<MediaStream | null>(null);

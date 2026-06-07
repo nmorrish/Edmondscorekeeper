@@ -15,10 +15,11 @@ import {
   normalizeBracketFormat,
   sanitizeBracketRounds,
 } from "../../../utility/dataGuards";
-import MatchDoubleElimEditor from "./MatchDoubleElimEditor";
 import MatchSingleElimFighterList from "../singleElim/MatchSingleElimFighterList";
 import { apiQuery } from "../../../utility/apiClient";
+import MatchDoubleElimEditor from "./MatchDoubleElimEditor";
 import MatchDoubleElimGenerator from "./MatchDoubleElimGenerator";
+
 
 export interface BracketFighter {
   fighterId: number;
