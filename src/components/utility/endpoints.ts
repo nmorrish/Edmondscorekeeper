@@ -66,5 +66,6 @@ export const event_fighters_api = "eventFighters.php"
 export const round_robin_pool_api = "poolsRoundRobinApi.php"
 export const single_elimination_api = "eliminationBrackets.php"
 export const tournament_view_api = "tournamentView.php"
+export const bracket_api = "bracketSeeding.php";
 
 export const API_KEY = "FberbFBD5432hSFGNacmoywemvoeIVAEnvwelnb23423";

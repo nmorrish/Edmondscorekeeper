@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { backend_uri, single_elimination_api } from "../../../utility/endpoints";
+import { backend_uri, bracket_api } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
 import MatchSingleElimGenerator from "./MatchSingleElimGenerator";
 import ErrorBoundary from "../../../utility/ErrorBoundary";
@@ -59,7 +59,7 @@ interface MatchSingleElimProps {
   readOnly: boolean; 
 }
 
-const eliminationApi = `${backend_uri}/${single_elimination_api}`;
+const eliminationApi = `${backend_uri}/${bracket_api}`;
 
 const MatchSingleElim: React.FC<MatchSingleElimProps> = ({
   eventId,

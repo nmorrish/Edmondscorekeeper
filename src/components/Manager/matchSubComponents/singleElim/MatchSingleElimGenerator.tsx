@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   backend_uri,
-  single_elimination_api,
+  bracket_api,
   event_fighters_api,
 } from "../../../utility/endpoints";
 import { useToast } from "../../../utility/ToastProvider";
@@ -26,7 +26,7 @@ interface MatchSingleElimGeneratorProps {
   tournamentId: number;
 }
 
-const eliminationApi = `${backend_uri}/${single_elimination_api}`;
+const eliminationApi = `${backend_uri}/${bracket_api}`;
 const EVENT_FIGHTERS_API = `${backend_uri}/${event_fighters_api}`;
 
 const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
@@ -91,7 +91,7 @@ const MatchSingleElimGenerator: React.FC<MatchSingleElimGeneratorProps> = ({
         action: "create",
         eventId,
         tournamentId,
-        bracketFormat: "S",
+        format: "S",          // single-elim designator
         fighters: fighterIds,
         maxRings: Math.max(1, localMaxRings),
         withBronze: !!withBronze,
