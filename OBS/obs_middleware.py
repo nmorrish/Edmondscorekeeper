@@ -3,23 +3,27 @@
 obs_middleware.py
 
 Workflow per signal:
-  1. Extract exchangeDurationMs from signal → compute keep_secs
+  1. Extract exchangeDurationMs from signal -> compute keep_secs
   2. Wait POST_BUFFER_MS, then trigger replay buffer saves for all cameras
   3. Wait for a new video file to appear in each camera's output directory
   4. Wait for each file to finish writing
-  5. Re-encode with ffmpeg: probe absolute start_time, seek correctly,
-     output a clean clip of exactly keep_secs duration
-  6. Upload the finished clip to uploadOBSClip.php (trimSecs=0 — PHP just stores it)
+  5. Lossless-trim the last keep_secs with a stream copy (-c copy): no decode,
+     no re-encode, no quality loss. The cut snaps to the nearest keyframe.
+  6. Upload the finished clip to uploadOBSClip.php
   7. Delete the local temp file
 
-Re-encoding (vs stream copy) is required because OBS replay buffer MP4 files
-carry absolute wall-clock timestamps. Stream copy from a mis-seeked position
-writes bytes from the wrong file offset, producing corrupted H.264 NAL units.
-Re-encoding decodes first so the output is always clean.
+OBS does all encoding on the GPU (hardware encoder set per Source Record
+filter). This script never re-encodes; it only copies the already-encoded
+stream into a shorter file. ffmpeg ships inside the Python environment via
+imageio-ffmpeg, so there is no separately-installed program to manage.
+
+Set a 1-second keyframe interval on each Source Record filter in OBS so the
+keyframe-aligned cut lands within ~1s of target (inside the start buffer).
 """
 
 import json
 import logging
+import re
 import subprocess
 import threading
 import time
@@ -28,6 +32,7 @@ from pathlib import Path
 
 import requests
 import obsws_python as obs
+import imageio_ffmpeg
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,16 +47,16 @@ RING_NUMBER  = 1
 SSE_URL      = "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"
 UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
 
-OBS_HOST     = "192.168.122.1"
+OBS_HOST     = "xxx.xxx.xxx.xxx"
 OBS_PORT     = 4455
-OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
+OBS_PASSWORD = "PWD"
 
-FFMPEG_PATH  = "ffmpeg"
-FFPROBE_PATH = "ffprobe"
+# ffmpeg binary bundled inside the Python environment (no system install).
+FFMPEG_PATH  = imageio_ffmpeg.get_ffmpeg_exe()
 
 # Padding around the exchange
 PRE_BUFFER_MS  = 5_000   # ms to keep before the exchange started
-POST_BUFFER_MS = 5_000     # ms already waited before triggering the save
+POST_BUFFER_MS = 5_000   # ms already waited before triggering the save
 
 # If exchangeDurationMs is missing from the signal, fall back to this
 FALLBACK_KEEP_SECS = 10.0
@@ -60,12 +65,6 @@ FILE_WAIT_TIMEOUT_S = 30
 FILE_STABLE_POLL_S  = 0.5
 FILE_STABLE_SECS    = 3
 MAX_OFFSET_SAMPLES  = 5
-
-# Re-encode settings — ultrafast keeps processing time under ~1s for short clips
-VIDEO_CODEC   = "libx264"
-VIDEO_PRESET  = "ultrafast"
-VIDEO_CRF     = "23"
-AUDIO_CODEC   = "aac"
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".flv", ".ts", ".mov"}
 
@@ -314,62 +313,64 @@ def wait_for_stable_file(path: Path) -> None:
 
 
 # ================================================================
-# FFmpeg: probe then re-encode
+# Duration probe (via bundled ffmpeg — no ffprobe needed)
 # ================================================================
-def probe_file(path: Path) -> tuple[float, float]:
+_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)")
+
+
+def probe_duration(path: Path) -> float:
     """
-    Return (start_time, duration) in seconds.
-    OBS replay buffer files typically have large absolute start_time values
-    (wall-clock seconds since OBS launched) rather than 0.
+    Return the file duration in seconds by parsing ffmpeg's stderr banner.
+    imageio-ffmpeg bundles ffmpeg but not ffprobe, so we read duration from
+    ffmpeg itself. Running ffmpeg with no output target prints stream info to
+    stderr and exits non-zero — that's expected; we only want the banner.
     """
     try:
         result = subprocess.run(
-            [
-                FFPROBE_PATH, "-v", "error",
-                "-show_entries", "format=start_time,duration",
-                "-of", "csv=p=0",
-                str(path),
-            ],
+            [FFMPEG_PATH, "-hide_banner", "-i", str(path)],
             capture_output=True, text=True, timeout=15,
         )
-        if result.returncode == 0:
-            parts = result.stdout.strip().split(",")
-            start    = float(parts[0]) if parts[0] not in ("", "N/A") else 0.0
-            duration = float(parts[1]) if len(parts) > 1 and parts[1] not in ("", "N/A") else 0.0
-            return start, duration
-    except (subprocess.TimeoutExpired, ValueError, IndexError, OSError):
-        pass
-    return 0.0, 0.0
+    except (subprocess.TimeoutExpired, OSError) as e:
+        log.error(f"  {path.name}: duration probe failed: {e}")
+        return 0.0
+
+    m = _DURATION_RE.search(result.stderr)
+    if not m:
+        log.error(f"  {path.name}: could not parse duration")
+        return 0.0
+
+    hours, minutes, seconds = m.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
-def reencode_clip(src: Path, dst: Path, keep_secs: float) -> bool:
+# ================================================================
+# Lossless trim (stream copy — no re-encode, no quality loss)
+# ================================================================
+def trim_clip(src: Path, dst: Path, keep_secs: float) -> bool:
     """
-    Re-encode the last keep_secs of src into dst.
+    Keep the last keep_secs of src, written losslessly to dst via -c copy.
 
-    Why re-encode instead of stream copy:
-      OBS replay buffer files have absolute wall-clock timestamps. Seeking
-      with -sseof computes the wrong target position, and -c copy then writes
-      bytes from the wrong offset in the source file — producing corrupted
-      H.264 NAL units. Re-encoding decodes first, so the output is always
-      clean regardless of where the seek lands.
+    -c copy copies the already-encoded stream without decoding, so OBS's
+    recording quality is preserved exactly and processing is near-instant.
+    The cut snaps to the nearest keyframe before the seek point; with a
+    1-second keyframe interval set in OBS the result is within ~1s of target,
+    which lands inside the pre-exchange buffer.
 
-    Why probe start_time:
-      -sseof and -ss both operate on the file's internal timestamp scale.
-      If start_time is 5400s, seeking to "60s before the end" requires
-      seeking to 5400 + (duration - keep_secs), not just (duration - keep_secs).
+    Placing -ss before -i performs a fast keyframe-accurate input seek, which
+    is what makes a clean stream copy possible regardless of the file's
+    absolute timestamps.
     """
-    start_time, duration = probe_file(src)
-
+    duration = probe_duration(src)
     if duration <= 0:
         log.error(f"  {src.name}: could not determine duration, skipping")
         return False
 
-    # Clamp: if keep_secs exceeds what's in the buffer, keep everything
-    keep_secs  = min(keep_secs, duration)
-    seek_to    = start_time + max(0.0, duration - keep_secs)
+    # Clamp: if keep_secs exceeds what's in the buffer, keep everything.
+    keep_secs = min(keep_secs, duration)
+    seek_to   = max(0.0, duration - keep_secs)
 
     log.info(
-        f"  {src.name}: duration={duration:.2f}s start={start_time:.1f}s "
+        f"  {src.name}: duration={duration:.2f}s "
         f"keep={keep_secs:.2f}s seek={seek_to:.2f}s → {dst.name}"
     )
 
@@ -377,26 +378,23 @@ def reencode_clip(src: Path, dst: Path, keep_secs: float) -> bool:
         FFMPEG_PATH, "-y",
         "-ss", f"{seek_to:.3f}",
         "-i", str(src),
-        "-c:v", VIDEO_CODEC,
-        "-preset", VIDEO_PRESET,
-        "-crf", VIDEO_CRF,
-        "-c:a", AUDIO_CODEC,
+        "-c", "copy",
         "-movflags", "+faststart",
         str(dst),
     ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
-        log.error(f"  FFmpeg timed out encoding {src.name}")
+        log.error(f"  ffmpeg timed out trimming {src.name}")
         return False
 
     if result.returncode != 0:
-        log.error(f"  FFmpeg error (exit {result.returncode}):\n{result.stderr[-800:]}")
+        log.error(f"  ffmpeg error (exit {result.returncode}):\n{result.stderr[-800:]}")
         return False
 
     if not dst.exists() or dst.stat().st_size == 0:
-        log.error(f"  FFmpeg produced empty output for {src.name}")
+        log.error(f"  ffmpeg produced empty output for {src.name}")
         return False
 
     log.info(f"  {dst.name}: {dst.stat().st_size // 1024} KB")
@@ -406,11 +404,7 @@ def reencode_clip(src: Path, dst: Path, keep_secs: float) -> bool:
 # ================================================================
 # Upload — PHP stores the file as-is, no further processing
 # ================================================================
-def upload_clip(
-    clip_path: Path,
-    exchange_id: int,
-    camera_number: int,
-) -> bool:
+def upload_clip(clip_path: Path, exchange_id: int, camera_number: int) -> bool:
     mime = "video/mp4"
     try:
         with open(clip_path, "rb") as fh:
@@ -420,7 +414,7 @@ def upload_clip(
                     "exchangeId":   exchange_id,
                     "cameraNumber": camera_number,
                     "mimeType":     mime,
-                    "trimSecs":     0,        # already trimmed and encoded here
+                    "trimSecs":     0,        # already trimmed here
                 },
                 files={"clip": (clip_path.name, fh, mime)},
                 timeout=120,
@@ -458,7 +452,7 @@ def handle_signal(
         log.warning("Signal missing required fields — skipping")
         return
 
-    # Calculate how much of the replay buffer to keep:
+    # How much of the saved buffer to keep:
     #   PRE_BUFFER_MS  — footage before the exchange started
     #   exchange       — the exchange itself
     #   POST_BUFFER_MS — already captured because we wait before saving
@@ -466,8 +460,7 @@ def handle_signal(
         keep_secs = (exchange_duration_ms + PRE_BUFFER_MS + POST_BUFFER_MS) / 1000.0
         log.info(
             f"Signal: exchange={exchange_id} "
-            f"duration={exchange_duration_ms}ms "
-            f"keep={keep_secs:.2f}s"
+            f"duration={exchange_duration_ms}ms keep={keep_secs:.2f}s"
         )
     else:
         keep_secs = FALLBACK_KEEP_SECS
@@ -503,36 +496,17 @@ def handle_signal(
 
         dst = TEMP_DIR / f"exchange{exchange_id}-cam{cam.cam_num}.mp4"
 
-        if reencode_clip(src, dst, keep_secs):
+        if trim_clip(src, dst, keep_secs):
             if upload_clip(dst, exchange_id, cam.cam_num):
                 try:
                     src.unlink(missing_ok=True)
                     log.info(f"  cam{cam.cam_num}: deleted source file {src.name}")
                 except OSError as e:
-                    log.warning(f"  cam{cam.cam_num}: could not delete source file {src.name}: {e}")
+                    log.warning(f"  cam{cam.cam_num}: could not delete source {src.name}: {e}")
             else:
-                log.error(f"  cam{cam.cam_num}: upload failed, keeping source file {src.name}")
+                log.error(f"  cam{cam.cam_num}: upload failed, keeping source {src.name}")
         else:
-            log.error(f"  cam{cam.cam_num}: encoding failed, clip not uploaded")
-
-        try:
-            dst.unlink(missing_ok=True)
-        except OSError:
-            pass
-        src = wait_for_new_file(
-            cam, not_before, FILE_WAIT_TIMEOUT_S, pre_snapshots[cam.cam_num]
-        )
-        if src is None:
-            return
-
-        wait_for_stable_file(src)
-
-        dst = TEMP_DIR / f"exchange{exchange_id}-cam{cam.cam_num}.mp4"
-
-        if reencode_clip(src, dst, keep_secs):
-            upload_clip(dst, exchange_id, cam.cam_num)
-        else:
-            log.error(f"  cam{cam.cam_num}: encoding failed, clip not uploaded")
+            log.error(f"  cam{cam.cam_num}: trim failed, clip not uploaded")
 
         try:
             dst.unlink(missing_ok=True)
@@ -623,6 +597,7 @@ def connect_obs() -> obs.ReqClient:
 # ================================================================
 def main() -> None:
     log.info(f"OBS Middleware starting — ring {RING_NUMBER}")
+    log.info(f"Using bundled ffmpeg: {FFMPEG_PATH}")
     ws_client = connect_obs()
     cameras   = resolve_cameras(ws_client)
     start_replay_buffers(ws_client, cameras)
