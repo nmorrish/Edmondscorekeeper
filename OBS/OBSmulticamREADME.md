@@ -17,26 +17,36 @@ OBS requires the following:
     - Replay Buffer to 80s (scroll down, its there)
 5. Take note of the WebSocket Connect info (Tools -> WebSocket Server Settings -> Show Connect Info)
     - You will need to know the Server IP (Best Guess seems to work just fine), Server Port, and Server Password for the next step
+6. Videos will be displayed on the scorecard in the reverse order of appearance in OBS. If you would like a particular video to be the first thing users see, make sure it is last on the OBS Scene list  
+
 
 # Step 2: Configure Python Middleware
 
-1. Enter Websocket Server Settings in `obs_middleware.py`, look for the following variable under # Configuration and set them accordingly:
-    - `OBS_HOST` => Server IP
+1. Make sure you have installed [Python 3.12.3](https://www.python.org/downloads/release/python-3123/) or later.
+2. Download [obs_middleware.py](https://github.com/nmorrish/Edmondscorekeeper/blob/dev-branch/OBS/obs_middleware.py) and [requirements.txt](https://github.com/nmorrish/Edmondscorekeeper/blob/dev-branch/OBS/requirements.txt) to a folder you can access via command prompt. 
+    -IMPORTANT: Both `obs_middleware.py` and `requirements.txt` must be in the same folder.
+3. Open `obs_middleware.py` in a text editor and change the following variables as per your OBS settings:
+    - `OBS_HOST` => Server IP (best guess works fine)
     - `OBS_PORT` => Server Port
     - `OBS_PASSWORD` => Server Password
-2. Enter Score Card settings in `obs_middleware.py`, look for the following variable under # Configuration and set them accordingly:
+4. Enter Score Card settings in `obs_middleware.py`:
     - `RING_NUMBER` => Ring OBS will be recording. Enter a single number (e.g. `RING_NUMBER  = 1`, `RING_NUMBER  = 2`, etc) 
     - `SSE_URL` => The path you would enter in your URI to access `requestJudgementSSE.php` (e.g. `SSE_URL= "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"`)
     - `UPLOAD_URL` The path you would enter in your URI to access `uploadOBSClip.php` (e.g. `UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"`)
-3. (OPTIONAL) Adjust Buffer padding to your preferences. This will be additional time spent recording before and after the Start/Stop button is pressed. Default padding is 5 seconds on start and finish.
+5. (OPTIONAL) Adjust Buffer padding to your preferences. This will be additional time spent recording before and after the Start/Stop button is pressed. Default padding is 5 seconds on start and finish.
     - `PRE_BUFFER_MS` => amount of recording time to include before the start button is pressed, in milliseconds (e.g. `PRE_BUFFER_MS  = 5_000`) 
     - `POST_BUFFER_MS` => amount of time to continue recording after the stop button is pressed, in milliseconds (e.g. `POST_BUFFER_MS = 5_000`)
-4. Open a command console and navigate to the location containing `obs_middleware.py`
-5. Create a virtual Environment `$ python3 -m venv venv`
-6. Activate virtual environment if not active or if already created `$ source venv/bin/activate`
-7. Ensure `requirements.txt` is in the same file as `obs_middleware.py`
-8. Install pip requirements `$ pip install -r requirements.txt`
-9. Run the script `$ python3 obs_middleware.py`
+6. Open a command console and navigate to the folder containing `obs_middleware.py`
+7. Create a virtual Environment by entering:
+    - Linux: `$ python3 -m venv venv`
+    - Windows: `> python -m venv venv`
+8. Activate virtual environment if not active or if already created 
+    - Linux: `$ source venv/bin/activate`
+    - Windows: `> venv/Scripts/Activate`
+9. Install pip requirements `$ pip install -r requirements.txt` (both Windows and Linux) 
+10. Run the script
+    - Linux: `$ python3 obs_middleware.py`
+    - Windows: `> python obs_middleware.py`
 
 
 The console should connect to OBS Cameras and the score card SSE. 
