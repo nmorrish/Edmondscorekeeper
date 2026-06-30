@@ -87,13 +87,13 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
           </tr>
           {!showJudgeDrilldown && (
             <tr>
-              <th>Judges</th>
-              <th>Contact</th>
-              <th>Target</th>
-              <th>Control</th>
+              <th title="Judges">JDG</th>
+              <th title="Judges">CONT</th>
+              <th title="Target">TRGT</th>
+              <th title="Control">CTRL</th>
               {/* <th>A/B</th>
               <th>Call</th> */}
-              <th>Doubles</th>
+              <th title="Double">DBL</th>
             </tr>
           )}
         </thead>

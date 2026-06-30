@@ -319,51 +319,36 @@ const JudgementManager: React.FC = () => {
   // ===================== UI =====================
   if (!judgeName) {
     return (
-      <div>
+      <div className="stack">
         <h1>Enter Your Name</h1>
-        <form onSubmit={(e) => { e.preventDefault(); handleNameSubmit(); }}>
-          <input
-            type="text"
-            placeholder="Enter your name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-          />
-          <button type="submit" style={buttonStyle}>Submit</button>
+        <form onSubmit={(e) => { e.preventDefault(); handleNameSubmit(); }}
+              style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <input type="text" placeholder="Your judge name" value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)} />
+          <button type="submit" className="btn-block">Continue</button>
         </form>
         <ConnectionIndicator />
-        <style>
-          {`
-            @keyframes pulse {
-              0% { transform: scale(1); opacity: 0; }
-              50% { transform: scale(1.4); opacity: 1; }
-              100% { transform: scale(1); opacity: 0; }
-            }
-          `}
-        </style>
       </div>
     );
   }
 
   if (showRingSelect) {
     return (
-      <div>
+      <div className="stack">
         <h1>Select Ring</h1>
         {availableRings.map((r) => (
-          <button
-            key={r}
+          <button key={r} className="btn-neutral btn-block"
             onClick={() => {
               if (window.confirm(`Receive updates from Ring ${r}?`)) {
                 navigate(`/judgement/${r}`);
                 setShowRingSelect(false);
               }
-            }}
-            style={buttonStyle}
-          >
+            }}>
             Ring {r}
           </button>
         ))}
         {ringNumber && (
-          <button onClick={() => setShowRingSelect(false)} style={buttonStyle}>Cancel</button>
+          <button className="btn-neutral btn-block" onClick={() => setShowRingSelect(false)}>Cancel</button>
         )}
         <ConnectionIndicator />
       </div>
@@ -372,27 +357,18 @@ const JudgementManager: React.FC = () => {
 
   if (!judgementData) {
     return (
-      <div>
-        <h1>Judgement Wait</h1>
-        <p>You are judging ring {ringNumber} as {judgeName}</p>
-        <button onClick={() => setShowRingSelect(true)} style={buttonStyle}>Change Ring</button>
+      <div className="stack">
+        <h1>Judgement Now Wait</h1>
+        <p>Judging Ring {ringNumber} as {judgeName}</p>
+        <button className="btn-neutral btn-block" onClick={() => setShowRingSelect(true)}>Change Ring</button>
         <ConnectionIndicator />
-        <style>
-          {`
-            @keyframes pulse {
-              0% { transform: scale(1); opacity: 0; }
-              50% { transform: scale(1.4); opacity: 1; }
-              100% { transform: scale(1); opacity: 0; }
-            }
-          `}
-        </style>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1>Judgement Now Make!</h1>
+    <div className="stack">
+      <h1 className="pop-and-fade">Judgement Now Make!</h1>
       {fighter1 && fighter2 && (
         <>
           <ScoreTable
@@ -414,19 +390,18 @@ const JudgementManager: React.FC = () => {
         </>
       )}
       <button
-        className="judgement-submit"
+        className="btn-neutral btn-block"
         onClick={() => handleConfirmation('Confirm Judgement?', () => handleSubmit({}))}
-        style={buttonStyle}
-      >
+        style={buttonStyle}>
         {hasCheckedValues() ? 'Submit Judgement' : 'Report No Exchange'}
       </button>
       <button
-        className="judgement-submit double"
+        className="btn-neutral btn-block"
         onClick={() => handleConfirmation('Confirm Double Hit?', () => handleSubmit({ doubleHit: true }))}
-        style={buttonStyle}
-      >
+        style={buttonStyle}>
         Double Hit
       </button>
+      
       <ConnectionIndicator />
       <style>
         {`

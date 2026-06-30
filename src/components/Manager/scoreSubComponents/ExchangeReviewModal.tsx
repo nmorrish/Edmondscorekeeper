@@ -154,66 +154,61 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
   };
 
   return (
-    <div style={backdropStyle} onClick={() => onClose(exchangeIndex, camIndex)}>
-        <div
-            style={{
-                ...modalStyle,
-                width: fullWidth ? "100vw" : "min(900px, 96vw)",
-                maxWidth: fullWidth ? "100vw" : undefined,
-                borderRadius: fullWidth ? 0 : "10px",
-                overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-        >
+    <div className="modal-backdrop" onClick={() => onClose(exchangeIndex, camIndex)}>
+      <div
+        className={`modal${fullWidth ? " full-width" : ""}`}
+        style={{ overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Combined nav row: exchange selector | cam selector | close */}
-        <div style={navRowStyle}>
+        <div className="modal-nav-row">
 
           {/* Exchange nav */}
-          <div style={navGroupStyle}>
+          <div className="modal-nav-group">
             <button
-              style={navBtnStyle}
+              className="btn-neutral"
               onClick={() => setExchangeIndex((i) => Math.max(0, i - 1))}
               disabled={exchangeIndex === 0}
             >◀</button>
-            <span style={navLabelStyle}>
+            <span className="modal-nav-label">
               Exchange {exchangeIndex + 1} / {exchangeCount}
             </span>
             <button
-              style={navBtnStyle}
+              className="btn-neutral"
               onClick={() => setExchangeIndex((i) => Math.min(exchangeCount - 1, i + 1))}
               disabled={exchangeIndex >= exchangeCount - 1}
             >▶</button>
           </div>
 
-          <div style={dividerStyle} />
+          <div className="modal-divider" />
 
           {/* Camera nav */}
-          <div style={navGroupStyle}>
+          <div className="modal-nav-group">
             <button
-              style={navBtnStyle}
+              className="btn-neutral"
               onClick={() => setCamIndex((i) => (i - 1 + clips.length) % clips.length)}
               disabled={clips.length < 2}
             >◀</button>
-            <span style={navLabelStyle}>
+            <span className="modal-nav-label">
               {camLabel()}
               {clipStatus === "error" && (
-                <button style={retryBtnStyle} onClick={fetchClips}>Retry</button>
+                <button className="btn-neutral" onClick={fetchClips}>Retry</button>
               )}
             </span>
             <button
-              style={navBtnStyle}
+              className="btn-neutral"
               onClick={() => setCamIndex((i) => (i + 1) % clips.length)}
               disabled={clips.length < 2}
             >▶</button>
           </div>
 
           {/* Full width */}
-          <button style={navBtnStyle} onClick={() => setFullWidth((fw) => !fw)} title="Toggle full width (F)">
+          <button className="btn-neutral" onClick={() => setFullWidth((fw) => !fw)} title="Toggle full width (F)">
             {fullWidth ? "(F) Close" : "(F)ull Width"}
           </button>
 
-          <button style={closeBtnStyle} onClick={() => onClose(exchangeIndex, camIndex)}>✕</button>
+          <button className="btn-neutral review-close-btn" onClick={() => onClose(exchangeIndex, camIndex)}>✕</button>
         </div>
 
         {/* Video */}
@@ -221,6 +216,7 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
           <video
             key={currentClip.relativePath}
             ref={videoRef}
+            className="review-video"
             src={clipUrl(currentClip)}
             onError={(e) => console.error("Video error:", e.currentTarget.error?.code, e.currentTarget.error?.message)}
             onLoadedMetadata={() => {
@@ -233,18 +229,18 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
             playsInline
           />
         ) : (
-          <div style={{ ...videoPlaceholderStyle, height: fullWidth ? "80vh" : "200px" }}>
+          <div className="review-video-placeholder">
             {clipStatus === "loading" ? "Loading video…" : "No footage for this exchange"}
           </div>
         )}
 
         {/* Scrub controls */}
-        <div style={controlsStyle}>
-          <button style={navBtnStyle} onClick={() => stepFrame(-1)} title="Previous frame (←)">
+        <div className="control-row">
+          <button className="btn-neutral" onClick={() => stepFrame(-1)} title="Previous frame (←)">
             ‹ Frame
           </button>
           <button
-            style={{ ...navBtnStyle, minWidth: "52px" }}
+            className="btn-neutral"
             onClick={() => {
               const v = videoRef.current;
               if (!v) return;
@@ -253,7 +249,7 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
           >
             {playing ? "⏸" : "▶"}
           </button>
-          <button style={navBtnStyle} onClick={() => stepFrame(1)} title="Next frame (→)">
+          <button className="btn-neutral" onClick={() => stepFrame(1)} title="Next frame (→)">
             Frame ›
           </button>
           <input
@@ -263,24 +259,17 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
             step={0.001}
             value={currentTime}
             onChange={handleScrub}
-            style={scrubStyle}
+            className="review-scrub"
             disabled={!currentClip}
           />
-          <span style={timeLabelStyle}>
+          <span className="review-time-label">
             {currentTime.toFixed(2)}s / {(duration || 0).toFixed(2)}s
           </span>
-          <div style={speedGroupStyle}>
+          <div className="review-speed-group">
             {[0.10, 0.25, 0.5, 1, 1.5].map((rate) => (
               <button
                 key={rate}
-                style={{
-                  ...navBtnStyle,
-                  padding: "4px 8px",
-                  fontSize: "0.85rem",
-                  background: playbackRate === rate ? "#4a90d9" : "#2a2a2a",
-                  color: playbackRate === rate ? "#fff" : "#eee",
-                  border: playbackRate === rate ? "1px solid #4a90d9" : "1px solid #444",
-                }}
+                className={`btn-neutral review-speed-btn${playbackRate === rate ? " active" : ""}`}
                 onClick={() => handleRateChange(rate)}
               >
                 {rate}×
@@ -290,17 +279,16 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
         </div>
 
         {/* Score panels */}
-        <div style={scorePanelsStyle}>
+        <div className="review-score-panels">
           {[
             { info: fighter1, ex: f1Ex },
             { info: fighter2, ex: f2Ex },
           ].map(({ info, ex }) => (
             <div
               key={info.fighterId}
-              style={scorePanelStyle}
-              className={`border-${info.fighterColor}`}
+              className={`review-score-panel border-${info.fighterColor}`}
             >
-              <div style={panelHeaderStyle} className={info.fighterColor}>
+              <div className={`review-panel-header ${info.fighterColor}`}>
                 {info.fighterName} ({info.fighterColor})
               </div>
               <div style={{ padding: "12px 14px" }}>
@@ -322,88 +310,6 @@ const ExchangeReviewModal: React.FC<ExchangeReviewModalProps> = ({
       </div>
     </div>
   );
-};
-
-// ── Styles ──────────────────────────────────────────────
-
-const backdropStyle: React.CSSProperties = {
-  position: "fixed", inset: 0,
-  background: "rgba(0,0,0,0.88)",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  zIndex: 9999, padding: "16px",
-};
-const modalStyle: React.CSSProperties = {
-  background: "#111", borderRadius: "10px",
-  width: "min(900px, 96vw)", maxHeight: "95vh",
-  display: "flex", flexDirection: "column", overflow: "hidden",
-  color: "#eee",
-};
-const navRowStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center",
-  gap: "12px", padding: "10px 16px",
-  background: "#1a1a1a", borderBottom: "1px solid #333",
-};
-const navGroupStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "8px",
-};
-const navLabelStyle: React.CSSProperties = {
-  minWidth: "110px", textAlign: "center",
-  fontWeight: 700, fontSize: "1.5rem",
-  color: "#fff", letterSpacing: "0.03em",
-};
-const dividerStyle: React.CSSProperties = {
-  width: "1px", height: "24px",
-  background: "#444", margin: "0 4px",
-};
-const closeBtnStyle: React.CSSProperties = {
-  marginLeft: "auto",
-  background: "transparent", color: "#fff",
-  border: "1px solid #555", borderRadius: "4px",
-  width: "28px", height: "28px", cursor: "pointer", fontSize: "0.9rem",
-};
-const navBtnStyle: React.CSSProperties = {
-  padding: "6px 14px", fontSize: "1.3rem",
-  background: "#2a2a2a", color: "#eee",
-  border: "1px solid #444", borderRadius: "4px", cursor: "pointer",
-};
-const retryBtnStyle: React.CSSProperties = {
-  padding: "2px 8px", fontSize: "0.75rem", marginLeft: "6px",
-  background: "#2a2a2a", color: "#eee",
-  border: "1px solid #444", borderRadius: "4px", cursor: "pointer",
-};
-const videoPlaceholderStyle: React.CSSProperties = {
-  width: "100%", height: "200px",
-  background: "#0a0a0a",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  color: "#666", fontStyle: "italic", fontSize: "0.9rem",
-};
-const controlsStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "8px",
-  padding: "10px 14px", background: "#161616",
-  borderBottom: "1px solid #2a2a2a", flexWrap: "wrap",
-};
-const scrubStyle: React.CSSProperties = {
-  flex: 1, minWidth: "120px", height: "28px",
-  accentColor: "#4a90d9", cursor: "pointer",
-};
-const timeLabelStyle: React.CSSProperties = {
-  fontSize: "0.75rem", opacity: 0.7,
-  whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
-};
-const speedGroupStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "4px",
-  marginLeft: "auto",
-};
-const scorePanelsStyle: React.CSSProperties = {
-  display: "flex", overflowY: "visible",
-};
-const scorePanelStyle: React.CSSProperties = {
-  flex: 1, padding: "12px 14px",
-  borderRight: "1px solid #2a2a2a", minWidth: 0,
-};
-const panelHeaderStyle: React.CSSProperties = {
-  fontWeight: 700, marginBottom: "8px",
-  textTransform: "capitalize", fontSize: "1.8em",
 };
 
 export default ExchangeReviewModal;

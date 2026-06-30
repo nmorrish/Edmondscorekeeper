@@ -372,96 +372,65 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     );
 
     return (
-      <div
-        className="table-header"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span style={{ fontWeight: "bold", color: "#aaa", whiteSpace: "nowrap", fontSize: "0.85rem" }}>
-            Match {matchNumber}
-          </span>
-          <span
-            className={`${getHighlightClass(f1Total, f2Total, true)} ${f1.fighterColor}`}
-            style={{ padding: "2px 8px", borderRadius: "4px" }}
-          >
-            ({f1Total.toFixed(2)})
+      <div className="match-header">
+        <div className="match-header-top">
+          <span className="match-header-number">Match {matchNumber}</span>
+          <div className="match-header-actions">
+            {!readOnly && (
+              <RingDropdown
+                matchId={match.matchId}
+                currentRing={match.matchRing}
+                maxRings={maxRings}
+                interactive={true}
+                onChangeRing={(id, newRing) => {
+                  handleChangeRing(id, newRing);
+                  addToast(`Match ${id} moved to Ring ${newRing}`);
+                }}
+              />
+            )}
+            <button
+              className="toggle-button"
+              onClick={() => toggleVisibility(match.matchId)}
+            >
+              {visibleMatches[match.matchId] ? "Close" : "Open"}
+            </button>
+          </div>
+        </div>
+
+        <div className="match-header-fighters">
+          <span className={`match-header-fighter ${getHighlightClass(f1Total, f2Total, true)} ${f1.fighterColor}`}>
             {readOnly ? (
               <span>{f1.fighterName}</span>
             ) : (
               <FighterDropdown
                 key={`dropdown-${f1.fighterId}`}
-                fighter={{
-                  FighterId: f1.fighterId,
-                  FighterName: f1.fighterName,
-                  FighterColor: f1.fighterColor,
-                  ClubAcronym: null,
-                }}
+                fighter={{ FighterId: f1.fighterId, FighterName: f1.fighterName, FighterColor: f1.fighterColor, ClubAcronym: null }}
                 allFighters={fighters}
-                localFighters={[{
-                  FighterId: f2.fighterId,
-                  FighterName: f2.fighterName,
-                  FighterColor: f2.fighterColor,
-                  ClubAcronym: null,
-                }]}
+                localFighters={[{ FighterId: f2.fighterId, FighterName: f2.fighterName, FighterColor: f2.fighterColor, ClubAcronym: null }]}
                 interactive={true}
-                onUpdate={(color, id) =>
-                  performAction(match.matchId, "updateFighter", { fighterId: id, fighterColor: color })
-                }
+                onUpdate={(color, id) => performAction(match.matchId, "updateFighter", { fighterId: id, fighterColor: color })}
               />
             )}
+            <span className="match-header-score">({f1Total.toFixed(2)})</span>
           </span>
-          {" "}vs.{" "}
-          <span
-            className={`${getHighlightClass(f1Total, f2Total, false)} ${f2.fighterColor}`}
-            style={{ padding: "2px 8px", borderRadius: "4px" }}
-          >
+
+          <span className="match-header-vs">vs.</span>
+
+          <span className={`match-header-fighter ${getHighlightClass(f1Total, f2Total, false)} ${f2.fighterColor}`}>
             {readOnly ? (
               <span>{f2.fighterName}</span>
             ) : (
               <FighterDropdown
                 key={`dropdown-${f2.fighterId}`}
-                fighter={{
-                  FighterId: f2.fighterId,
-                  FighterName: f2.fighterName,
-                  FighterColor: f2.fighterColor,
-                  ClubAcronym: null,
-                }}
+                fighter={{ FighterId: f2.fighterId, FighterName: f2.fighterName, FighterColor: f2.fighterColor, ClubAcronym: null }}
                 allFighters={fighters}
-                localFighters={[{
-                  FighterId: f1.fighterId,
-                  FighterName: f1.fighterName,
-                  FighterColor: f1.fighterColor,
-                  ClubAcronym: null,
-                }]}
+                localFighters={[{ FighterId: f1.fighterId, FighterName: f1.fighterName, FighterColor: f1.fighterColor, ClubAcronym: null }]}
                 interactive={true}
-                onUpdate={(color, id) =>
-                  performAction(match.matchId, "updateFighter", { fighterId: id, fighterColor: color })
-                }
+                onUpdate={(color, id) => performAction(match.matchId, "updateFighter", { fighterId: id, fighterColor: color })}
               />
-            )}{" "}
-            ({f2Total.toFixed(2)})
+            )}
+            <span className="match-header-score">({f2Total.toFixed(2)})</span>
           </span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {!readOnly && (
-            <RingDropdown
-              matchId={match.matchId}
-              currentRing={match.matchRing}
-              maxRings={maxRings}
-              interactive={true}
-              onChangeRing={(id, newRing) => {
-                handleChangeRing(id, newRing);
-                addToast(`Match ${id} moved to Ring ${newRing}`);
-              }}
-            />
-          )}
-          <button
-            className="toggle-button"
-            onClick={() => toggleVisibility(match.matchId)}
-          >
-            {visibleMatches[match.matchId] ? "Close" : "Open"}
-          </button>
         </div>
       </div>
     );
