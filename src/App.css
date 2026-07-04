@@ -999,7 +999,6 @@ button.strike-button{
   content: "";
   position: absolute;
   inset: -6px;                 /* expand outward */
-  border: 2px solid #8b5cf6;   /* purple solid */
   border-radius: 50%;
   z-index: -1;
 }
@@ -1009,92 +1008,8 @@ button.strike-button{
   height: 28px;
 }
 
-.floating-nav__menu {
-  position: absolute;
-  bottom: 80px;
-  right: 80px;
-  width: 250px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  overflow: hidden; /* ensures header/footer borders align flush */
-}
-
 /* Header row (tournament name) */
-.floating-nav__header {
-  background: #f5f5f5;
-  border-bottom: 1px solid #ccc;
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #333;
-  text-align: center;
-}
 
-/* List section */
-.floating-nav__list {
-  list-style: none;
-  margin: 0;
-  padding: 12px 0;
-}
-
-.floating-nav__list li {
-  margin: 0;
-}
-
-.floating-nav__list a {
-  display: block;
-  padding: 8px 16px;
-  color: #333;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.floating-nav__list a:hover {
-  background: #eee;
-}
-
-/* Footer row (Back to tournaments) */
-.floating-nav__footer {
-  border-top: 1px solid #ccc;
-  background: #fafafa;
-}
-
-.floating-nav__footer a {
-  display: block;
-  padding: 10px 16px;
-  color: #444;
-  font-weight: bold;
-  text-align: center;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.floating-nav__footer a:hover {
-  background: #eaeaea;
-}
-
-.floating-nav__footer a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;              /* space between arrow and text */
-  padding: 10px 16px;
-  color: #444;
-  font-weight: bold;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.floating-nav__footer a:hover {
-  background: #eaeaea;
-}
-
-.floating-nav__footer svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;        /* prevents squishing */
-}
 
 .event-fighter-section {
   border: 1px solid #ddd;
@@ -1113,6 +1028,90 @@ button.strike-button{
   margin-top:0;
 }
 
+/* === FloatingNav dropdown menu (dark theme) === */
+.floating-nav__menu {
+  position: absolute;
+  bottom: 80px;
+  right: 80px;
+  width: 250px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  z-index: 999;
+}
+
+.floating-nav__header {
+  background: #272727;
+  border-bottom: 1px solid #333;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  padding: 10px 12px;
+}
+
+.floating-nav__header h3 {
+  margin: 0;
+  font-size: inherit;
+}
+
+.floating-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.floating-nav__list li {
+  margin: 0;
+}
+
+.floating-nav__list a {
+  display: block;
+  padding: 12px 16px;      /* 44px-ish tap target */
+  color: #eafdff;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.floating-nav__list a:hover {
+  background: #2a2a2a;
+}
+
+.floating-nav__footer {
+  border-top: 1px solid #333;
+  background: #181818;
+}
+
+.floating-nav__footer a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  color: #9daaff;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.floating-nav__footer a:hover {
+  background: #2a2a2a;
+}
+
+.floating-nav__footer svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Embedded: menu drops below the button */
+.floating-nav--embedded .floating-nav__menu {
+  bottom: auto;
+  top: 56px;
+  right: 0;
+}
 
 
 /* === Fighter Management Rows === */
@@ -1442,50 +1441,6 @@ button.strike-button{
   height: 44px;
 }
 
-@media (max-width: 600px) {
-  .review-score-panel {
-    flex: 1 1 100%;
-    border-right: none;
-    border-bottom: 1px solid #2a2a2a;
-  }
-
-  .score-layout {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #root {
-    padding: 0.5rem;
-  }
-
-  .table-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-
-  .scoreTables > * {
-    flex: 1 1 100%;
-  }
-
-  .match th,
-  .match td {
-    font-size: 0.75rem;
-    padding: 5px 4px;
-  }
-
-  .match-header-fighters {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .match-header-fighter {
-    flex: unset;
-    justify-content: center;
-    width: 100%;
-  }
-}
-
 
 .match-header {
   display: flex;
@@ -1552,7 +1507,139 @@ button.strike-button{
 .selection-nav-mobile { display: none; }
 .selection-nav-desktop { display: flex; }
 
+/* Backdrop — invisible layer that catches outside taps to close the menu */
+.floating-nav__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 998;              /* below menu, above page */
+  background: transparent;
+}
+
+/* Embedded variant: lives inside the selection navbar, top-right */
+.floating-nav--embedded {
+  position: relative;
+  bottom: auto;
+  right: auto;
+}
+
+.selection-nav-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selection-nav-menu-slot {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  z-index: 1001;
+}
+
+.floating-nav--embedded .floating-nav__button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid transparent;   /* reserve space so hover doesn't shift layout */
+  border-radius: 8px;
+  background: transparent;          /* bare icon at rest */
+  color: #fff;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-nav--embedded .floating-nav__button:hover {
+  border-color: #007bff;            /* blue border on hover */
+  background: transparent;
+}
+
+.floating-nav--embedded .floating-nav__button:active {
+  border-color: #007bff;            /* border + background on click */
+  background: #007bff;
+}
+
+.floating-nav__menu--embedded {
+  bottom: auto;
+  top: 100px;
+  right: 10px;      /* aligns under the hamburger; tweak to taste */
+}
+
 @media (max-width: 600px) {
+  .review-score-panel {
+    flex: 1 1 100%;
+    border-right: none;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  .score-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #root {
+    padding: 0.5rem;
+  }
+
+  .table-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .scoreTables > * {
+    flex: 1 1 100%;
+  }
+
+  .match th,
+  .match td {
+    font-size: 0.75rem;
+    padding: 5px 4px;
+  }
+
+  .match-header-fighters {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .match-header-fighter {
+    flex: unset;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .floating-nav--embedded .floating-nav__menu {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0;      /* edge-to-edge, no rounded corners */
+    border-left: none;
+    border-right: none;
+  }
+
+  .floating-nav__list a,
+  .floating-nav__footer a {
+    padding: 14px 18px;   /* larger tap targets on mobile */
+  }
+
+  .floating-nav__menu--embedded {
+    position: fixed;
+    top: 105px;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
   .selection-nav-desktop { display: none; }
   .selection-nav-mobile  {
     display: flex;

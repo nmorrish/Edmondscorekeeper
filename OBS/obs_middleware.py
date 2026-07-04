@@ -44,12 +44,12 @@ log = logging.getLogger(__name__)
 # Configuration
 # ================================================================
 RING_NUMBER  = 1
-SSE_URL      = "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"
-UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
+SSE_URL      = "http://192.168.1.2/phpFiles/requestJudgementSSE.php"
+UPLOAD_URL   = "http://192.168.1.2/phpFiles/uploadOBSClip.php"
 
-OBS_HOST     = "xxx.xxx.xxx.xxx"
+OBS_HOST     = "192.168.1.3"
 OBS_PORT     = 4455
-OBS_PASSWORD = "PWD"
+OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
 
 # ffmpeg binary bundled inside the Python environment (no system install).
 FFMPEG_PATH  = imageio_ffmpeg.get_ffmpeg_exe()

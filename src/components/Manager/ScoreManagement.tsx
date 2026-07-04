@@ -10,7 +10,6 @@ import MatchTables from "./scoreSubComponents/MatchTables";
 import { RefreshProvider } from "../utility/RefreshContext";
 import useFighters from "./subComponents/useFighters";
 import useEvents from "./subComponents/useEvents";
-import FloatingNav from "../utility/FloatingNav";
 import { Fighter } from "./subComponents/useFighters";
 import SelectionNavbar from "../utility/SelectionNavbar";
 
@@ -38,10 +37,6 @@ const ScoreManagement: React.FC = () => {
       fetchFighterData(numericTournamentId);
     }
   }, [numericTournamentId, fetchFighterData]);
-
-  const handleRingSelection = (ringNumber: number) => {
-    setSelectedRing(ringNumber);
-  };
 
   const handleStrikeUpdate = (fighterId: number, newStrikes: number) => {
     setFighters((prev) =>
@@ -73,6 +68,12 @@ const ScoreManagement: React.FC = () => {
         selectedRing={selectedRing}
         onEventSelect={setSelectedEvent}
         onRingSelect={setSelectedRing}
+        tournamentId={numericTournamentId}
+        backUrl="/manager/tournament"
+        navLinks={[
+          { text: "Edit Fighters", to: `/manager/fighters/${numericTournamentId}` },
+          { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` },
+        ]}
       />
 
 
@@ -117,15 +118,6 @@ const ScoreManagement: React.FC = () => {
         </main>
 
       </div>
-
-      <FloatingNav
-        tournamentId={numericTournamentId}
-        backUrl="/manager/tournament"
-        links={[
-          { text: "Edit Fighters", to: `/manager/fighters/${numericTournamentId}` },
-          { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` },
-        ]}
-      />
 
     </div>
   );
