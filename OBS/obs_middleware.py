@@ -11,6 +11,13 @@ Workflow per signal:
      no re-encode, no quality loss. The cut snaps to the nearest keyframe.
   6. Upload the finished clip to uploadOBSClip.php
   7. Delete the local temp file
+  8. Hard-reset the OBS session: stop buffers, toggle each Source Record filter
+     off/on to force a full encoder teardown/rebuild, drop the websocket,
+     reconnect, and restart all replay buffers. Replicates a middleware restart
+     in-process. On Kepler NVENC a plain replay-buffer stop/start leaves the
+     encoder session alive and degraded (records, but choppy); toggling the
+     filter's enabled state destroys the encoder object outright so the next
+     capture runs on a fresh one.
 
 OBS does all encoding on the GPU (hardware encoder set per Source Record
 filter). This script never re-encodes; it only copies the already-encoded
@@ -47,9 +54,9 @@ RING_NUMBER  = 1
 SSE_URL      = "http://192.168.1.2/phpFiles/requestJudgementSSE.php"
 UPLOAD_URL   = "http://192.168.1.2/phpFiles/uploadOBSClip.php"
 
-OBS_HOST     = "192.168.1.3"
+OBS_HOST     = "192.168.1.2"
 OBS_PORT     = 4455
-OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
+OBS_PASSWORD = "Zj3GG3sBZ6f4Xv8K"
 
 # ffmpeg binary bundled inside the Python environment (no system install).
 FFMPEG_PATH  = imageio_ffmpeg.get_ffmpeg_exe()
@@ -66,6 +73,10 @@ FILE_STABLE_POLL_S  = 0.5
 FILE_STABLE_SECS    = 3
 MAX_OFFSET_SAMPLES  = 5
 
+# Grace period between dropping the OBS session and reconnecting, so the
+# encoder session fully tears down GPU-side before it is rebuilt.
+RECYCLE_GAP_S = 1.0
+
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".flv", ".ts", ".mov"}
 
 # Finished clips are written here, uploaded, then deleted
@@ -80,6 +91,7 @@ class Camera:
     scene_name: str
     cam_num: int
     output_dir: Path
+    filter_name: str = ""
 
 
 # ================================================================
@@ -122,7 +134,7 @@ def detect_cameras(ws_client: obs.ReqClient, obs_record_dir: Path) -> list[Camer
             if f.get("filterKind") != "source_record_filter":
                 continue
             settings = f.get("filterSettings", {})
-            if settings.get("record_mode") != 3:
+            if not settings.get("replay_buffer"):
                 log.warning(f"  '{scene_name}' not in replay buffer mode — skipping")
                 continue
 
@@ -134,9 +146,12 @@ def detect_cameras(ws_client: obs.ReqClient, obs_record_dir: Path) -> list[Camer
                 )
                 continue
 
+            filter_name = f.get("filterName", "")
             dir_usage.setdefault(output_dir, []).append(scene_name)
-            cameras.append(Camera(scene_name, cam_num, output_dir))
-            log.info(f"  Camera {cam_num}: '{scene_name}' → {output_dir}")
+            cameras.append(Camera(scene_name, cam_num, output_dir, filter_name))
+            log.info(
+                f"  Camera {cam_num}: '{scene_name}' / filter '{filter_name}' → {output_dir}"
+            )
             cam_num += 1
             break
 
@@ -166,6 +181,13 @@ def resolve_cameras(ws_client: obs.ReqClient) -> list[Camera]:
 
     if not cameras:
         raise RuntimeError("No usable cameras detected — see errors above.")
+
+    missing = [c.scene_name for c in cameras if not c.filter_name]
+    if missing:
+        log.warning(
+            f"  No filter name captured for: {missing} — these cannot be "
+            f"toggled during hard reset."
+        )
 
     log.info(f"Ready with {len(cameras)} camera(s).")
     return cameras
@@ -200,6 +222,23 @@ def _now_ms() -> int:
 
 
 # ================================================================
+# OBS session holder — single mutable client shared across threads
+# ================================================================
+class ObsSession:
+    """
+    Holds the current OBS client behind a lock. A hard reset swaps the client
+    in place so the SSE loop and any later handlers all read the new one.
+    """
+    def __init__(self, client: obs.ReqClient):
+        self.client = client
+        self.lock = threading.Lock()
+
+    def reset(self, cameras: list[Camera]) -> None:
+        with self.lock:
+            self.client = hard_reset(self.client, cameras)
+
+
+# ================================================================
 # OBS replay buffer control
 # ================================================================
 _obs_lock = threading.Lock()
@@ -219,6 +258,40 @@ def start_replay_buffers(ws_client: obs.ReqClient, cameras: list[Camera]) -> Non
                 log.error(f"  Failed to start replay buffer for '{cam.scene_name}': {e}")
 
 
+def stop_replay_buffers(ws_client: obs.ReqClient, cameras: list[Camera]) -> None:
+    with _obs_lock:
+        for cam in cameras:
+            try:
+                ws_client.call_vendor_request(
+                    vendor_name="source-record",
+                    request_type="replay_buffer_stop",
+                    request_data={"source": cam.scene_name},
+                )
+                log.info(f"  Stopped replay buffer: '{cam.scene_name}' (cam {cam.cam_num})")
+            except Exception as e:
+                log.error(f"  Failed to stop replay buffer for '{cam.scene_name}': {e}")
+
+
+def recycle_filters(ws_client: obs.ReqClient, cameras: list[Camera]) -> None:
+    """
+    Disable then re-enable each Source Record filter to force a full encoder
+    teardown/rebuild. A replay-buffer stop/start leaves the encoder session
+    alive and degraded on Kepler NVENC; toggling the filter's enabled state
+    destroys the encoder object outright and constructs a fresh one.
+    """
+    with _obs_lock:
+        for cam in cameras:
+            if not cam.filter_name:
+                log.warning(f"  '{cam.scene_name}': no filter name captured, cannot toggle")
+                continue
+            try:
+                ws_client.set_source_filter_enabled(cam.scene_name, cam.filter_name, False)
+                ws_client.set_source_filter_enabled(cam.scene_name, cam.filter_name, True)
+                log.info(f"  Toggled filter: '{cam.scene_name}' / '{cam.filter_name}'")
+            except Exception as e:
+                log.error(f"  Failed to toggle filter for '{cam.scene_name}': {e}")
+
+
 def trigger_replay_saves(ws_client: obs.ReqClient, cameras: list[Camera]) -> None:
     with _obs_lock:
         for cam in cameras:
@@ -231,6 +304,36 @@ def trigger_replay_saves(ws_client: obs.ReqClient, cameras: list[Camera]) -> Non
                 log.info(f"  Triggered save: '{cam.scene_name}' (cam {cam.cam_num})")
             except Exception as e:
                 log.error(f"  Failed to trigger save for '{cam.scene_name}': {e}")
+
+
+def hard_reset(ws_client: obs.ReqClient, cameras: list[Camera]) -> obs.ReqClient:
+    """
+    Replicate a middleware restart without exiting the process: stop all replay
+    buffers, toggle each Source Record filter off/on to destroy and rebuild its
+    encoder, drop the OBS websocket, reconnect fresh, and restart every buffer.
+    Returns the new client. Cameras are reused — scene/filter names don't change
+    mid-run, so no re-detection is needed.
+
+    The filter toggle runs on the current (still-live) connection before the
+    disconnect: the encoder teardown happens OBS-side and persists across the
+    reconnect.
+    """
+    log.info("Hard reset: rebuilding OBS session and replay buffers...")
+
+    stop_replay_buffers(ws_client, cameras)
+    recycle_filters(ws_client, cameras)
+
+    try:
+        ws_client.disconnect()
+    except Exception as e:
+        log.warning(f"  disconnect during reset failed (continuing): {e}")
+
+    time.sleep(RECYCLE_GAP_S)
+
+    new_client = connect_obs()
+    start_replay_buffers(new_client, cameras)
+    log.info("Hard reset complete.")
+    return new_client
 
 
 # ================================================================
@@ -440,7 +543,7 @@ def upload_clip(clip_path: Path, exchange_id: int, camera_number: int) -> bool:
 # ================================================================
 def handle_signal(
     signal: dict,
-    ws_client: obs.ReqClient,
+    session: ObsSession,
     cameras: list[Camera],
 ) -> None:
     exchange_id          = signal.get("exchangeId")
@@ -476,6 +579,11 @@ def handle_signal(
     if wait_ms > 0:
         log.info(f"  Waiting {wait_ms} ms post-buffer...")
         time.sleep(wait_ms / 1000)
+
+    # Read the current client once for this capture. A reset only happens at the
+    # end of this handler, and matches are one-at-a-time, so this stays valid
+    # for the whole capture.
+    ws_client = session.client
 
     # Snapshot output directories BEFORE triggering so fast writers aren't missed
     pre_snapshots = {cam.cam_num: snapshot_dir(cam.output_dir) for cam in cameras}
@@ -522,13 +630,17 @@ def handle_signal(
     for t in threads:
         t.join()
 
+    # All clips captured and uploaded — rebuild the OBS session so the next
+    # capture starts from a fresh encoder, same as a middleware restart.
+    session.reset(cameras)
+
     log.info(f"Signal {exchange_id} complete.")
 
 
 # ================================================================
 # SSE listener
 # ================================================================
-def run_sse(ws_client: obs.ReqClient, cameras: list[Camera]) -> None:
+def run_sse(session: ObsSession, cameras: list[Camera]) -> None:
     url = f"{SSE_URL}?ringNumber={RING_NUMBER}"
     retry_delay = 1.0
 
@@ -566,7 +678,7 @@ def run_sse(ws_client: obs.ReqClient, cameras: list[Camera]) -> None:
                     if isinstance(data, dict) and "sentAt" in data:
                         threading.Thread(
                             target=handle_signal,
-                            args=(data, ws_client, cameras),
+                            args=(data, session, cameras),
                             daemon=True,
                         ).start()
 
@@ -601,7 +713,8 @@ def main() -> None:
     ws_client = connect_obs()
     cameras   = resolve_cameras(ws_client)
     start_replay_buffers(ws_client, cameras)
-    run_sse(ws_client, cameras)
+    session   = ObsSession(ws_client)
+    run_sse(session, cameras)
 
 
 if __name__ == "__main__":
