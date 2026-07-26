@@ -9,8 +9,10 @@ Workflow per signal:
   4. Wait for each file to finish writing
   5. Lossless-trim the last keep_secs with a stream copy (-c copy): no decode,
      no re-encode, no quality loss. The cut snaps to the nearest keyframe.
-  6. Upload the finished clip to uploadOBSClip.php
-  7. Delete the local temp file
+  6. Hand the trimmed clip to a background upload worker (see below) and return
+     immediately — uploads never block the signal loop.
+  7. The upload worker uploads to uploadOBSClip.php and, only on a confirmed
+     upload, deletes both the trimmed temp file and the original OBS source.
   8. Hard-reset the OBS session: stop buffers, toggle each Source Record filter
      off/on to force a full encoder teardown/rebuild, drop the websocket,
      reconnect, and restart all replay buffers. Replicates a middleware restart
@@ -18,6 +20,13 @@ Workflow per signal:
      encoder session alive and degraded (records, but choppy); toggling the
      filter's enabled state destroys the encoder object outright so the next
      capture runs on a fresh one.
+
+Uploads are decoupled from capture: trimmed clips are staged on a queue and
+uploaded one at a time by a single long-lived worker thread. A burst of
+exchanges in quick succession is captured and trimmed as fast as OBS allows,
+then uploaded at whatever rate the network sustains — the next exchange never
+waits on the previous one's upload. There is no bound on the queue: if uploads
+fall behind, the backlog grows and operators must not let it accumulate.
 
 OBS does all encoding on the GPU (hardware encoder set per Source Record
 filter). This script never re-encodes; it only copies the already-encoded
@@ -30,6 +39,7 @@ keyframe-aligned cut lands within ~1s of target (inside the start buffer).
 
 import json
 import logging
+import queue
 import re
 import subprocess
 import threading
@@ -539,6 +549,65 @@ def upload_clip(clip_path: Path, exchange_id: int, camera_number: int) -> bool:
 
 
 # ================================================================
+# Upload queue + background worker
+# ================================================================
+# Trimmed clips are staged here and uploaded by a single long-lived worker
+# thread, so a burst of exchanges never blocks the signal loop waiting on the
+# network. Each item is (dst, src, exchange_id, cam_num):
+#   dst = trimmed temp clip to upload
+#   src = original OBS source file
+# On a confirmed upload, BOTH files are deleted. On any failure, BOTH are left
+# on disk untouched and the worker moves to the next item.
+#
+# No bound on queue size: if uploads fall behind, the queue grows. There is no
+# automatic backpressure — operators must not let a backlog accumulate. The
+# per-item log line reports how many clips are still waiting, as a running gauge.
+_upload_queue: "queue.Queue[tuple[Path, Path, int, int]]" = queue.Queue()
+
+
+def _upload_worker() -> None:
+    """
+    Long-lived consumer: pull one staged clip at a time and upload it, forever.
+    Deletes the trimmed clip (dst) and the OBS source (src) only after a
+    confirmed upload; on any failure both are left on disk. Every item is
+    wrapped in try/except so a single bad upload can never kill the worker and
+    stall all future uploads.
+    """
+    while True:
+        dst, src, exchange_id, cam_num = _upload_queue.get()
+        try:
+            depth = _upload_queue.qsize()
+            log.info(
+                f"  cam{cam_num}: uploading exchange {exchange_id} "
+                f"({depth} more waiting)"
+            )
+            if upload_clip(dst, exchange_id, cam_num):
+                # Confirmed upload — safe to delete both files now, not before.
+                try:
+                    dst.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                try:
+                    src.unlink(missing_ok=True)
+                    log.info(f"  cam{cam_num}: deleted source file {src.name}")
+                except OSError as e:
+                    log.warning(
+                        f"  cam{cam_num}: could not delete source {src.name}: {e}"
+                    )
+            else:
+                # Leave both files in place for manual recovery; no retry.
+                log.error(
+                    f"  cam{cam_num}: upload failed, keeping source {src.name} "
+                    f"and trimmed clip {dst.name}"
+                )
+        except Exception as e:
+            # A single bad upload must never kill the worker — log and move on.
+            log.error(f"  cam{cam_num}: upload worker error (continuing): {e}")
+        finally:
+            _upload_queue.task_done()
+
+
+# ================================================================
 # Signal handler
 # ================================================================
 def handle_signal(
@@ -605,22 +674,16 @@ def handle_signal(
         dst = TEMP_DIR / f"exchange{exchange_id}-cam{cam.cam_num}.mp4"
 
         if trim_clip(src, dst, keep_secs):
-            if upload_clip(dst, exchange_id, cam.cam_num):
-                try:
-                    src.unlink(missing_ok=True)
-                    log.info(f"  cam{cam.cam_num}: deleted source file {src.name}")
-                except OSError as e:
-                    log.warning(f"  cam{cam.cam_num}: could not delete source {src.name}: {e}")
-            else:
-                log.error(f"  cam{cam.cam_num}: upload failed, keeping source {src.name}")
+            # Hand off to the background upload worker and return immediately.
+            # src and dst are deleted there, and only once the upload is
+            # confirmed — nothing is removed here.
+            _upload_queue.put((dst, src, exchange_id, cam.cam_num))
+            log.info(f"  cam{cam.cam_num}: trimmed and queued for upload")
         else:
             log.error(f"  cam{cam.cam_num}: trim failed, clip not uploaded")
 
-        try:
-            dst.unlink(missing_ok=True)
-        except OSError:
-            pass
-
+    # Per-camera threads finish as soon as trimming is done and the clip is
+    # queued (local disk + CPU, fast) — they no longer wait on the network.
     threads = [
         threading.Thread(target=process, args=(cam,), daemon=True)
         for cam in cameras
@@ -630,8 +693,12 @@ def handle_signal(
     for t in threads:
         t.join()
 
-    # All clips captured and uploaded — rebuild the OBS session so the next
-    # capture starts from a fresh encoder, same as a middleware restart.
+    # All clips captured and queued for upload — rebuild the OBS session so the
+    # next capture starts from a fresh encoder, same as a middleware restart.
+    # This is gated on trim completion, NOT upload completion: uploads continue
+    # in the background worker and do not block this reset. The reset only
+    # touches the OBS websocket, which is unrelated to the in-flight HTTP
+    # uploads, so recycling here cannot disturb them.
     session.reset(cameras)
 
     log.info(f"Signal {exchange_id} complete.")
@@ -714,6 +781,13 @@ def main() -> None:
     cameras   = resolve_cameras(ws_client)
     start_replay_buffers(ws_client, cameras)
     session   = ObsSession(ws_client)
+
+    # Start the single background upload worker before listening for signals.
+    # It drains the upload queue for the life of the process, uploading staged
+    # clips one at a time so bursts of exchanges never block the signal loop.
+    threading.Thread(target=_upload_worker, daemon=True).start()
+    log.info("Upload worker started.")
+
     run_sse(session, cameras)
 
 
