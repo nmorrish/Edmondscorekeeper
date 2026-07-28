@@ -152,6 +152,7 @@ CREATE TABLE `Matches` (
   `MatchQueueNumber` int(11) DEFAULT NULL,
   `lastMatchJudgement` timestamp(3) NULL DEFAULT current_timestamp(),
   `ExchangeDurationMs` INT UNSIGNED NULL,
+  `LastUpdateType` ENUM('judgement','refresh') NOT NULL DEFAULT 'judgement'
   PRIMARY KEY (`MatchId`),
   CONSTRAINT `FK_Match_Event` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

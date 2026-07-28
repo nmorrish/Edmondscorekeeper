@@ -217,8 +217,8 @@ try {
             }
 
             $stmt = $db->prepare("
-                INSERT INTO Matches (EventId, MatchRingNo, PendingActiveDone, MatchQueueNumber, lastMatchJudgement)
-                VALUES (:eventId, :ring, :status, :queueNo, CURRENT_TIMESTAMP)
+                INSERT INTO Matches (EventId, MatchRingNo, PendingActiveDone, MatchQueueNumber, lastMatchJudgement, LastUpdateType)
+                VALUES (:eventId, :ring, :status, :queueNo, CURRENT_TIMESTAMP, 'refresh')
             ");
             $stmt->execute([
                 ':eventId' => $eventId,
@@ -329,6 +329,7 @@ try {
                     $db->prepare("
                         UPDATE Matches
                         SET lastMatchJudgement = CURRENT_TIMESTAMP,
+                            LastUpdateType      = 'judgement',
                             ExchangeDurationMs  = ?
                         WHERE MatchId = ?
                     ")->execute([$exchangeDurationMs, $id]);
@@ -364,7 +365,8 @@ try {
                 if (!$id) throw new Exception("matchId required");
                 $db->prepare("
                     UPDATE Matches 
-                    SET lastMatchJudgement = CURRENT_TIMESTAMP 
+                    SET lastMatchJudgement = CURRENT_TIMESTAMP,
+                        LastUpdateType     = 'refresh'
                     WHERE MatchId = ?
                 ")->execute([$id]);
 

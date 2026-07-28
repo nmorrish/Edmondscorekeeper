@@ -119,6 +119,7 @@ while (true) {
                         f2.FighterName AS fighter2Name,
                         mf2.FighterColor AS fighter2Color,
                         m.lastMatchJudgement,
+                        m.LastUpdateType,
                         CAST(UNIX_TIMESTAMP(m.lastMatchJudgement) * 1000 AS UNSIGNED) AS lastJudgementEpochMs,
                         (
                             SELECT e.ExchangeId
@@ -165,6 +166,7 @@ while (true) {
                         'fighter2Name'    => $row['fighter2Name'],
                         'fighter2Color'   => $row['fighter2Color'],
                         'lastJudgement'   => $currentJudgement,
+                        'updateType'      => $row['LastUpdateType'],
                         'judgesSubmitted' => $judges,
                         'sentAt'          => (int) $row['lastJudgementEpochMs'],  // referee press time, epoch ms
                         'serverNow'       => (int) round(microtime(true) * 1000), // dispatch time, epoch ms
