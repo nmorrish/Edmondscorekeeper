@@ -141,86 +141,57 @@ const MatchManagement: React.FC = () => {
     (e: any) => Number(e.EventId) === selectedEventId
   );
 
-  //eventId must exist
-  if (!selectedEvent) {
-    return (
-      <div style={{ marginTop: "2rem" }}>
-        <h2>Please select an event for {tournamentName}</h2>
-        <div
-          className="event-toolbar"
-          style={{
-            marginTop: "1rem",
-            display: "flex",
-            justifyContent: "center",
-            gap: "0.5rem",
-          }}
-        >
-          {events.map((event: any) => (
-            <button
-              key={`event-${event.EventId}`}
-              onClick={() => setSelectedEventId(Number(event.EventId))}
-              style={{
-                background:
-                  selectedEventId === Number(event.EventId) ? "#555" : "#333",
-                color: "#fff",
-                padding: "0.5rem 1rem",
-                border: "1px solid #444",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              {event.EventName}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className="App"
       style={{ width: "100%", display: "flex", flexDirection: "column" }}
     >
       {/* Toolbar with events */}
-      <div
-        className="event-toolbar"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          background: "#222",
-          padding: "0.5rem",
-          display: "flex",
-          justifyContent: "center",
-          gap: "0.5rem",
-          zIndex: 1000,
-        }}
-      >
-        {events.map((event: any) => (
-          <button
-            key={`event-${event.EventId}`}
-            onClick={() => setSelectedEventId(Number(event.EventId))}
-            style={{
-              background:
-                selectedEventId === Number(event.EventId) ? "#555" : "#333",
-              color: "#fff",
-              padding: "0.5rem 1rem",
-              border: "1px solid #444",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            {event.EventName}
-          </button>
-        ))}
+      <div className="select-button-container">
+        <div className="selection-nav-bar">
+          <div className="event-selection-buttons">
+            {events.map((event: any) => (
+              <button
+                key={`event-${event.EventId}`}
+                onClick={() => setSelectedEventId(Number(event.EventId))}
+                className={
+                  selectedEventId === Number(event.EventId) ? "active-event" : ""
+                }
+              >
+                {event.EventName}
+              </button>
+            ))}
+          </div>
+          <div className="selection-nav-menu-slot">
+            <FloatingNav
+              tournamentId={numericTournamentId}
+              variant="embedded"
+              backUrl="/manager/tournament"
+              links={[
+                {
+                  text: "Scorekeeping",
+                  to: `/manager/tournament/${numericTournamentId}`,
+                },
+                {
+                  text: "Edit Fighters",
+                  to: `/manager/fighters/${numericTournamentId}`,
+                },
+              ]}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Inner wrapper */}
+      {!selectedEvent ? (
+        <div style={{ paddingTop: "6rem", textAlign: "center" }}>
+          <h2>{tournamentName}</h2>
+          <p>Select an event from the menu above.</p>
+        </div>
+      ) : (
       <div
         style={{
-          paddingTop: "3rem",
+          paddingTop: "6rem",
           width: "100%",
           maxWidth: "1200px",
           margin: "0 auto",
@@ -323,21 +294,7 @@ const MatchManagement: React.FC = () => {
           )}
         </div>
       </div>
-
-      <FloatingNav
-        tournamentId={numericTournamentId}
-        backUrl="/manager/tournament"
-        links={[
-          {
-            text: "Scorekeeping",
-            to: `/manager/tournament/${numericTournamentId}`,
-          },
-          {
-            text: "Edit Fighters",
-            to: `/manager/fighters/${numericTournamentId}`,
-          },
-        ]}
-      />
+      )}
     </div>
   );
 };

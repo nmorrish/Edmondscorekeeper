@@ -68,8 +68,43 @@ const Tournament: React.FC = () => {
 
   return (
     <div>
+      {/* Top nav bar */}
+      <div className="select-button-container">
+        <div className="selection-nav-bar">
+          <div className="event-selection-buttons">
+            {events.map((event) => (
+              <button
+                key={`nav-${event.EventId}`}
+                onClick={() =>
+                  setSelectedEvent(
+                    selectedEvent?.EventId === event.EventId ? null : event
+                  )
+                }
+                className={
+                  selectedEvent?.EventId === event.EventId ? "active-event" : ""
+                }
+              >
+                {event.EventName}
+              </button>
+            ))}
+          </div>
+          <div className="selection-nav-menu-slot">
+            <FloatingNav
+              tournamentId={Number(tournamentId)}
+              variant="embedded"
+              backUrl="/"
+              links={[
+                { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
+                { text: "Standings", to: `/viewer/standings/${tournamentId}` },
+                { text: "Scores", to: `/viewer/scores/${tournamentId}` },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+      
       {/* Tournament Info */}
-      <h1>{tournament.TournamentName}</h1>
+      <h1 style={{marginTop:'60px'}}>{tournament.TournamentName}</h1>
       <p>
         {new Date(tournament.TournamentStartDate).toLocaleDateString("en-US", {
           weekday: "long",
@@ -142,16 +177,6 @@ const Tournament: React.FC = () => {
           </div>
         )}
       </div>
-
-      <FloatingNav
-        tournamentId={Number(tournamentId)}
-        backUrl="/"
-        links={[
-          { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
-          { text: "Standings", to: `/viewer/standings/${tournamentId}` },
-          { text: "Scores", to: `/viewer/scores/${tournamentId}` },
-        ]}
-      />
     </div>
   );
 };

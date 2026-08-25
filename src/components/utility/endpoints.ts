@@ -10,16 +10,22 @@ interface Config {
   backup_server_uri: string;
 }
 
-//variables to deter
 const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
+const isDev = import.meta.env.DEV;
+
 // Default local fallback (assumes localhost dev)
-const config: Config = {
-  // backend_uri: "https://scorecard.swordsmanship.ca/ec-receiver",
-  // backup_server_uri: "http://localhost/Edmondscorekeeper/phpFiles",
-  backend_uri: "http://localhost/Edmondscorekeeper/phpFiles",
-  backup_server_uri: "http://0.0.0.0/phpFiles",
-};
+const config: Config = isDev
+  ? {
+      // backend_uri: "https://scorecard.swordsmanship.ca/ec-receiver",
+      // backup_server_uri: "http://localhost/Edmondscorekeeper/phpFiles",
+      backend_uri: "http://localhost/Edmondscorekeeper/phpFiles",
+      backup_server_uri: "http://0.0.0.0/phpFiles",
+    }
+  : {
+      backend_uri: "http://192.168.1.2/phpFiles",
+      backup_server_uri: "https://scorecard.swordsmanship.ca/ec-receiver",
+    };
 
 /**
  * Example endpoints.json (place in same folder as npm build JS)
@@ -32,7 +38,7 @@ const config: Config = {
 
 const scriptBase = window.location.pathname.replace(/\/[^/]*$/, "");
 
-export const configPromise: Promise<Config> = isLocalhost
+export const configPromise: Promise<Config> = isDev || isLocalhost
   ? Promise.resolve(config)
   : fetch(`${scriptBase}/endpoints.json`)
       .then((res) => (res.ok ? res.json() : Promise.reject("endpoints.json not found")))

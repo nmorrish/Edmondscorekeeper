@@ -75,9 +75,9 @@ BACKUP_UPLOAD_URL = "https://scorecard.swordsmanship.ca/ec-receiver/uploadOBSCli
 UPLOAD_TIMEOUT_S        = 120
 BACKUP_UPLOAD_TIMEOUT_S = 600
 
-OBS_HOST     = "your.ip.address"
+OBS_HOST     = "192.168.1.4"
 OBS_PORT     = 4455
-OBS_PASSWORD = "yourPasswd"
+OBS_PASSWORD = "pwd1"
 
 # ffmpeg binary bundled inside the Python environment (no system install).
 FFMPEG_PATH  = imageio_ffmpeg.get_ffmpeg_exe()

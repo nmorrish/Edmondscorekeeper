@@ -96,9 +96,28 @@ const FighterManagement: React.FC = () => {
   return (
     <div className="fighter-management">
 
+      {numericTournamentId !== undefined && (
+        <div className="select-button-container">
+          <div className="selection-nav-bar" style={{ background: "#272727", padding: "10px", minHeight: "44px" }}>
+            <h2 style={{ margin: 0 }}>{tournamentName}</h2>
+            <div className="selection-nav-menu-slot">
+              <FloatingNav
+                tournamentId={numericTournamentId}
+                variant="embedded"
+                backUrl="/manager/tournament"
+                links={[
+                  { text: "Scorekeeping", to: `/manager/tournament/${numericTournamentId}` },
+                  { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Event-specific fighter management (collapsible, starts collapsed) */}
       {events.length > 0 && (
-        <div className="event-fighter-sections" style={{ marginTop: "1.5rem" }}>
+        <div className="event-fighter-sections" style={{ marginTop: "3.0rem" }}>
           {events.map((ev) => (
             <div key={ev.EventId} className="event-fighter-section">
               <div className="event-fighter-header">
@@ -214,17 +233,6 @@ const FighterManagement: React.FC = () => {
         <TournamentFighterForm
           tournamentId={Number(tournamentId)}
           tournamentName={tournamentName}
-        />
-      )}
-
-      {numericTournamentId !== undefined && (
-        <FloatingNav
-          tournamentId={numericTournamentId}
-          backUrl="/manager/tournament"
-          links={[
-            { text: "Scorekeeping", to: `/manager/tournament/${numericTournamentId}` },
-            { text: "Edit Matches", to: `/manager/matching/${numericTournamentId}` },
-          ]}
         />
       )}
     </div>

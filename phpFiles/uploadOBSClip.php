@@ -132,7 +132,7 @@ $tournamentId = (int)$pathRow['TournamentId'];
 const CLIPS_DIRNAME = 'judgementClips';
 // $baseStorageDir = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . CLIPS_DIRNAME;
 //hard code path for now as Debian does not handle dynamic pathing gracefully
-$baseStorageDir = '/var/www/html/judgementClips';
+$baseStorageDir = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . CLIPS_DIRNAME;;
 
 $relativeDir = implode(DIRECTORY_SEPARATOR, [
     "tournament_{$tournamentId}",
