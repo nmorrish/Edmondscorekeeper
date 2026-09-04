@@ -109,18 +109,31 @@ const Schedules: React.FC = () => {
 
   return (
     <div className="App">
-      {/* Event selection bar */}
       <div className="select-button-container">
-        <div className="event-selection-buttons" style={{ marginTop: "0rem" }}>
-          {tournamentEvents.map((event) => (
-            <button
-              key={event.EventId}
-              onClick={() => setSelectedEvent(event.EventId)}
-              className={selectedEvent === event.EventId ? "active-event" : ""}
-            >
-              {event.EventName}
-            </button>
-          ))}
+        <div className="selection-nav-bar">
+          <div className="event-selection-buttons" style={{ marginTop: "0rem" }}>
+            {tournamentEvents.map((event) => (
+              <button
+                key={event.EventId}
+                onClick={() => setSelectedEvent(event.EventId)}
+                className={selectedEvent === event.EventId ? "active-event" : ""}
+              >
+                {event.EventName}
+              </button>
+            ))}
+          </div>
+          <div className="selection-nav-menu-slot">
+            <FloatingNav
+              tournamentId={numericTournamentId}
+              variant="embedded"
+              backUrl="/"
+              links={[
+                { text: "Standings", to: `/viewer/standings/${numericTournamentId}` },
+                { text: "Scores", to: `/viewer/scores/${tournamentId}` },
+                { text: "Tournament Info", to: `/viewer/tournament/${numericTournamentId}` },
+              ]}
+            />
+          </div>
         </div>
       </div>
 
@@ -172,16 +185,6 @@ const Schedules: React.FC = () => {
           </>
         )}
       </div>
-
-      <FloatingNav
-        tournamentId={numericTournamentId}
-        backUrl="/"
-        links={[
-          { text: "Standings", to: `/viewer/standings/${numericTournamentId}` },
-          { text: "Scores", to: `/viewer/scores/${tournamentId}` },
-          { text: "Tournament Info", to: `/viewer/tournament/${numericTournamentId}` },
-        ]}
-      />
     </div>
   );
 };

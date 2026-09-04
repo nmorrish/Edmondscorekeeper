@@ -56,17 +56,31 @@ const Scores: React.FC = () => {
   return (
     <div className="App">
       <div className="select-button-container">
-        {/* Event selection bar */}
-        <div className="event-selection-buttons">
-          {tournamentEvents.map((event) => (
-            <button
-              key={event.EventId}
-              onClick={() => setSelectedEvent(event.EventId)}
-              className={selectedEvent === event.EventId ? "active-event" : ""}
-            >
-              {event.EventName}
-            </button>
-          ))}
+        <div className="selection-nav-bar">
+          {/* Event selection bar */}
+          <div className="event-selection-buttons">
+            {tournamentEvents.map((event) => (
+              <button
+                key={event.EventId}
+                onClick={() => setSelectedEvent(event.EventId)}
+                className={selectedEvent === event.EventId ? "active-event" : ""}
+              >
+                {event.EventName}
+              </button>
+            ))}
+          </div>
+          <div className="selection-nav-menu-slot">
+            <FloatingNav
+              tournamentId={numericTournamentId}
+              variant="embedded"
+              backUrl="/"
+              links={[
+                { text: "Standings", to: `/viewer/standings/${tournamentId}` },
+                { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
+                { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
+              ]}
+            />
+          </div>
         </div>
 
         {/* Ring selection */}

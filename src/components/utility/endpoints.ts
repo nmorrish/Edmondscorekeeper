@@ -14,7 +14,7 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
 
 const isDev = import.meta.env.DEV;
 
-// Default local fallback (assumes localhost dev)
+// Use localhost for dev testing
 const config: Config = isDev
   ? {
       // backend_uri: "https://scorecard.swordsmanship.ca/ec-receiver",

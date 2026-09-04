@@ -263,19 +263,34 @@ const EventStandings: React.FC = () => {
   return (
     <div className="App hide-caret">
       <div className="select-button-container">
-        <div className="event-selection-buttons" style={{ marginTop: "0" }}>
-          {events.map((ev) => (
-            <button
-              key={ev.EventId}
-              onClick={() => setSelectedEventId(ev.EventId)}
-              className={selectedEventId === ev.EventId ? "active-event" : ""}
-            >
-              {ev.EventName}
-            </button>
-          ))}
+        <div className="selection-nav-bar">
+          <div className="event-selection-buttons" style={{ marginTop: "0" }}>
+            {events.map((ev) => (
+              <button
+                key={ev.EventId}
+                onClick={() => setSelectedEventId(ev.EventId)}
+                className={selectedEventId === ev.EventId ? "active-event" : ""}
+              >
+                {ev.EventName}
+              </button>
+            ))}
+          </div>
+          {tournamentId && (
+            <div className="selection-nav-menu-slot">
+              <FloatingNav
+                tournamentId={parseInt(tournamentId, 10)}
+                variant="embedded"
+                backUrl="/"
+                links={[
+                  { text: "Scores", to: `/viewer/scores/${tournamentId}` },
+                  { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
+                  { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
+                ]}
+              />
+            </div>
+          )}
         </div>
       </div>
-
 
       <div style={{ margin: "0 auto", padding: "1.5rem", maxWidth: "1100px" }}>
         <h1 style={{ marginBottom: "1rem", textAlign: "center", marginTop:"10rem" }}>
@@ -364,18 +379,6 @@ const EventStandings: React.FC = () => {
           </>
         )}
       </div>
-
-      {tournamentId && (
-        <FloatingNav
-          tournamentId={parseInt(tournamentId, 10)}
-          backUrl="/"
-          links={[
-            { text: "Scores", to: `/viewer/scores/${tournamentId}` },
-            { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
-            { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
-          ]}
-        />
-      )}
     </div>
   );
 };
