@@ -1,5 +1,5 @@
 /**
- * src/components/utility/constants.ts
+ * src/components/utility/endpoints.ts
  *
  * Dynamically loads endpoints.json from the same folder as the built JS assets.
  * Falls back to local URIs automatically if endpoints.json is not found.
@@ -73,5 +73,6 @@ export const round_robin_pool_api = "poolsRoundRobinApi.php"
 export const single_elimination_api = "eliminationBrackets.php"
 export const tournament_view_api = "tournamentView.php"
 export const bracket_api = "bracketSeeding.php";
+export const card_api = "fighterCardsAPI.php"
 
 export const API_KEY = "FberbFBD5432hSFGNacmoywemvoeIVAEnvwelnb23423";

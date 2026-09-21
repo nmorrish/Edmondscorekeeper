@@ -3,17 +3,15 @@
  * phpFiles/tournamentFightersApi.php
  *
  * === Tournament Fighters CRUD ===
- * Handles the relationship between Fighters and Tournaments, including strikes.
+ * Handles the relationship between Fighters and Tournaments.
+ * Each fighter's cards are returned on GET; cards are issued via fighterCardsApi.php.
  *
  * Supported routes:
  *  - GET    /tournamentFightersApi.php?tournamentId=1
- *        → { status:"success", fighters:[...] }
+ *        → { status:"success", fighters:[ { ...fighter, cards:[...] } ] }
  *
  *  - POST   /tournamentFightersApi.php
  *        body: { "tournamentId":1, "fighterId":5 }
- *
- *  - PUT    /tournamentFightersApi.php
- *        body: { "tournamentId":1, "fighterId":5, "action":"incrementStrike" }
  *
  *  - DELETE /tournamentFightersApi.php?tournamentId=1&fighterId=5
  */
@@ -58,7 +56,7 @@ try {
                     f.ClubId,
                     c.ClubName,
                     c.ClubAcronym,
-                    tf.Strikes
+                    tf.TournamentFighterId
                 FROM TournamentFighters tf
                 JOIN Fighters f ON tf.FighterId = f.FighterId
                 LEFT JOIN Clubs c ON f.ClubId = c.ClubId
@@ -67,6 +65,44 @@ try {
             ");
             $stmt->execute([':tid' => $tournamentId]);
             $fighters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Attach cards per fighter (cards replace the old strike system).
+            // Single query for all cards in the tournament, grouped in PHP by TournamentFighterId.
+            if ($fighters) {
+                $cardStmt = $db->prepare("
+                    SELECT
+                        fc.TournamentFighterId,
+                        fc.FighterCardId,
+                        fc.CardableOffenseId,
+                        co.OffenseName,
+                        fc.Severity,
+                        fc.Reason,
+                        fc.IssuedAt
+                    FROM FighterCards fc
+                    JOIN TournamentFighters tf ON fc.TournamentFighterId = tf.TournamentFighterId
+                    JOIN CardableOffenses co ON fc.CardableOffenseId = co.CardableOffenseId
+                    WHERE tf.TournamentId = :tid
+                    ORDER BY fc.IssuedAt ASC, fc.FighterCardId ASC
+                ");
+                $cardStmt->execute([':tid' => $tournamentId]);
+
+                $cardsByTf = [];
+                foreach ($cardStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                    $cardsByTf[(int)$r['TournamentFighterId']][] = [
+                        'fighterCardId'     => (int)$r['FighterCardId'],
+                        'cardableOffenseId' => (int)$r['CardableOffenseId'],
+                        'offenseName'       => $r['OffenseName'],
+                        'severity'          => $r['Severity'],
+                        'reason'            => $r['Reason'],
+                        'issuedAt'          => $r['IssuedAt'],
+                    ];
+                }
+
+                foreach ($fighters as &$f) {
+                    $f['cards'] = $cardsByTf[(int)$f['TournamentFighterId']] ?? [];
+                }
+                unset($f);
+            }
 
             echo json_encode(['status' => 'success', 'fighters' => $fighters]);
             break;
@@ -79,8 +115,8 @@ try {
             }
 
             $stmt = $db->prepare("
-                INSERT INTO TournamentFighters (TournamentId, FighterId, Strikes)
-                VALUES (:tid, :fid, 0)
+                INSERT INTO TournamentFighters (TournamentId, FighterId)
+                VALUES (:tid, :fid)
                 ON DUPLICATE KEY UPDATE TournamentId = TournamentId
             ");
             $stmt->execute([':tid' => $tournamentId, ':fid' => $fighterId]);
@@ -89,41 +125,8 @@ try {
             break;
 
         case 'PUT':
-            $tournamentId = $input['tournamentId'] ?? null;
-            $fighterId    = $input['fighterId'] ?? null;
-            $action       = $input['action'] ?? null;
-
-            if (!$tournamentId || !$fighterId || !$action) {
-                throw new Exception("tournamentId, fighterId, and action are required");
-            }
-
-            if ($action === 'incrementStrike') {
-                $stmt = $db->prepare("
-                    UPDATE TournamentFighters
-                    SET Strikes = COALESCE(Strikes, 0) + 1
-                    WHERE TournamentId = :tid AND FighterId = :fid
-                ");
-                $stmt->execute([':tid' => $tournamentId, ':fid' => $fighterId]);
-
-                // fetch updated strikes + fighterName
-                $stmt = $db->prepare("
-                    SELECT f.FighterName, tf.Strikes
-                    FROM TournamentFighters tf
-                    JOIN Fighters f ON tf.FighterId = f.FighterId
-                    WHERE tf.TournamentId = :tid AND tf.FighterId = :fid
-                ");
-                $stmt->execute([':tid' => $tournamentId, ':fid' => $fighterId]);
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                echo json_encode([
-                    'status' => 'success',
-                    'fighterName' => $row['FighterName'],
-                    'strikes' => (int)$row['Strikes']
-                ]);
-            } else {
-                throw new Exception("Unsupported action: $action");
-            }
-            break;
+            // Strike incrementing has been removed. This is for debugging the front end if something still calls this action
+            throw new Exception("Unsupported action. Issue cards through the new API.");
 
         case 'DELETE': // Remove fighter from tournament
             if (!isset($_GET['tournamentId'], $_GET['fighterId'])) {

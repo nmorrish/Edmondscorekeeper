@@ -19,6 +19,7 @@ import { useToast } from "../../utility/ToastProvider";
 import debounce from "lodash/debounce";
 import { Fighter } from "../subComponents/useFighters";
 import { apiQuery } from "../../utility/apiClient";
+import { FighterCard } from "./FighterCards";
 import ExchangeReviewModal from "./ExchangeReviewModal";
 
 // --- Types ---
@@ -49,7 +50,7 @@ export interface FighterWithExchanges {
   fighterId: number;
   fighterName: string;
   fighterColor: string;
-  strikes: number;
+  cards: FighterCard[];
   finalScore: number;
   winLossDraw?: string | null;
   exchanges: Exchange[];
@@ -71,7 +72,6 @@ interface MatchTablesProps {
   tournamentId: number;
   fighters: Fighter[];
   maxRings: number;
-  onStrikeUpdate: (fighterId: number, newStrikes: number) => void;
   readOnly: boolean;
 }
 
@@ -81,7 +81,6 @@ const MatchTables: React.FC<MatchTablesProps> = ({
   tournamentId,
   fighters,
   maxRings,
-  onStrikeUpdate,
   readOnly,
 }) => {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -116,7 +115,7 @@ const MatchTables: React.FC<MatchTablesProps> = ({
               fighterId: f.fighterId,
               fighterName: f.fighterName,
               fighterColor: f.fighterColor,
-              strikes: f.strikes ?? 0,
+              cards: f.cards ?? [],
               finalScore: f.finalScore != null ? Number(f.finalScore) : 0,
               winLossDraw: f.winLossDraw ?? null,
               exchanges: (f.exchanges || []).map((ex: any) => ({
@@ -198,19 +197,6 @@ const MatchTables: React.FC<MatchTablesProps> = ({
     }
   };
 
-  // --- Strike Update ---
-  const handleStrikeUpdate = (fighterId: number, newStrikes: number) => {
-    setMatches((prev) =>
-      prev.map((m) => ({
-        ...m,
-        fighters: m.fighters.map((f) =>
-          f.fighterId === fighterId ? { ...f, strikes: newStrikes } : f
-        ),
-      }))
-    );
-    onStrikeUpdate(fighterId, newStrikes);
-  };
-
   const handleGrandTotalChange = (matchId: number, fighterId: number, grandTotal: string) => {
     setFighterTotals((prev) => ({
       ...prev,
@@ -284,7 +270,6 @@ const MatchTables: React.FC<MatchTablesProps> = ({
             key={`score-${match.matchId}-${f1.fighterId}`}
             fighter={f1}
             tournamentId={tournamentId}
-            onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
             onGrandTotalChange={(fighterId, grandTotal) =>
               handleGrandTotalChange(match.matchId, fighterId, grandTotal)
             }
@@ -297,7 +282,6 @@ const MatchTables: React.FC<MatchTablesProps> = ({
             key={`score-${match.matchId}-${f2.fighterId}`}
             fighter={f2}
             tournamentId={tournamentId}
-            onStrikeUpdate={readOnly ? () => {} : handleStrikeUpdate}
             onGrandTotalChange={(fighterId, grandTotal) =>
               handleGrandTotalChange(match.matchId, fighterId, grandTotal)
             }

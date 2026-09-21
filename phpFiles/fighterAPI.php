@@ -57,7 +57,7 @@ try {
                     f.FighterName AS fighterName,
                     f.FighterPortrait AS fighterPortrait,
                     tf.TournamentId AS tournamentId,
-                    COALESCE(tf.Strikes, 0) AS strikes,
+                    tf.TournamentFighterId AS tournamentFighterId,
                     c.ClubName    AS clubName,
                     c.ClubAcronym AS clubAcronym
                 FROM Fighters f
@@ -69,7 +69,47 @@ try {
                 ORDER BY f.FighterName ASC
             ");
                 $stmt->execute([':tid' => $tournamentId]);
-                echo json_encode(['status' => 'success', 'fighters' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+                $fighters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Attach cards per fighter (cards replace the old strike system).
+                // Single query for all cards in the tournament, grouped in PHP by TournamentFighterId.
+                if ($fighters) {
+                    $cardStmt = $db->prepare("
+                        SELECT
+                            fc.TournamentFighterId,
+                            fc.FighterCardId,
+                            fc.CardableOffenseId,
+                            co.OffenseName,
+                            fc.Severity,
+                            fc.Reason,
+                            fc.IssuedAt
+                        FROM FighterCards fc
+                        JOIN TournamentFighters tf ON fc.TournamentFighterId = tf.TournamentFighterId
+                        JOIN CardableOffenses co ON fc.CardableOffenseId = co.CardableOffenseId
+                        WHERE tf.TournamentId = :tid
+                        ORDER BY fc.IssuedAt ASC, fc.FighterCardId ASC
+                    ");
+                    $cardStmt->execute([':tid' => $tournamentId]);
+
+                    $cardsByTf = [];
+                    foreach ($cardStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                        $cardsByTf[(int)$r['TournamentFighterId']][] = [
+                            'fighterCardId'     => (int)$r['FighterCardId'],
+                            'cardableOffenseId' => (int)$r['CardableOffenseId'],
+                            'offenseName'       => $r['OffenseName'],
+                            'severity'          => $r['Severity'],
+                            'reason'            => $r['Reason'],
+                            'issuedAt'          => $r['IssuedAt'],
+                        ];
+                    }
+
+                    foreach ($fighters as &$f) {
+                        $f['cards'] = $cardsByTf[(int)$f['tournamentFighterId']] ?? [];
+                    }
+                    unset($f);
+                }
+
+                echo json_encode(['status' => 'success', 'fighters' => $fighters]);
             } else {
                 // All fighters
                 $stmt = $db->query("

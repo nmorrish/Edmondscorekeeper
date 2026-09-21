@@ -23,7 +23,7 @@
  *           fighterColor,
  *           finalScore,
  *           winLossDraw,
- *           strikes,       <-- pulled from TournamentFighters, separate from score
+ *           cards,         <-- array from FighterCards, separate from score
  *           exchanges: [
  *             {
  *               exchangeId,
@@ -77,7 +77,7 @@ function buildMatch($db, $matchId) {
             mf.FighterColor,
             mf.FinalScore,
             mf.WinLossDraw,
-            tf.Strikes
+            tf.TournamentFighterId
         FROM MatchFighters mf
         JOIN Fighters f ON mf.FighterId = f.FighterId
         LEFT JOIN TournamentFighters tf 
@@ -137,6 +137,33 @@ function buildMatch($db, $matchId) {
             ], $scores);
         }
 
+        // cards for this fighter
+        $cards = [];
+        if ($f['TournamentFighterId'] !== null) {
+            $stmtCards = $db->prepare("
+                SELECT
+                    fc.FighterCardId,
+                    fc.CardableOffenseId,
+                    co.OffenseName,
+                    fc.Severity,
+                    fc.Reason,
+                    fc.IssuedAt
+                FROM FighterCards fc
+                JOIN CardableOffenses co ON fc.CardableOffenseId = co.CardableOffenseId
+                WHERE fc.TournamentFighterId = ?
+                ORDER BY fc.IssuedAt ASC, fc.FighterCardId ASC
+            ");
+            $stmtCards->execute([$f['TournamentFighterId']]);
+            $cards = array_map(fn($r) => [
+                'fighterCardId'     => (int)$r['FighterCardId'],
+                'cardableOffenseId' => (int)$r['CardableOffenseId'],
+                'offenseName'       => $r['OffenseName'],
+                'severity'          => $r['Severity'],
+                'reason'            => $r['Reason'],
+                'issuedAt'          => $r['IssuedAt'],
+            ], $stmtCards->fetchAll(PDO::FETCH_ASSOC));
+        }
+
         // normalize fighter output
         $f = [
             'fighterId'   => (int)$f['FighterId'],
@@ -144,7 +171,7 @@ function buildMatch($db, $matchId) {
             'fighterColor'=> $f['FighterColor'],
             'finalScore'  => $f['FinalScore'] !== null ? (float)$f['FinalScore'] : 0,
             'winLossDraw' => $f['WinLossDraw'],
-            'strikes'     => $f['Strikes'] !== null ? (int)$f['Strikes'] : 0,
+            'cards'       => $cards,
             'exchanges'   => $exchanges
         ];
     }

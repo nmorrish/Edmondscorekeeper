@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect } from "react";
 import TotalsCalculator, { Fighter, Exchange } from "../../utility/TotalsCalculator";
-import IncrementFighterStrikeButton from "../fighterSubComponents/incrementFighterStrikes";
+import FighterCards, { FighterCard } from "./FighterCards";
 import JudgeScores from "./JudgeScores";
 
 type LooseExchange = {
@@ -23,9 +23,8 @@ type LooseExchange = {
 };
 
 interface ScoreDisplayComponentProps {
-  fighter: Fighter & { strikes: number };
+  fighter: Fighter & { cards: FighterCard[] };
   tournamentId: number;
-  onStrikeUpdate: (fighterId: number, newStrikes: number) => void;
   onGrandTotalChange?: (fighterId: number, grandTotal: string) => void;
   isWinner?: boolean;
   showJudgeDrilldown?: boolean;
@@ -37,7 +36,6 @@ interface ScoreDisplayComponentProps {
 const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
   fighter,
   tournamentId,
-  onStrikeUpdate,
   onGrandTotalChange,
   isWinner = false,
   showJudgeDrilldown = false,
@@ -75,14 +73,13 @@ const ScoreDisplayComponent: React.FC<ScoreDisplayComponentProps> = ({
           <tr>
             <th colSpan={7} className={`${fighter.fighterColor} ${isWinner ? "winner" : ""}`}>
               {fighter.fighterName} ({fighter.fighterColor})
-              {!readOnly && (
-                <IncrementFighterStrikeButton
+              <FighterCards
                   fighterId={fighter.fighterId}
+                  fighterName={fighter.fighterName}
                   tournamentId={tournamentId}
-                  initialStrikes={fighter.strikes ?? 0}
-                  onStrikeUpdate={onStrikeUpdate}
+                  cards={fighter.cards ?? []}
+                  readOnly={readOnly}
                 />
-              )}
             </th>
           </tr>
           {!showJudgeDrilldown && (

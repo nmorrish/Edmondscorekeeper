@@ -38,14 +38,6 @@ const ScoreManagement: React.FC = () => {
     }
   }, [numericTournamentId, fetchFighterData]);
 
-  const handleStrikeUpdate = (fighterId: number, newStrikes: number) => {
-    setFighters((prev) =>
-      prev.map((f) =>
-        f.FighterId === fighterId ? { ...f, Strikes: newStrikes } : f
-      )
-    );
-  };
-
   if (!numericTournamentId) return <div>Missing tournament ID</div>;
   if (loading) return <div>Loading events...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -100,7 +92,7 @@ const ScoreManagement: React.FC = () => {
                   onClick={() => setShowFighterList((prev) => !prev)}
                   style={{ marginTop: "10rem", marginBottom: "1rem", padding: "0.3rem 0.8rem"}}
                 >
-                  {showFighterList ? "Hide Fighter Strike list" : "Show Fighters Strike List"}
+                  {showFighterList ? "Hide Fighter Card List" : "Show Fighter Card List"}
                 </button>
               </div>
             )}
@@ -110,7 +102,6 @@ const ScoreManagement: React.FC = () => {
               tournamentId={numericTournamentId}
               fighters={fighters}
               maxRings={maxRings}
-              onStrikeUpdate={handleStrikeUpdate}
               readOnly={false}
             />
           </>

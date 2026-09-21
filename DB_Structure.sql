@@ -82,15 +82,48 @@ CREATE TABLE `Fighters` (
 
 --
 -- Table structure for table `TournamentFighters`
--- Primarily for holding fighter strikes. Strikes are accumulated tournament-wide, but do not carry over across tournaments.
+-- Primarily for linking to cards. Cards are accumulated tournament-wide, but do not carry over across tournaments.
 
 CREATE TABLE `TournamentFighters` (
+  `TournamentFighterId` int(11) NOT NULL AUTO_INCREMENT,
   `FighterId` int(11) NOT NULL,
   `TournamentId` int(11) NOT NULL,
-  `Strikes` int(11) DEFAULT NULL,
-  PRIMARY KEY (`FighterId`,`TournamentId`),
+  PRIMARY KEY (`TournamentFighterId`),
+  UNIQUE KEY `uq_tf_fighter_tournament` (`FighterId`, `TournamentId`),
   CONSTRAINT `FK_TournamentFighters_Tournament` FOREIGN KEY (`TournamentId`) REFERENCES `Tournaments` (`TournamentId`),
   CONSTRAINT `FK_TournamentFighters_Fighter` FOREIGN KEY (`FighterId`) REFERENCES `Fighters` (`FighterId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `CardableOffenses`
+-- Catalog of offenses that can be carded, with default severity
+
+CREATE TABLE `CardableOffenses` (
+  `CardableOffenseId` int(11) NOT NULL AUTO_INCREMENT,
+  `OffenseName` varchar(100) NOT NULL,
+  `OffenseDescription` TEXT NULL,
+  PRIMARY KEY (`CardableOffenseId`),
+  UNIQUE KEY `uq_offense_name` (`OffenseName`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `FighterCards`
+-- Cards issued to a fighter within a tournament
+
+CREATE TABLE `FighterCards` (
+  `FighterCardId` int(11) NOT NULL AUTO_INCREMENT,
+  `TournamentFighterId` int(11) NOT NULL,
+  `CardableOffenseId` int(11) NOT NULL,
+  `Severity` ENUM('Yellow','Red','Black') NOT NULL,
+  `Reason` TEXT NULL,
+  `IssuedAt` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`FighterCardId`),
+  CONSTRAINT `FK_FighterCards_TournamentFighter` FOREIGN KEY (`TournamentFighterId`)
+    REFERENCES `TournamentFighters` (`TournamentFighterId`) ON DELETE CASCADE,
+  CONSTRAINT `FK_FighterCards_Offense` FOREIGN KEY (`CardableOffenseId`)
+    REFERENCES `CardableOffenses` (`CardableOffenseId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
@@ -152,7 +185,7 @@ CREATE TABLE `Matches` (
   `MatchQueueNumber` int(11) DEFAULT NULL,
   `lastMatchJudgement` timestamp(3) NULL DEFAULT current_timestamp(),
   `ExchangeDurationMs` INT UNSIGNED NULL,
-  `LastUpdateType` ENUM('judgement','refresh') NOT NULL DEFAULT 'judgement'
+  `LastUpdateType` ENUM('judgement','refresh') NOT NULL DEFAULT 'judgement',
   PRIMARY KEY (`MatchId`),
   CONSTRAINT `FK_Match_Event` FOREIGN KEY (`EventId`) REFERENCES `Events` (`EventId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

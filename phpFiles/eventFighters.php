@@ -70,8 +70,8 @@ try {
 
             if (!$stmt->fetch()) {
                 $stmt = $db->prepare("
-                    INSERT INTO TournamentFighters (FighterId, TournamentId, Strikes)
-                    VALUES (?, ?, 0)
+                    INSERT INTO TournamentFighters (FighterId, TournamentId)
+                    VALUES (?, ?)
                 ");
                 $stmt->execute([$fighterId, $tournamentId]);
             }
