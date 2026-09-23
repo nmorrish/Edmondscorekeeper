@@ -119,7 +119,6 @@ const Scores: React.FC = () => {
               tournamentId={numericTournamentId}
               fighters={fighters}
               maxRings={maxRings}
-              onStrikeUpdate={() => {}}
               readOnly={true}
             />
           </>
