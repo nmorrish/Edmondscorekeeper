@@ -8,9 +8,9 @@
  * with event details and weapon requirements.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { backend_uri, tournament_view_api } from "../utility/endpoints";
+import { backend_uri, tournament_view_api, video_export_api } from "../utility/endpoints";
 import FloatingNav from "../utility/FloatingNav";
 import { apiQuery } from "../utility/apiClient";
 
@@ -46,6 +46,57 @@ const Tournament: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
+  type ExportState = "checking" | "locked" | "idle" | "building" | "ready" | "error";
+  const [exportState, setExportState] = useState<ExportState>("checking");
+  const [exportError, setExportError] = useState<string>("");
+  const startedRef = useRef(false);
+  const pollRef = useRef<number | null>(null);
+
+  const statusUrl = `${backend_uri}/${video_export_api}?action=status&tournamentId=${tournamentId}`;
+  const downloadUrl = `${backend_uri}/${video_export_api}?action=download&tournamentId=${tournamentId}`;
+
+  const applyStatus = (data: any) => {
+    if (data?.status !== "ok") {
+      setExportState("error");
+      setExportError(data?.message || "Status check failed");
+      return;
+    }
+    if (!data.allowed) { setExportState("locked"); return; }
+    const s = data.build?.state;
+    if (s === "ready") setExportState("ready");
+    else if (s === "building") setExportState("building");
+    else if (s === "error") { setExportState("error"); setExportError(data.build?.message || "Build failed"); }
+    else setExportState("idle");
+  };
+
+  const triggerDownload = () => { window.location.href = downloadUrl; };
+
+  const startExport = () => {
+    setExportError("");
+    startedRef.current = true;
+    setExportState("building");
+    apiQuery(`${backend_uri}/${video_export_api}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `action=start&tournamentId=${tournamentId}`,
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.status !== "ok") {
+          setExportState(d?.allowed === false ? "locked" : "error");
+          setExportError(d?.message || "Could not start export");
+          startedRef.current = false;
+          return;
+        }
+        setExportState(d.build?.state === "ready" ? "ready" : "building");
+      })
+      .catch(() => {
+        setExportState("error");
+        setExportError("Could not start export");
+        startedRef.current = false;
+      });
+  };
+
   useEffect(() => {
     if (!tournamentId) return;
 
@@ -61,6 +112,37 @@ const Tournament: React.FC = () => {
       })
       .catch((err) => console.error("Tournament fetch error", err));
   }, [tournamentId]);
+
+  // Initial guard/status check
+  useEffect(() => {
+    if (!tournamentId) return;
+    let cancelled = false;
+    apiQuery(statusUrl)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) applyStatus(d); })
+      .catch(() => { if (!cancelled) { setExportState("error"); setExportError("Status check failed"); } });
+    return () => { cancelled = true; };
+  }, [tournamentId]);
+
+  // Poll while a build is in progress
+  useEffect(() => {
+    if (exportState !== "building") {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    pollRef.current = window.setInterval(() => {
+      apiQuery(statusUrl).then((r) => r.json()).then(applyStatus).catch(() => {});
+    }, 3000);
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  }, [exportState, tournamentId]);
+
+  // Auto-download only when this user's build finishes
+  useEffect(() => {
+    if (exportState === "ready" && startedRef.current) {
+      startedRef.current = false;
+      triggerDownload();
+    }
+  }, [exportState]);
 
   if (!tournament) {
     return <div>Loading tournament...</div>;
@@ -121,6 +203,30 @@ const Tournament: React.FC = () => {
         })}
       </p>
       <p>{tournament.TournamentDescription}</p>
+
+      <div style={{ marginTop: "1rem" }}>
+        {exportState === "checking" && <button disabled>Checking export…</button>}
+        {exportState === "locked" && (
+          <button disabled title="Available once the tournament end time has passed">
+            Video export locked until tournament ends
+          </button>
+        )}
+        {exportState === "idle" && (
+          <button onClick={startExport}>Export all videos (.zip)</button>
+        )}
+        {exportState === "building" && (
+          <button disabled>Preparing zip… this can take a while</button>
+        )}
+        {exportState === "ready" && (
+          <button onClick={triggerDownload}>Download videos (.zip)</button>
+        )}
+        {exportState === "error" && (
+          <>
+            <button onClick={startExport}>Retry video export</button>
+            {exportError && <p style={{ color: "#ff6b6b" }}>{exportError}</p>}
+          </>
+        )}
+      </div>
 
       <div className="card">
         <aside><a href="https://docs.google.com/document/d/199Fv7u0r1hDZ2DKqVn2HE3zVmvJ1w4b5/edit#heading=h.1fob9te" target="_blank"><strong>Click Here</strong> to read the rules for our <strong>new scoring system</strong>. Give them a read if you can. We don't want you left in the dark.</a></aside>

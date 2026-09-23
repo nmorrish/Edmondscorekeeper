@@ -74,5 +74,6 @@ export const single_elimination_api = "eliminationBrackets.php"
 export const tournament_view_api = "tournamentView.php"
 export const bracket_api = "bracketSeeding.php";
 export const card_api = "fighterCardsAPI.php"
+export const video_export_api = "videoExportApi.php";
 
 export const API_KEY = "FberbFBD5432hSFGNacmoywemvoeIVAEnvwelnb23423";
