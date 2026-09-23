@@ -7,12 +7,14 @@
  * Loads credentials from dblogin.json in the same directory.
  * 
  * Example dblogin.json (keep this file out of version control):
- * {
- *   "host": "localhost",
- *   "dbname": "the_db_name",
- *   "user": "your_username",
- *   "password": "your_password"
- * }
+* {
+*   "host": "localhost",
+*   "dbname": "the_db_name",
+*   "user": "your_username",
+*   "password": "your_password",
+*   "syncKey": "same-value-as-API_KEY-in-endpoints",
+*   "allowImport": true
+* }
  */
 
 function connect() {
