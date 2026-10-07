@@ -636,3 +636,16 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+--
+-- Dumping data for table `CardableOffenses`
+--
+
+INSERT INTO `CardableOffenses` (`CardableOffenseId`, `OffenseName`, `OffenseDescription`) VALUES
+(1, 'Excessive force', 'Excessive muscle exertion and body windup may lead to injury. Shots thrown with excessive speed will also hit harder than they need to. Judges and ring-bosses shall exercise their best judgment in determining if force is excessive.'),
+(2, 'Excessive Intensity', 'If fighters are not hitting hard, but fighting way more intense than is required for the level of competition required in the event, a penalty is warranted'),
+(6, 'Lack of control', 'Hitting the floor, wild and/or flailing swings that miss, losing hold of your weapon, and throwing one-handed thrusts constitute penalties for lack of control.'),
+(7, 'Fighting after halt is called', 'If one or both fighters continue fighting after halt is called, this constitutes a penalty. '),
+(8, 'Illegal target', 'Any strike to the spine, back of the head, or ankles is illegal and shall be carded'),
+(9, 'Unsafe conduct', 'This includes exposing the spine or back of head to your opponent, reckless leaps or lunges, or throwing punches, kicks, or pommel strikes (even if mimed)'),
+(10, 'Behaviour', 'Includes being rude to other participants, volunteers, or staff. Also includes extremely poor sportsmanship, rude body language, arguing with judges or staff, causing or escalating arguments, and arguing over cards being issued. ');
