@@ -125,16 +125,6 @@ const Scores: React.FC = () => {
           
         )}
       </main>
-
-      <FloatingNav
-        tournamentId={numericTournamentId}
-        backUrl="/"
-        links={[
-          { text: "Standings", to: `/viewer/standings/${tournamentId}` },
-          { text: "Roster", to: `/viewer/schedules/${tournamentId}` },
-          { text: "Tournament Info", to: `/viewer/tournament/${tournamentId}` },
-        ]}
-      />
     </div>
   );
 };
