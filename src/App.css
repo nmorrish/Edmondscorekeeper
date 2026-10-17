@@ -1584,10 +1584,6 @@ button.strike-button{
     gap: 6px;
   }
 
-  .scoreTables > * {
-    flex: 1 1 100%;
-  }
-
   .match th,
   .match td {
     font-size: 0.75rem;
@@ -1632,4 +1628,24 @@ button.strike-button{
     width: auto;
     min-width: 180px;
   }
+}
+
+@media (max-width: 690px) {
+  .scoreTables {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.5rem;
+  }
+
+  .scoreTables > * {
+    flex: 0 0 auto;
+    max-width: none;
+    overflow-x: visible;
+  }
+
+  /* Center when both fit, without clipping the left side when they don't */
+  .scoreTables > :first-child { margin-left: auto; }
+  .scoreTables > :last-child  { margin-right: auto; }
 }
