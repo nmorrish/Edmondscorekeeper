@@ -67,17 +67,17 @@ log = logging.getLogger(__name__)
 # Configuration
 # ================================================================
 RING_NUMBER  = 1
-SSE_URL      = "http://192.168.1.2/phpFiles/requestJudgementSSE.php"
-UPLOAD_URL   = "http://192.168.1.2/phpFiles/uploadOBSClip.php"
+SSE_URL      = "http://localhost/Edmondscorekeeper/phpFiles/requestJudgementSSE.php"
+UPLOAD_URL   = "http://localhost/Edmondscorekeeper/phpFiles/uploadOBSClip.php"
 BACKUP_UPLOAD_URL = "https://scorecard.swordsmanship.ca/ec-receiver/uploadOBSClip.php"
 
 # Per-request upload timeouts. The backup is over WAN, so it gets much longer.
 UPLOAD_TIMEOUT_S        = 120
 BACKUP_UPLOAD_TIMEOUT_S = 600
 
-OBS_HOST     = "192.168.1.4"
+OBS_HOST     = "192.168.122.1"
 OBS_PORT     = 4455
-OBS_PASSWORD = "pwd1"
+OBS_PASSWORD = "T54Gi6XzLAqYNkJJ"
 
 # ffmpeg binary bundled inside the Python environment (no system install).
 FFMPEG_PATH  = imageio_ffmpeg.get_ffmpeg_exe()
